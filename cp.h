@@ -339,7 +339,7 @@ inline LinearExpression LinearTerm::operator-(const Variable& variable) const { 
 inline LinearExpression LinearTerm::operator+(const LinearTerm& term) const { return LinearExpression( 0.0, *this, term );}
 inline LinearExpression LinearTerm::operator-(const LinearTerm& term) const { return LinearExpression( 0.0, *this, LinearTerm(-term.coefficient,term.variable) );}
 inline LinearExpression LinearTerm::operator+(LinearExpression expression) const { expression.terms.push_front( *this ); return expression; }
-inline LinearExpression LinearTerm::operator-(LinearExpression expression) const { expression.terms.push_front( LinearTerm(-1.0,variable) ); return -expression; }
+inline LinearExpression LinearTerm::operator-(LinearExpression expression) const { expression.terms.push_front( LinearTerm(-coefficient,variable) ); return -expression; }
 
 // Left addition/subtraction operators
 inline LinearExpression operator+(double constant, const Variable& variable) {  return LinearExpression(constant, LinearTerm(1.0,variable) ); };
@@ -434,33 +434,33 @@ inline LinearConstraint LinearTerm::operator>=(const LinearExpression& expressio
 };
 
 inline LinearConstraint LinearExpression::operator==(const Variable& variable) const { 
-  return LinearConstraint( LinearConstraint::Type::EQUAL, CP::LinearExpression(*this) - LinearTerm(1.0,variable) ); 
+  return LinearConstraint( LinearConstraint::Type::EQUAL, LinearExpression(*this) - LinearTerm(1.0,variable) ); 
 };
 inline LinearConstraint LinearExpression::operator==(const LinearTerm& term) const {
-  return LinearConstraint( LinearConstraint::Type::EQUAL, CP::LinearExpression(*this) - term ); 
+  return LinearConstraint( LinearConstraint::Type::EQUAL, LinearExpression(*this) - term ); 
 };
 inline LinearConstraint LinearExpression::operator==(const LinearExpression& expression) const {
-  return LinearConstraint( LinearConstraint::Type::EQUAL, CP::LinearExpression(*this) - expression );
+  return LinearConstraint( LinearConstraint::Type::EQUAL, LinearExpression(*this) - expression );
 };
 
 inline LinearConstraint LinearExpression::operator<=(const Variable& variable) const {
-  return LinearConstraint( LinearConstraint::Type::LESSOREQUAL, CP::LinearExpression(*this) - LinearTerm(1.0,variable) ); 
+  return LinearConstraint( LinearConstraint::Type::LESSOREQUAL, LinearExpression(*this) - LinearTerm(1.0,variable) ); 
 };
 inline LinearConstraint LinearExpression::operator<=(const LinearTerm& term) const  {
-  return LinearConstraint( LinearConstraint::Type::LESSOREQUAL, CP::LinearExpression(*this) - term ); 
+  return LinearConstraint( LinearConstraint::Type::LESSOREQUAL, LinearExpression(*this) - term ); 
 };
 inline LinearConstraint LinearExpression::operator<=(const LinearExpression& expression) const {
-  return LinearConstraint( LinearConstraint::Type::LESSOREQUAL, CP::LinearExpression(*this) - expression );
+  return LinearConstraint( LinearConstraint::Type::LESSOREQUAL, LinearExpression(*this) - expression );
 };
 
 inline LinearConstraint LinearExpression::operator>=(const Variable& variable) const {
-  return LinearConstraint( LinearConstraint::Type::GREATEROREQUAL, CP::LinearExpression(*this) - LinearTerm(1.0,variable) ); 
+  return LinearConstraint( LinearConstraint::Type::GREATEROREQUAL, LinearExpression(*this) - LinearTerm(1.0,variable) ); 
 };
 inline LinearConstraint LinearExpression::operator>=(const LinearTerm& term) const  {
-  return LinearConstraint( LinearConstraint::Type::GREATEROREQUAL, CP::LinearExpression(*this) - term ); 
+  return LinearConstraint( LinearConstraint::Type::GREATEROREQUAL, LinearExpression(*this) - term ); 
 };
 inline LinearConstraint LinearExpression::operator>=(const LinearExpression& expression) const {
-  return LinearConstraint( LinearConstraint::Type::GREATEROREQUAL, CP::LinearExpression(*this) - expression );
+  return LinearConstraint( LinearConstraint::Type::GREATEROREQUAL, LinearExpression(*this) - expression );
 };
 
 struct ConditionalConstraint;
