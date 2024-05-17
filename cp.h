@@ -279,15 +279,15 @@ struct LinearExpression : Expression {
 
   inline LinearConstraint operator==(const Variable& variable) const;
   inline LinearConstraint operator==(const LinearTerm& term) const;
-  inline LinearConstraint operator==(LinearExpression expression) const;
+  inline LinearConstraint operator==(const LinearExpression& expression) const;
 
   inline LinearConstraint operator<=(const Variable& variable) const;
   inline LinearConstraint operator<=(const LinearTerm& term) const;
-  inline LinearConstraint operator<=(LinearExpression expression) const;
+  inline LinearConstraint operator<=(const LinearExpression& expression) const;
 
   inline LinearConstraint operator>=(const Variable& variable) const;
   inline LinearConstraint operator>=(const LinearTerm& term) const;
-  inline LinearConstraint operator>=(LinearExpression expression) const;
+  inline LinearConstraint operator>=(const LinearExpression& expression) const;
 
   std::string stringify() const override {
     std::string result = ( constant < -std::numeric_limits<double>::epsilon() ? std::format("{:.2f}", constant) : std::format("{:.2f}", std::abs(constant)) );
@@ -431,6 +431,36 @@ inline LinearConstraint LinearTerm::operator>=(const LinearTerm& term) const  {
 };
 inline LinearConstraint LinearTerm::operator>=(const LinearExpression& expression) const {
   return LinearConstraint( LinearConstraint::Type::GREATEROREQUAL, *this - expression );
+};
+
+inline LinearConstraint LinearExpression::operator==(const Variable& variable) const { 
+  return LinearConstraint( LinearConstraint::Type::EQUAL, CP::LinearExpression(*this) - LinearTerm(1.0,variable) ); 
+};
+inline LinearConstraint LinearExpression::operator==(const LinearTerm& term) const {
+  return LinearConstraint( LinearConstraint::Type::EQUAL, CP::LinearExpression(*this) - term ); 
+};
+inline LinearConstraint LinearExpression::operator==(const LinearExpression& expression) const {
+  return LinearConstraint( LinearConstraint::Type::EQUAL, CP::LinearExpression(*this) - expression );
+};
+
+inline LinearConstraint LinearExpression::operator<=(const Variable& variable) const {
+  return LinearConstraint( LinearConstraint::Type::LESSOREQUAL, CP::LinearExpression(*this) - LinearTerm(1.0,variable) ); 
+};
+inline LinearConstraint LinearExpression::operator<=(const LinearTerm& term) const  {
+  return LinearConstraint( LinearConstraint::Type::LESSOREQUAL, CP::LinearExpression(*this) - term ); 
+};
+inline LinearConstraint LinearExpression::operator<=(const LinearExpression& expression) const {
+  return LinearConstraint( LinearConstraint::Type::LESSOREQUAL, CP::LinearExpression(*this) - expression );
+};
+
+inline LinearConstraint LinearExpression::operator>=(const Variable& variable) const {
+  return LinearConstraint( LinearConstraint::Type::GREATEROREQUAL, CP::LinearExpression(*this) - LinearTerm(1.0,variable) ); 
+};
+inline LinearConstraint LinearExpression::operator>=(const LinearTerm& term) const  {
+  return LinearConstraint( LinearConstraint::Type::GREATEROREQUAL, CP::LinearExpression(*this) - term ); 
+};
+inline LinearConstraint LinearExpression::operator>=(const LinearExpression& expression) const {
+  return LinearConstraint( LinearConstraint::Type::GREATEROREQUAL, CP::LinearExpression(*this) - expression );
 };
 
 struct ConditionalConstraint;

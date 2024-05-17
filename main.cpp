@@ -55,6 +55,8 @@ int main()
   assert( c3.stringify() == "0.00 + 2.00*x - 3.00*z <= 0");
   auto c4 = model.addConstraint( x >= 5 + z );
   assert( c4.stringify() == "-5.00 + 1.00*x - 1.00*z >= 0");
+  auto c5 = model.addConstraint( x + y >= 5 + z );
+  assert( c5.stringify() == "-5.00 + 1.00*x + 1.00*y - 1.00*z >= 0");
   
   return 0;
 }
