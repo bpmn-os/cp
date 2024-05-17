@@ -73,6 +73,15 @@ int main()
   auto c10 = model.addConstraint( (!!y).implies( 2*x == z + x) );
   assert ( c10.stringify() == "if y then 0.00 + 2.00*x - 1.00*z - 1.00*x == 0");
 
+  auto c11 = model.addConstraint( 5.0 == z );
+  assert( c11.stringify() == "-5.00 + 1.00*z == 0");
+
+  auto c12 = model.addConstraint( 5.0 <= 2 * z );
+  assert( c12.stringify() == "-5.00 + 2.00*z >= 0");
+
+  auto c13 = model.addConstraint( 5.0 >= z + x );
+  assert( c13.stringify() == "-5.00 + 1.00*z + 1.00*x <= 0");
+
   return 0;
 }
 

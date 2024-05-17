@@ -501,6 +501,19 @@ inline LinearConstraint LinearExpression::operator>=(const LinearExpression& exp
   return LinearConstraint( LinearConstraint::Type::GREATEROREQUAL, LinearExpression(*this) - expression );
 };
 
+// Yoda comparisons
+inline LinearConstraint operator==(double constant, const Variable& variable) {  return variable == constant; };
+inline LinearConstraint operator==(double constant, const LinearTerm& term) {  return term == constant; };
+inline LinearConstraint operator==(double constant, const LinearExpression& expression) {  return expression == constant; };
+
+inline LinearConstraint operator<=(double constant, const Variable& variable) {  return variable >= constant; };
+inline LinearConstraint operator<=(double constant, const LinearTerm& term) {  return term >= constant; };
+inline LinearConstraint operator<=(double constant, const LinearExpression& expression) {  return expression >= constant; };
+
+inline LinearConstraint operator>=(double constant, const Variable& variable) {  return variable <= constant; };
+inline LinearConstraint operator>=(double constant, const LinearTerm& term) {  return term <= constant; };
+inline LinearConstraint operator>=(double constant, const LinearExpression& expression) {  return expression <= constant; };
+
 struct ConditionalConstraint;
 
 /**
