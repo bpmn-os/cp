@@ -61,6 +61,12 @@ int main()
   auto c7 = model.addConstraint( z == 5.0 );
   assert( c7.stringify() == "-5.00 + 1.00*z == 0");
   
+  auto c8 = model.addConstraint( y.implies(x >= 5) );
+  assert ( c8.stringify() == "if y then -5.00 + 1.00*x >= 0");
+
+  auto c9 = model.addConstraint( (!y).implies( 2*x <= z) );
+  assert ( c9.stringify() == "if !y then 0.00 + 2.00*x - 1.00*z <= 0");
+
   return 0;
 }
 

@@ -126,6 +126,9 @@ struct Variable {
   inline LinearConstraint operator>=(const LinearTerm& term) const;
   inline LinearConstraint operator>=(const LinearExpression& expression) const;
 
+  inline BooleanConstraint operator==(bool constant) const;
+  inline BooleanConstraint operator!=(bool constant) const;
+
   inline BooleanConstraint operator==(const BooleanTerm& term) const;
   inline BooleanConstraint operator!=(const BooleanTerm& term) const;
 
@@ -523,7 +526,22 @@ struct BooleanTerm {
   inline OrExpression operator||(const BooleanTerm& term) const;
   inline OrExpression operator||(OrExpression expression) const;
 
-  inline ConditionalConstraint implies(LinearConstraint linearConstraint) const;
+  inline BooleanConstraint operator==(bool constant) const;
+  inline BooleanConstraint operator!=(bool constant) const;
+
+  inline BooleanConstraint operator==(const Variable& variable) const;
+  inline BooleanConstraint operator!=(const Variable& variable) const;
+
+  inline BooleanConstraint operator==(const BooleanTerm& term) const;
+  inline BooleanConstraint operator!=(const BooleanTerm& term) const;
+
+  inline BooleanConstraint operator==(const AndExpression& expression) const;
+  inline BooleanConstraint operator!=(const AndExpression& expression) const;
+
+  inline BooleanConstraint operator==(const OrExpression& expression) const;
+  inline BooleanConstraint operator!=(const OrExpression& expression) const;
+
+inline ConditionalConstraint implies(LinearConstraint linearConstraint) const;
 };
 
 inline BooleanTerm Variable::operator!() const { return BooleanTerm(*this, true); }
@@ -641,7 +659,12 @@ inline OrExpression BooleanTerm::operator||(OrExpression expression) const {
 struct BooleanConstraint {
   enum class Type { EQUAL, NOTEQUAL };
   Type type;
-  std::variant<AndExpression,OrExpression> expression;
+  std::variant<bool, BooleanTerm, AndExpression,OrExpression> lhs;
+  std::variant<bool, BooleanTerm, AndExpression,OrExpression> rhs;
+  std::string stringify() const {
+    std::string result = "[not yet implemented]";
+    return result;
+  };
 };
 
 /**
@@ -650,6 +673,17 @@ struct BooleanConstraint {
 struct ConditionalConstraint {
   BooleanTerm condition;
   std::variant<LinearConstraint,BooleanConstraint> constraint;
+  std::string stringify() const {
+    std::string result = (std::string)"if " + (condition.negated ? "!" : "") + condition.variable.name + " then ";
+    if ( std::holds_alternative<LinearConstraint>(constraint) ) {
+      result += std::get<LinearConstraint>(constraint).stringify();
+    }
+    else if ( std::holds_alternative<BooleanConstraint>(constraint) ) {
+      result += std::get<BooleanConstraint>(constraint).stringify();
+    }
+    return result;
+  };
+
 };
 
 inline ConditionalConstraint Variable::implies(LinearConstraint linearConstraint) const { return ConditionalConstraint(BooleanTerm(*this),std::move(linearConstraint)); };
