@@ -14,6 +14,7 @@
 #include <string>
 #include <format>
 #include <ranges>
+#include <variant>
 
 namespace CP {
 
@@ -34,6 +35,7 @@ struct MaxExpression;
 struct MinExpression;
 
 struct LinearConstraint;
+struct BooleanConstraint;
 struct ConditionalConstraint;
 
 /**
@@ -109,7 +111,29 @@ struct Variable {
   inline OrExpression operator||(const BooleanTerm& term) const;
   inline OrExpression operator||(OrExpression expression) const;
 
-  inline ConditionalConstraint implies(LinearConstraint linearConstraint) const;
+  inline LinearConstraint operator==(const Variable& variable) const;
+  inline LinearConstraint operator==(const LinearTerm& term) const;
+  inline LinearConstraint operator==(const LinearExpression& expression) const;
+
+  inline LinearConstraint operator<=(const Variable& variable) const;
+  inline LinearConstraint operator<=(const LinearTerm& term) const;
+  inline LinearConstraint operator<=(const LinearExpression& expression) const;
+
+  inline LinearConstraint operator>=(const Variable& variable) const;
+  inline LinearConstraint operator>=(const LinearTerm& term) const;
+  inline LinearConstraint operator>=(const LinearExpression& expression) const;
+
+  inline BooleanConstraint operator==(const BooleanTerm& term) const;
+  inline BooleanConstraint operator!=(const BooleanTerm& term) const;
+
+  inline BooleanConstraint operator==(const AndExpression& expression) const;
+  inline BooleanConstraint operator!=(const AndExpression& expression) const;
+
+  inline BooleanConstraint operator==(const OrExpression& expression) const;
+  inline BooleanConstraint operator!=(const OrExpression& expression) const;
+
+  inline ConditionalConstraint implies(LinearConstraint constraint) const;
+  inline ConditionalConstraint implies(BooleanConstraint constraint) const;
 
   std::string stringify() const {
     if ( deducedFrom ) {
@@ -146,6 +170,20 @@ struct LinearTerm {
   inline LinearExpression operator-(const LinearTerm& term) const;
   inline LinearExpression operator+(LinearExpression expression) const;
   inline LinearExpression operator-(LinearExpression expression) const;
+
+  inline LinearConstraint operator==(const Variable& variable) const;
+  inline LinearConstraint operator==(const LinearTerm& term) const;
+  inline LinearConstraint operator==(const LinearExpression& expression) const;
+
+  inline LinearConstraint operator<=(const Variable& variable) const;
+  inline LinearConstraint operator<=(const LinearTerm& term) const;
+  inline LinearConstraint operator<=(const LinearExpression& expression) const;
+
+  inline LinearConstraint operator>=(const Variable& variable) const;
+  inline LinearConstraint operator>=(const LinearTerm& term) const;
+  inline LinearConstraint operator>=(const LinearExpression& expression) const;
+
+  inline ConditionalConstraint implies(LinearConstraint constraint) const;
 };
 
 //inline LinearTerm operator-(const LinearTerm& term) { return LinearTerm(-term.coefficient,term.variable); }
@@ -239,14 +277,26 @@ struct LinearExpression : Expression {
     return result;
   }
 
+  inline LinearConstraint operator==(const Variable& variable) const;
+  inline LinearConstraint operator==(const LinearTerm& term) const;
+  inline LinearConstraint operator==(LinearExpression expression) const;
+
+  inline LinearConstraint operator<=(const Variable& variable) const;
+  inline LinearConstraint operator<=(const LinearTerm& term) const;
+  inline LinearConstraint operator<=(LinearExpression expression) const;
+
+  inline LinearConstraint operator>=(const Variable& variable) const;
+  inline LinearConstraint operator>=(const LinearTerm& term) const;
+  inline LinearConstraint operator>=(LinearExpression expression) const;
+
   std::string stringify() const override {
-    std::string result = std::format("{:.2f}", constant);
+    std::string result = ( constant < -std::numeric_limits<double>::epsilon() ? std::format("{:.2f}", constant) : std::format("{:.2f}", std::abs(constant)) );
     for (auto& term : terms) {
-      if ( term.coefficient < 0 ) {
+      if ( term.coefficient < -std::numeric_limits<double>::epsilon() ) {
         result += " - " + std::format("{:.2f}", -term.coefficient);
       }
       else {
-        result += " + " + std::format("{:.2f}", term.coefficient);
+        result += " + " + std::format("{:.2f}", std::abs(term.coefficient));
       }
       result += "*" + term.variable.name;
     }
@@ -303,9 +353,84 @@ inline LinearExpression operator-(double constant, LinearExpression expression) 
  * @brief Represents a constraint comparing a linear expression with zero.
  */
 struct LinearConstraint {
-  enum class Type { EQUAL, LESSOREQUAL, GREATEOREQUAL };
+  enum class Type { EQUAL, LESSOREQUAL, GREATEROREQUAL };
   Type type;
   LinearExpression expression;
+
+  std::string stringify() const {
+    std::string result = expression.stringify();
+    if ( type == Type::EQUAL ) {
+      result += " == 0";
+    }
+    else if ( type == Type::LESSOREQUAL ) {
+      result += " <= 0";
+    }
+    else if ( type == Type::GREATEROREQUAL ) {
+      result += " >= 0";
+    }
+    return result;
+  };
+
+};
+
+inline LinearConstraint Variable::operator==(const Variable& variable) const { 
+  return LinearConstraint( LinearConstraint::Type::EQUAL, LinearExpression( 0.0, LinearTerm(1.0,*this), LinearTerm(-1.0,variable) ) ); 
+};
+inline LinearConstraint Variable::operator==(const LinearTerm& term) const {
+  return LinearConstraint( LinearConstraint::Type::EQUAL, LinearExpression( 0.0, LinearTerm(1.0,*this), LinearTerm(-term.coefficient,term.variable) ) ); 
+};
+inline LinearConstraint Variable::operator==(const LinearExpression& expression) const {
+  return LinearConstraint( LinearConstraint::Type::EQUAL, LinearTerm(1.0,*this) - expression );
+};
+
+inline LinearConstraint Variable::operator<=(const Variable& variable) const {
+  return LinearConstraint( LinearConstraint::Type::LESSOREQUAL, LinearExpression( 0.0, LinearTerm(1.0,*this), LinearTerm(-1.0,variable) ) ); 
+};
+inline LinearConstraint Variable::operator<=(const LinearTerm& term) const  {
+  return LinearConstraint( LinearConstraint::Type::LESSOREQUAL, LinearExpression( 0.0, LinearTerm(1.0,*this), LinearTerm(-term.coefficient,term.variable) ) ); 
+};
+inline LinearConstraint Variable::operator<=(const LinearExpression& expression) const {
+  return LinearConstraint( LinearConstraint::Type::LESSOREQUAL, LinearTerm(1.0,*this) - expression );
+};
+
+inline LinearConstraint Variable::operator>=(const Variable& variable) const {
+  return LinearConstraint( LinearConstraint::Type::GREATEROREQUAL, LinearExpression( 0.0, LinearTerm(1.0,*this), LinearTerm(-1.0,variable) ) ); 
+};
+inline LinearConstraint Variable::operator>=(const LinearTerm& term) const  {
+  return LinearConstraint( LinearConstraint::Type::GREATEROREQUAL, LinearExpression( 0.0, LinearTerm(1.0,*this), LinearTerm(-term.coefficient,term.variable) ) ); 
+};
+inline LinearConstraint Variable::operator>=(const LinearExpression& expression) const {
+  return LinearConstraint( LinearConstraint::Type::GREATEROREQUAL, LinearTerm(1.0,*this) - expression );
+};
+
+inline LinearConstraint LinearTerm::operator==(const Variable& variable) const { 
+  return LinearConstraint( LinearConstraint::Type::EQUAL, LinearExpression( 0.0, *this, LinearTerm(-1.0,variable) ) ); 
+};
+inline LinearConstraint LinearTerm::operator==(const LinearTerm& term) const {
+  return LinearConstraint( LinearConstraint::Type::EQUAL, LinearExpression( 0.0, *this, LinearTerm(-term.coefficient,term.variable) ) ); 
+};
+inline LinearConstraint LinearTerm::operator==(const LinearExpression& expression) const {
+  return LinearConstraint( LinearConstraint::Type::EQUAL, *this - expression );
+};
+
+inline LinearConstraint LinearTerm::operator<=(const Variable& variable) const {
+  return LinearConstraint( LinearConstraint::Type::LESSOREQUAL, LinearExpression( 0.0, *this, LinearTerm(-1.0,variable) ) ); 
+};
+inline LinearConstraint LinearTerm::operator<=(const LinearTerm& term) const  {
+  return LinearConstraint( LinearConstraint::Type::LESSOREQUAL, LinearExpression( 0.0, *this, LinearTerm(-term.coefficient,term.variable) ) ); 
+};
+inline LinearConstraint LinearTerm::operator<=(const LinearExpression& expression) const {
+  return LinearConstraint( LinearConstraint::Type::LESSOREQUAL, *this - expression );
+};
+
+inline LinearConstraint LinearTerm::operator>=(const Variable& variable) const {
+  return LinearConstraint( LinearConstraint::Type::GREATEROREQUAL, LinearExpression( 0.0, *this, LinearTerm(-1.0,variable) ) ); 
+};
+inline LinearConstraint LinearTerm::operator>=(const LinearTerm& term) const  {
+  return LinearConstraint( LinearConstraint::Type::GREATEROREQUAL, LinearExpression( 0.0, *this, LinearTerm(-term.coefficient,term.variable) ) ); 
+};
+inline LinearConstraint LinearTerm::operator>=(const LinearExpression& expression) const {
+  return LinearConstraint( LinearConstraint::Type::GREATEROREQUAL, *this - expression );
 };
 
 struct ConditionalConstraint;
@@ -336,17 +461,6 @@ struct BooleanTerm {
 };
 
 inline BooleanTerm Variable::operator!() const { return BooleanTerm(*this, true); }
-
-/**
- * @brief Represents a conditional constraint comparing a linear expression with zero if the respective condition holds.
- */
-struct ConditionalConstraint {
-  BooleanTerm condition;
-  LinearConstraint linearConstraint;
-};
-
-inline ConditionalConstraint Variable::implies(LinearConstraint linearConstraint) const { return ConditionalConstraint(BooleanTerm(*this),std::move(linearConstraint)); };
-inline ConditionalConstraint BooleanTerm::implies(LinearConstraint linearConstraint) const { return ConditionalConstraint(*this,std::move(linearConstraint)); };
 
 /**
  * @brief Represents an logical AND expression.
@@ -458,6 +572,22 @@ inline OrExpression BooleanTerm::operator||(OrExpression expression) const {
   return expression;
 }
 
+struct BooleanConstraint {
+  enum class Type { EQUAL, NOTEQUAL };
+  Type type;
+  std::variant<AndExpression,OrExpression> expression;
+};
+
+/**
+ * @brief Represents a conditional constraint comparing a linear expression with zero if the respective condition holds.
+ */
+struct ConditionalConstraint {
+  BooleanTerm condition;
+  std::variant<LinearConstraint,BooleanConstraint> constraint;
+};
+
+inline ConditionalConstraint Variable::implies(LinearConstraint linearConstraint) const { return ConditionalConstraint(BooleanTerm(*this),std::move(linearConstraint)); };
+inline ConditionalConstraint BooleanTerm::implies(LinearConstraint linearConstraint) const { return ConditionalConstraint(*this,std::move(linearConstraint)); };
 
 template<typename T>
 concept LinearExpressions = std::is_convertible_v<T, LinearExpression>;
@@ -573,8 +703,7 @@ public:
   inline ObjectiveSense getObjectiveSense() const { return objectiveSense; };
   inline const LinearExpression& getObjective() const { return objective; };
   inline const std::list< Variable >& getVariables() const { return variables; };
-  inline const std::list< LinearConstraint >& getLinearConstraints() const { return linearConstraints; };
-  inline const std::list< ConditionalConstraint >& getConditionalConstraints() const { return conditionalConstraints; };
+  inline const std::list< std::variant<LinearConstraint, BooleanConstraint, ConditionalConstraint> >& getConstraints() const { return constraints; };
 
   inline const Expression& setObjective(LinearExpression objective) { this->objective = std::move(objective); return this->objective; };
 
@@ -604,23 +733,26 @@ public:
     return variables.back();
   }
 
-  inline const LinearConstraint& addLinearConstraint( LinearConstraint linearConstraint) {
-    linearConstraints.push_back( std::move(linearConstraint) );
-    return linearConstraints.back();
+  inline const LinearConstraint& addConstraint( LinearConstraint constraint) {
+    constraints.push_back( std::move(constraint) );
+    return std::get<LinearConstraint>(constraints.back());
   };
 
-  inline const ConditionalConstraint& addConditionalConstraint( ConditionalConstraint conditionalConstraint) {
-    conditionalConstraints.push_back( std::move(conditionalConstraint) );
-    return conditionalConstraints.back();
+  inline const BooleanConstraint& addConstraint( BooleanConstraint constraint) {
+    constraints.push_back( std::move(constraint) );
+    return std::get<BooleanConstraint>(constraints.back());
+  };
+
+  inline const ConditionalConstraint& addConstraint( ConditionalConstraint constraint) {
+    constraints.push_back( std::move(constraint) );
+    return std::get<ConditionalConstraint>(constraints.back());
   };
 
 private:  
   ObjectiveSense objectiveSense;
   LinearExpression objective;
   std::list< Variable > variables;
-  std::list< LinearConstraint > linearConstraints;
-  std::list< ConditionalConstraint > conditionalConstraints;
-  
+  std::list< std::variant<LinearConstraint, BooleanConstraint, ConditionalConstraint> > constraints;
 };
 
 } // end namespace CP

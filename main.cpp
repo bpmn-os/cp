@@ -45,6 +45,17 @@ int main()
   auto& w = model.addVariable(CP::Variable::Type::BOOLEAN, "w", (y || !y) );
   assert( w.stringify() == "w = y || !y");
 
+  auto c1 = model.addConstraint( x >= 0 );
+//std::cout << c1.stringify() << std::endl;
+  assert( c1.stringify() == "0.00 + 1.00*x >= 0");
+
+  auto c2 = model.addConstraint( x == z );
+  assert( c2.stringify() == "0.00 + 1.00*x - 1.00*z == 0");
+  auto c3 = model.addConstraint( 2 * x <= 3 * z );
+  assert( c3.stringify() == "0.00 + 2.00*x - 3.00*z <= 0");
+  auto c4 = model.addConstraint( x >= 5 + z );
+  assert( c4.stringify() == "-5.00 + 1.00*x - 1.00*z >= 0");
+  
   return 0;
 }
 
