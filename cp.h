@@ -23,10 +23,9 @@ struct BooleanTerm;
 
 
 struct Expression {
-  virtual ~Expression() = 0;
+  virtual ~Expression() {};
   virtual std::string stringify() const = 0;
 };
-Expression::~Expression() {};
 
 struct LinearExpression;
 struct AndExpression;
