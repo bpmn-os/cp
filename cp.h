@@ -768,20 +768,30 @@ inline ConditionalConstraint Variable::implies(LinearConstraint linearConstraint
 inline ConditionalConstraint BooleanTerm::implies(LinearConstraint linearConstraint) const { return ConditionalConstraint(*this,std::move(linearConstraint)); };
 
 /**
- * @brief Represents a constraint over a collection of integer variables ensuring that the variable values are a permutation of the sequence 1..n.
+ * @brief Represents a collection of integer variables with the property that the variable values are a permutation of {1, ..., n}.
  */
-struct SequenceConstraint : Constraint {
-  SequenceConstraint(const reference_vector<const Variable> variables) : variables(variables) {};
-  const reference_vector<const Variable> variables;
-  std::string stringify() const override {
+struct Sequence {
+  Sequence(std::string name, size_t n) {
+    for ( size_t i = 0; i < n; i++ ) {
+      _variables.emplace_back(Variable::Type::INTEGER, 1, n, name + '[' + std::to_string(i) + ']' );
+      variables.push_back( _variables.back() );
+    }
+  };
+  Sequence(const Sequence&) = delete; // Disable copy constructor
+  Sequence& operator=(const Sequence&) = delete; // Disable copy assignment
+  reference_vector<const Variable> variables;
+
+  std::string stringify() const {
     std::string result = "(";
     for ( const Variable& variable : variables ) {
-      result += variable.name + ",";
+      result += " " + variable.name + ",";
     }
-    result.back() = ')';
-    result += " is permutation of {1,...," + std::to_string(variables.size()) + "}";
+    result.back() = ' ';
+    result += ") is permutation of { 1, ..., " + std::to_string(variables.size()) + " }";
     return result;
   };
+private:
+  std::list<Variable> _variables;
 };
 
 template<typename T>
@@ -903,7 +913,7 @@ public:
   inline const LinearExpression& getObjective() const { return objective; };
   inline const std::list< Variable >& getVariables() const { return variables; };
   inline const std::list< std::variant<LinearConstraint, BooleanConstraint, ConditionalConstraint> >& getConstraints() const { return constraints; };
-  inline const std::list< SequenceConstraint >& getSequenceConstraints() const { return sequenceConstraints; };
+  inline const std::list< Sequence >& getSequences() const { return sequences; };
 
   inline const Expression& setObjective(LinearExpression objective) { this->objective = std::move(objective); return this->objective; };
 
@@ -937,15 +947,9 @@ public:
     return variables.back();
   }
 
-  inline const reference_vector<const Variable> addSequenceVariables(std::string name, size_t n) {
-    reference_vector<const Variable> sequenceVariables;
-    sequenceVariables.reserve(n);
-    for ( size_t i = 0; i < n; i++ ) {
-      variables.emplace_back(Variable::Type::INTEGER, 1, n, name + '_' + std::to_string(i) );
-      sequenceVariables.push_back( variables.back() );
-    }
-    sequenceConstraints.emplace_back(sequenceVariables);
-    return sequenceVariables;
+  inline const reference_vector<const Variable> addSequence(std::string name, size_t n) {
+    sequences.emplace_back(name,n);
+    return sequences.back().variables;
   }
 
   template<typename ExpressionType>
@@ -975,10 +979,11 @@ public:
     for (const auto& variable : getVariables()) {
         result += variable.stringify() + "\n";
     }
-    result +=  "Constraints:\n";
-    for (const auto& constraint : getSequenceConstraints()) {
-        result += constraint.stringify() + "\n";
+    result +=  "Sequences:\n";
+    for (const auto& sequence : getSequences()) {
+        result += sequence.stringify() + "\n";
     }
+    result +=  "Constraints:\n";
     for (const auto& constraint : getConstraints()) {
         std::visit([&result](const auto& c) { result += c.stringify() + "\n"; }, constraint);
     }
@@ -989,8 +994,8 @@ private:
   ObjectiveSense objectiveSense;
   LinearExpression objective;
   std::list< Variable > variables;
+  std::list< Sequence > sequences;
   std::list< std::variant<LinearConstraint, BooleanConstraint, ConditionalConstraint> > constraints;
-  std::list< SequenceConstraint > sequenceConstraints;
 };
 
 } // end namespace CP

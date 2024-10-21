@@ -48,12 +48,12 @@ int main()
   auto& v = model.addVariable(CP::Variable::Type::INTEGER, "v", CP::n_ary_if( { {y, x}, {!y, 5} }, 3 * z ) );
   assert( v.stringify() == "v := if y then 0.00 + 1.00*x else if !y then 5.00 else 0.00 + 3.00*z");
 
-  auto& s = model.addSequenceVariables("s", 3 );
+  auto& s = model.addSequence("s", 3 );
   assert( s.size() == 3);
-  assert( s[0].name == "s_0");
-  assert( s[1].name == "s_1");
-  assert( s[2].name == "s_2");
-  assert( model.getSequenceConstraints().back().stringify() == "(s_0,s_1,s_2) is permutation of {1,...,3}");
+  assert( s[0].name == "s[0]");
+  assert( s[1].name == "s[1]");
+  assert( s[2].name == "s[2]");
+  assert( model.getSequences().back().stringify() == "( s[0], s[1], s[2] ) is permutation of { 1, ..., 3 }");
 
   auto c1 = model.addConstraint( x >= 0 );
 //std::cout << c1.stringify() << std::endl;
@@ -89,7 +89,7 @@ int main()
   auto c13 = model.addConstraint( 5.0 >= z + x );
   assert( c13.stringify() == "-5.00 + 1.00*z + 1.00*x <= 0");
 
-//std::cout << model.stringify() << std::endl;
+  std::cout << model.stringify() << std::endl;
   return 0;
 }
 
