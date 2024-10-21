@@ -10,6 +10,7 @@
 
 #include <memory>
 #include <list>
+#include <vector>
 #include <limits>
 #include <string>
 #include <format>
@@ -41,6 +42,7 @@ struct Constraint {
 struct LinearConstraint;
 struct BooleanConstraint;
 struct ConditionalConstraint;
+struct SequenceConstraint;
 
 /**
  * @brief Represents a variable in a constraint program.
@@ -750,6 +752,23 @@ struct ConditionalConstraint : Constraint {
 inline ConditionalConstraint Variable::implies(LinearConstraint linearConstraint) const { return ConditionalConstraint(BooleanTerm(*this),std::move(linearConstraint)); };
 inline ConditionalConstraint BooleanTerm::implies(LinearConstraint linearConstraint) const { return ConditionalConstraint(*this,std::move(linearConstraint)); };
 
+/**
+ * @brief Represents a constraint over a collection of integer variables ensuring that the variable values are a permutation of the sequence 1..n.
+ */
+struct SequenceConstraint : Constraint {
+  SequenceConstraint(const std::vector< std::reference_wrapper<const Variable> > variables) : variables(variables) {};
+  const std::vector< std::reference_wrapper<const Variable> > variables;
+  std::string stringify() const override {
+    std::string result = "(";
+    for ( const Variable& variable : variables ) {
+      result += variable.name + ",";
+    }
+    result.back() = ')';
+    result += " is permutation of (1,...," + std::to_string(variables.size()) + ")";
+    return result;
+  };
+};
+
 template<typename T>
 concept LinearExpressions = std::is_convertible_v<T, LinearExpression>;
 
@@ -869,6 +888,7 @@ public:
   inline const LinearExpression& getObjective() const { return objective; };
   inline const std::list< Variable >& getVariables() const { return variables; };
   inline const std::list< std::variant<LinearConstraint, BooleanConstraint, ConditionalConstraint> >& getConstraints() const { return constraints; };
+  inline const std::list< SequenceConstraint >& getSequenceConstraints() const { return sequenceConstraints; };
 
   inline const Expression& setObjective(LinearExpression objective) { this->objective = std::move(objective); return this->objective; };
 
@@ -878,33 +898,44 @@ public:
   };
 
   inline const Variable& addBinaryVariable(std::string name) {
-    variables.emplace_back( Variable::Type::BOOLEAN, 0, 1, std::move(name) );
+    variables.emplace_back(Variable::Type::BOOLEAN, 0, 1, std::move(name));
     return variables.back();
   };
 
   inline const Variable& addIntegerVariable(std::string name) {
-    variables.emplace_back( Variable::Type::INTEGER, std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(), std::move(name) );
+    variables.emplace_back(Variable::Type::INTEGER, std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(), std::move(name));
     return variables.back();
   };
 
   inline const Variable& addRealVariable(std::string name) {
-    variables.emplace_back( Variable::Type::REAL, std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(), std::move(name) );
+    variables.emplace_back(Variable::Type::REAL, std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(), std::move(name));
     return variables.back();
   };
 
   inline const Variable& addVariable( Variable::Type type, std::string name, const Variable& variable ) {
-    variables.emplace_back( type,std::move(name),LinearExpression(variable) );
+    variables.emplace_back(type, std::move(name), LinearExpression(variable));
     return variables.back();
   }
+  
   inline const Variable& addVariable( Variable::Type type, std::string name, const LinearTerm& term ) {
-    variables.emplace_back( type,std::move(name),LinearExpression(term) );
+    variables.emplace_back(type, std::move(name), LinearExpression(term));
     return variables.back();
   }
 
+  inline const std::vector< std::reference_wrapper<const Variable> > addSequenceVariables(std::string name, size_t n) {
+    std::vector< std::reference_wrapper<const Variable> > sequenceVariables;
+    sequenceVariables.reserve(n);
+    for ( size_t i = 0; i < n; i++ ) {
+      variables.emplace_back(Variable::Type::INTEGER, 1, n, name + '_' + std::to_string(i) );
+      sequenceVariables.push_back( variables.back() );
+    }
+    sequenceConstraints.emplace_back(sequenceVariables);
+    return sequenceVariables;
+  }
 
   template<typename ExpressionType>
   inline const Variable& addVariable( Variable::Type type, std::string name, ExpressionType expression ) {
-    variables.emplace_back( type,std::move(name),std::move(expression) );
+    variables.emplace_back(type, std::move(name), std::move(expression));
     return variables.back();
   }
 
@@ -930,6 +961,9 @@ public:
         result += variable.stringify() + "\n";
     }
     result +=  "Constraints:\n";
+    for (const auto& constraint : getSequenceConstraints()) {
+        result += constraint.stringify() + "\n";
+    }
     for (const auto& constraint : getConstraints()) {
         std::visit([&result](const auto& c) { result += c.stringify() + "\n"; }, constraint);
     }
@@ -941,6 +975,7 @@ private:
   LinearExpression objective;
   std::list< Variable > variables;
   std::list< std::variant<LinearConstraint, BooleanConstraint, ConditionalConstraint> > constraints;
+  std::list< SequenceConstraint > sequenceConstraints;
 };
 
 } // end namespace CP
