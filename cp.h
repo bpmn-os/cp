@@ -167,12 +167,12 @@ class reference_vector : public std::vector<std::reference_wrapper<T>> {
 public:
     // Overloading the [] operator to return a const reference to T
     const T& operator[](std::size_t index) const {
-        return std::vector<std::reference_wrapper<T>>::operator[](index).get();
+        return std::vector<std::reference_wrapper<T>>::at(index).get();
     }
 
     // Overloading the [] operator to return a reference to T
     T& operator[](std::size_t index) {
-        return std::vector<std::reference_wrapper<T>>::operator[](index).get();
+        return std::vector<std::reference_wrapper<T>>::at(index).get();
     }
 };
 
