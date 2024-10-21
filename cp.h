@@ -161,6 +161,21 @@ struct Variable {
 
 };
 
+
+template<typename T>
+class reference_vector : public std::vector<std::reference_wrapper<T>> {
+public:
+    // Overloading the [] operator to return a const reference to T
+    const T& operator[](std::size_t index) const {
+        return std::vector<std::reference_wrapper<T>>::operator[](index).get();
+    }
+
+    // Overloading the [] operator to return a reference to T
+    T& operator[](std::size_t index) {
+        return std::vector<std::reference_wrapper<T>>::operator[](index).get();
+    }
+};
+
 /**
  * @brief Represents a term in a linear expression.
  */
@@ -756,8 +771,8 @@ inline ConditionalConstraint BooleanTerm::implies(LinearConstraint linearConstra
  * @brief Represents a constraint over a collection of integer variables ensuring that the variable values are a permutation of the sequence 1..n.
  */
 struct SequenceConstraint : Constraint {
-  SequenceConstraint(const std::vector< std::reference_wrapper<const Variable> > variables) : variables(variables) {};
-  const std::vector< std::reference_wrapper<const Variable> > variables;
+  SequenceConstraint(const reference_vector<const Variable> variables) : variables(variables) {};
+  const reference_vector<const Variable> variables;
   std::string stringify() const override {
     std::string result = "(";
     for ( const Variable& variable : variables ) {
@@ -922,8 +937,8 @@ public:
     return variables.back();
   }
 
-  inline const std::vector< std::reference_wrapper<const Variable> > addSequenceVariables(std::string name, size_t n) {
-    std::vector< std::reference_wrapper<const Variable> > sequenceVariables;
+  inline const reference_vector<const Variable> addSequenceVariables(std::string name, size_t n) {
+    reference_vector<const Variable> sequenceVariables;
     sequenceVariables.reserve(n);
     for ( size_t i = 0; i < n; i++ ) {
       variables.emplace_back(Variable::Type::INTEGER, 1, n, name + '_' + std::to_string(i) );
