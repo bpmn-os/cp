@@ -49,10 +49,11 @@ int main()
   assert( v.stringify() == "v := if y then 0.00 + 1.00*x else if !y then 5.00 else 0.00 + 3.00*z");
 
   auto& s = model.addSequenceVariables("s", 3 );
+  assert( s.size() == 3);
   assert( s[0].get().name == "s_0");
   assert( s[1].get().name == "s_1");
   assert( s[2].get().name == "s_2");
-  assert( model.getSequenceConstraints().back().stringify() == "(s_0,s_1,s_2) is permutation of (1,...,3)");
+  assert( model.getSequenceConstraints().back().stringify() == "(s_0,s_1,s_2) is permutation of {1,...,3}");
 
   auto c1 = model.addConstraint( x >= 0 );
 //std::cout << c1.stringify() << std::endl;

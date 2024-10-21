@@ -764,7 +764,7 @@ struct SequenceConstraint : Constraint {
       result += variable.name + ",";
     }
     result.back() = ')';
-    result += " is permutation of (1,...," + std::to_string(variables.size()) + ")";
+    result += " is permutation of {1,...," + std::to_string(variables.size()) + "}";
     return result;
   };
 };
