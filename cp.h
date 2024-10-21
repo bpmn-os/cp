@@ -975,13 +975,13 @@ public:
 
   std::string stringify() const {
     std::string result;
-    result += "Variables:\n";
-    for (const auto& variable : getVariables()) {
-        result += variable.stringify() + "\n";
-    }
     result +=  "Sequences:\n";
     for (const auto& sequence : getSequences()) {
         result += sequence.stringify() + "\n";
+    }
+    result += "Variables:\n";
+    for (const auto& variable : getVariables()) {
+        result += variable.stringify() + "\n";
     }
     result +=  "Constraints:\n";
     for (const auto& constraint : getConstraints()) {
