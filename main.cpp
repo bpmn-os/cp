@@ -43,10 +43,10 @@ int main()
   assert( CP::n_ary_if( { {y, x}, {!y, 5} }, 3 * z ).stringify() == "if y then 0.00 + 1.00*x else if !y then 5.00 else 0.00 + 3.00*z");
 
   auto& w = model.addVariable(CP::Variable::Type::BOOLEAN, "w", (y || !y) );
-  assert( w.stringify() == "w = y || !y");
+  assert( w.stringify() == "w := y || !y");
 
   auto& v = model.addVariable(CP::Variable::Type::INTEGER, "v", CP::n_ary_if( { {y, x}, {!y, 5} }, 3 * z ) );
-  assert( v.stringify() == "v = if y then 0.00 + 1.00*x else if !y then 5.00 else 0.00 + 3.00*z");
+  assert( v.stringify() == "v := if y then 0.00 + 1.00*x else if !y then 5.00 else 0.00 + 3.00*z");
 
   auto c1 = model.addConstraint( x >= 0 );
 //std::cout << c1.stringify() << std::endl;
