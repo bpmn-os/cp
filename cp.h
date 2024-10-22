@@ -22,7 +22,6 @@ namespace CP {
 struct LinearTerm;
 struct BooleanTerm;
 
-
 struct Expression {
   virtual ~Expression() {};
   virtual std::string stringify() const = 0;
@@ -42,7 +41,6 @@ struct Constraint {
 struct LinearConstraint;
 struct BooleanConstraint;
 struct ConditionalConstraint;
-struct SequenceConstraint;
 
 /**
  * @brief Represents a variable in a constraint program.
