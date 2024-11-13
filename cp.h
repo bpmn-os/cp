@@ -58,11 +58,11 @@ struct Variable {
    * @param lowerBound The lower bound of the variable.
    * @param upperBound The upper bound of the variable.
    */
-  Variable(Type type, double lowerBound, double upperBound, std::string name ) 
+  Variable(Type type, std::string name, double lowerBound, double upperBound ) 
     : type(type)
+    , name(std::move(name))
     , lowerBound(lowerBound)
     , upperBound(upperBound)
-    , name(std::move(name))
     , deducedFrom(nullptr)
   {
   };
@@ -77,20 +77,22 @@ struct Variable {
   template<typename ExpressionType>
   Variable(Type type, std::string name, const ExpressionType& expression ) 
     : type(type)
+    , name(std::move(name))
     , lowerBound( type == Type::BOOLEAN ? 0 : std::numeric_limits<double>::lowest() )
     , upperBound( type == Type::BOOLEAN ? 1 : std::numeric_limits<double>::max() )
-    , name(std::move(name))
     , deducedFrom( std::make_unique<ExpressionType>(expression) )
   {
   }
 
+  Variable(Variable&&) noexcept = default; // Define move constructor
+//  Variable& operator=(Variable&&) noexcept = default; // Define move assignment
   Variable(const Variable&) = delete; // Disable copy constructor
   Variable& operator=(const Variable&) = delete; // Disable copy assignment
     
   Type type;
+  std::string name;
   double lowerBound;
   double upperBound;
-  std::string name;
   std::unique_ptr<Expression> deducedFrom; ///< Pointer to an expression the variable is deduced from, or nullptr.
   
   inline LinearTerm operator*(double coefficient) const;
@@ -159,20 +161,74 @@ struct Variable {
 
 };
 
-
 template<typename T>
 class reference_vector : public std::vector<std::reference_wrapper<T>> {
 public:
-    // Overloading the [] operator to return a const reference to T
-    const T& operator[](std::size_t index) const {
-        return std::vector<std::reference_wrapper<T>>::at(index).get();
-    }
+  // Overloading the [] operator to return a const reference to T
+  const T& operator[](std::size_t index) const {
+    return std::vector<std::reference_wrapper<T>>::at(index).get();
+  }
 
-    // Overloading the [] operator to return a reference to T
-    T& operator[](std::size_t index) {
-        return std::vector<std::reference_wrapper<T>>::at(index).get();
-    }
+  // Overloading the [] operator to return a reference to T
+  T& operator[](std::size_t index) {
+    return std::vector<std::reference_wrapper<T>>::at(index).get();
+  }
 };
+
+struct IndexedVariables;
+
+struct IndexedVariable {
+  IndexedVariable(const IndexedVariables& container, const Variable& index) : container(container), index(index) {}
+  const IndexedVariables& container;
+  const Variable& index;
+  std::string stringify() const;
+};
+
+struct IndexedVariables {
+  Variable::Type type;
+  std::string name;
+  IndexedVariables(Variable::Type type, std::string name) : type(type), name(std::move(name)) {} 
+  IndexedVariables(const IndexedVariables&) = delete; // Disable copy constructor
+  IndexedVariables& operator=(const IndexedVariables&) = delete; // Disable copy assignment
+
+  const Variable& operator[](std::size_t index) const {
+    return _references.at(index);
+  }
+
+  IndexedVariable operator[](const Variable& index) const {
+     return IndexedVariable(*this,index);
+  }
+
+  template <typename... Args>
+  inline void emplace_back(Args&&... args) {
+    _variables.emplace_back(type, name + "[" + std::to_string(_variables.size()) + "]", std::forward<Args>(args)... );
+    _references.emplace_back(_variables.back());
+  }
+
+  inline size_t size() const { return _variables.size(); }
+  inline bool empty() const { return _variables.empty(); }
+  inline auto begin() { return _variables.begin(); }
+  inline auto begin() const { return _variables.cbegin(); }
+  inline auto end() { return _variables.end(); }
+  inline auto end() const { return _variables.cend(); }
+    
+  std::string stringify() const {
+    std::string result = name + " := {";
+    for ( const Variable& variable : _variables ) {
+      result += " " + variable.stringify() + ",";
+    }
+    if (!empty()) {
+      result.back() = ' ';
+    }
+    result += "}";
+    return result;
+  }
+private:
+  std::list<Variable> _variables;
+  reference_vector<Variable> _references;
+};
+
+std::string IndexedVariable::stringify() const { return container.name + "[" + index.name + "]"; }
 
 /**
  * @brief Represents a term in a linear expression.
@@ -613,7 +669,11 @@ struct BooleanTerm {
   inline BooleanConstraint operator==(const OrExpression& expression) const;
   inline BooleanConstraint operator!=(const OrExpression& expression) const;
 
-inline ConditionalConstraint implies(LinearConstraint linearConstraint) const;
+  inline ConditionalConstraint implies(LinearConstraint linearConstraint) const;
+  
+  std::string stringify() const {
+    return(negated ? "!" : "") + variable.name;
+  };
 };
 
 inline BooleanTerm Variable::operator!() const { return BooleanTerm(*this, true); }
@@ -737,7 +797,32 @@ struct BooleanConstraint : Constraint {
   std::variant<bool,BooleanTerm,AndExpression,OrExpression> lhs;
   std::variant<bool,BooleanTerm,AndExpression,OrExpression> rhs;
   std::string stringify() const override {
-    std::string result = "[not yet implemented]";
+    std::string result;
+    if ( std::holds_alternative<BooleanTerm>(lhs) ) {
+      result += std::get<BooleanTerm>(lhs).stringify();
+    }
+    else if ( std::holds_alternative<AndExpression>(lhs) ) {
+      result += std::get<AndExpression>(lhs).stringify();
+    }
+    else if ( std::holds_alternative<OrExpression>(lhs) ) {
+      result += std::get<OrExpression>(lhs).stringify();
+    }
+    else {
+      result += ( std::holds_alternative<bool>(lhs) ? "true" : "false" );
+    }
+    result += (type == Type::EQUAL ? " == " : " != ");
+    if ( std::holds_alternative<BooleanTerm>(rhs) ) {
+      result += std::get<BooleanTerm>(rhs).stringify();
+    }
+    else if ( std::holds_alternative<AndExpression>(rhs) ) {
+      result += std::get<AndExpression>(rhs).stringify();
+    }
+    else if ( std::holds_alternative<OrExpression>(rhs) ) {
+      result += std::get<OrExpression>(rhs).stringify();
+    }
+    else {
+      result += ( std::holds_alternative<bool>(rhs) ? "true" : "false" );
+    }
     return result;
   };
 };
@@ -771,7 +856,7 @@ inline ConditionalConstraint BooleanTerm::implies(LinearConstraint linearConstra
 struct Sequence {
   Sequence(std::string name, size_t n) {
     for ( size_t i = 0; i < n; i++ ) {
-      _variables.emplace_back(Variable::Type::INTEGER, 1, n, name + '[' + std::to_string(i) + ']' );
+      _variables.emplace_back(Variable::Type::INTEGER, name + '[' + std::to_string(i) + ']', 1, n );
       variables.push_back( _variables.back() );
     }
   };
@@ -791,6 +876,8 @@ struct Sequence {
 private:
   std::list<Variable> _variables;
 };
+
+
 
 template<typename T>
 concept LinearExpressions = std::is_convertible_v<T, LinearExpression>;
@@ -910,28 +997,34 @@ public:
   inline ObjectiveSense getObjectiveSense() const { return objectiveSense; };
   inline const LinearExpression& getObjective() const { return objective; };
   inline const std::list< Variable >& getVariables() const { return variables; };
+  inline const std::list< IndexedVariables >& getIndexedVariables() const { return indexedVariables; };
   inline const std::list< std::variant<LinearConstraint, BooleanConstraint, ConditionalConstraint> >& getConstraints() const { return constraints; };
   inline const std::list< Sequence >& getSequences() const { return sequences; };
 
   inline const Expression& setObjective(LinearExpression objective) { this->objective = std::move(objective); return this->objective; };
 
   inline const Variable& addVariable( Variable::Type type, std::string name, double lowerBound, double upperBound ) {
-    variables.emplace_back(type, lowerBound, upperBound, std::move(name));
+    variables.emplace_back(type, std::move(name), lowerBound, upperBound);
     return variables.back();
   };
 
+  inline IndexedVariables& addIndexedVariables( Variable::Type type, std::string name ) {
+    indexedVariables.emplace_back(type, std::move(name));
+    return indexedVariables.back();
+  };
+
   inline const Variable& addBinaryVariable(std::string name) {
-    variables.emplace_back(Variable::Type::BOOLEAN, 0, 1, std::move(name));
+    variables.emplace_back(Variable::Type::BOOLEAN, std::move(name), 0, 1);
     return variables.back();
   };
 
   inline const Variable& addIntegerVariable(std::string name) {
-    variables.emplace_back(Variable::Type::INTEGER, std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(), std::move(name));
+    variables.emplace_back(Variable::Type::INTEGER, std::move(name), std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max());
     return variables.back();
   };
 
   inline const Variable& addRealVariable(std::string name) {
-    variables.emplace_back(Variable::Type::REAL, std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(), std::move(name));
+    variables.emplace_back(Variable::Type::REAL, std::move(name), std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max());
     return variables.back();
   };
 
@@ -981,6 +1074,10 @@ public:
     for (const auto& variable : getVariables()) {
         result += variable.stringify() + "\n";
     }
+    result += "Indexed variables:\n";
+    for (const auto& indexedVariables : getIndexedVariables()) {
+        result += indexedVariables.stringify() + "\n";
+    }
     result +=  "Constraints:\n";
     for (const auto& constraint : getConstraints()) {
         std::visit([&result](const auto& c) { result += c.stringify() + "\n"; }, constraint);
@@ -991,8 +1088,9 @@ public:
 private:  
   ObjectiveSense objectiveSense;
   LinearExpression objective;
-  std::list< Variable > variables;
   std::list< Sequence > sequences;
+  std::list< Variable > variables;
+  std::list< IndexedVariables > indexedVariables;
   std::list< std::variant<LinearConstraint, BooleanConstraint, ConditionalConstraint> > constraints;
 };
 

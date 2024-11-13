@@ -55,6 +55,14 @@ int main()
   assert( s[2].name == "s[2]");
   assert( model.getSequences().back().stringify() == "( s[0], s[1], s[2] ) is permutation of { 1, ..., 3 }");
 
+  auto& a = model.addIndexedVariables(CP::Variable::Type::INTEGER, "a");
+  a.emplace_back(0,5);
+  a.emplace_back( w + 4 );
+  a.emplace_back( a[1] + 5 );
+  assert( model.getIndexedVariables().back().stringify() == "a := { a[0] ∈ [ 0.00, 5.00 ], a[1] := 4.00 + 1.00*w, a[2] := 5.00 + 1.00*a[1] }" );
+  assert( a[1].stringify() == "a[1] := 4.00 + 1.00*w" );
+  assert( a[z].stringify() == "a[z]" );
+  
   auto c1 = model.addConstraint( x >= 0 );
 //std::cout << c1.stringify() << std::endl;
   assert( c1.stringify() == "0.00 + 1.00*x >= 0");
