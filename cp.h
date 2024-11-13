@@ -50,6 +50,20 @@ struct Variable {
    * @brief Enum class representing the type of the variable.
    */
   enum class Type { BOOLEAN, INTEGER, REAL };
+
+  /**
+   * @brief Constructs an unbounded variable with given type.
+   * 
+   * @param type The type of the variable (BOOLEAN, INTEGER, REAL).
+   */
+  Variable(Type type, std::string name ) 
+    : type(type)
+    , name(std::move(name))
+    , lowerBound( type == Type::BOOLEAN ? 0 : std::numeric_limits<double>::lowest() )
+    , upperBound( type == Type::BOOLEAN ? 1 : std::numeric_limits<double>::max() )
+    , deducedFrom(nullptr)
+  {
+  };
   
   /**
    * @brief Constructs a variable with given type and bounds.
