@@ -84,6 +84,14 @@ struct Variable {
   {
   }
 
+  /**
+   * @brief Constructs a variable which is deduced from another variable.
+   * 
+   * @param type The type of the variable (BOOLEAN, INTEGER, REAL).
+   * @param other The other variable used to deduce the variable.
+   */
+  Variable(Type type, std::string name, const Variable& other );
+
   Variable(Variable&&) noexcept = default; // Define move constructor
 //  Variable& operator=(Variable&&) noexcept = default; // Define move assignment
   Variable(const Variable&) = delete; // Disable copy constructor
@@ -449,6 +457,15 @@ inline LinearExpression operator*(double multiplier, LinearExpression expression
     term.coefficient *= multiplier;
   }
   return expression;
+};
+
+Variable::Variable(Type type, std::string name, const Variable& other ) 
+  : type(type)
+  , name(std::move(name))
+  , lowerBound( type == Type::BOOLEAN ? 0 : std::numeric_limits<double>::lowest() )
+  , upperBound( type == Type::BOOLEAN ? 1 : std::numeric_limits<double>::max() )
+  , deducedFrom( std::make_unique<LinearExpression>(other) )
+{
 };
 
 inline LinearExpression Variable::operator+(double constant) const { return LinearExpression( constant, LinearTerm(1.0,*this) );}
