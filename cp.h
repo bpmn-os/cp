@@ -28,8 +28,7 @@ struct Expression {
 };
 
 struct LinearExpression;
-struct AndExpression;
-struct OrExpression;
+struct BooleanExpression;
 struct MaxExpression;
 struct MinExpression;
 
@@ -94,8 +93,12 @@ struct Variable {
     , name(std::move(name))
     , lowerBound( type == Type::BOOLEAN ? 0 : std::numeric_limits<double>::lowest() )
     , upperBound( type == Type::BOOLEAN ? 1 : std::numeric_limits<double>::max() )
-    , deducedFrom( std::make_unique<ExpressionType>(expression) )
   {
+    if constexpr (std::is_same_v<ExpressionType, LinearConstraint>) {
+        deducedFrom = std::make_unique<BooleanExpression>(expression);
+    } else {
+        deducedFrom = std::make_unique<ExpressionType>(expression);
+    }
   }
 
   /**
@@ -131,13 +134,13 @@ struct Variable {
 
   inline BooleanTerm operator!() const;
   
-  inline AndExpression operator&&(const Variable& variable) const;
-  inline AndExpression operator&&(const BooleanTerm& term) const;
-  inline AndExpression operator&&(AndExpression expression) const;
+  inline BooleanExpression operator&&(const Variable& variable) const;
+  inline BooleanExpression operator&&(const BooleanTerm& term) const;
+  inline BooleanExpression operator&&(BooleanExpression expression) const;
 
-  inline OrExpression operator||(const Variable& variable) const;
-  inline OrExpression operator||(const BooleanTerm& term) const;
-  inline OrExpression operator||(OrExpression expression) const;
+  inline BooleanExpression operator||(const Variable& variable) const;
+  inline BooleanExpression operator||(const BooleanTerm& term) const;
+  inline BooleanExpression operator||(BooleanExpression expression) const;
 
   inline LinearConstraint operator==(double constant) const;
   inline LinearConstraint operator==(const Variable& variable) const;
@@ -154,17 +157,24 @@ struct Variable {
   inline LinearConstraint operator>=(const LinearTerm& term) const;
   inline LinearConstraint operator>=(const LinearExpression& expression) const;
 
+  inline LinearConstraint operator<(double constant) const;
+  inline LinearConstraint operator<(const Variable& variable) const;
+  inline LinearConstraint operator<(const LinearTerm& term) const;
+  inline LinearConstraint operator<(const LinearExpression& expression) const;
+
+  inline LinearConstraint operator>(double constant) const;
+  inline LinearConstraint operator>(const Variable& variable) const;
+  inline LinearConstraint operator>(const LinearTerm& term) const;
+  inline LinearConstraint operator>(const LinearExpression& expression) const;
+
   inline BooleanConstraint operator==(bool constant) const;
   inline BooleanConstraint operator!=(bool constant) const;
 
   inline BooleanConstraint operator==(const BooleanTerm& term) const;
   inline BooleanConstraint operator!=(const BooleanTerm& term) const;
 
-  inline BooleanConstraint operator==(const AndExpression& expression) const;
-  inline BooleanConstraint operator!=(const AndExpression& expression) const;
-
-  inline BooleanConstraint operator==(const OrExpression& expression) const;
-  inline BooleanConstraint operator!=(const OrExpression& expression) const;
+  inline BooleanConstraint operator==(const BooleanExpression& expression) const;
+  inline BooleanConstraint operator!=(const BooleanExpression& expression) const;
 
   inline ConditionalConstraint implies(LinearConstraint constraint) const;
   inline ConditionalConstraint implies(BooleanConstraint constraint) const;
@@ -296,6 +306,16 @@ struct LinearTerm {
   inline LinearConstraint operator>=(const Variable& variable) const;
   inline LinearConstraint operator>=(const LinearTerm& term) const;
   inline LinearConstraint operator>=(const LinearExpression& expression) const;
+
+  inline LinearConstraint operator<(double constant) const;
+  inline LinearConstraint operator<(const Variable& variable) const;
+  inline LinearConstraint operator<(const LinearTerm& term) const;
+  inline LinearConstraint operator<(const LinearExpression& expression) const;
+
+  inline LinearConstraint operator>(double constant) const;
+  inline LinearConstraint operator>(const Variable& variable) const;
+  inline LinearConstraint operator>(const LinearTerm& term) const;
+  inline LinearConstraint operator>(const LinearExpression& expression) const;
 
   inline ConditionalConstraint implies(LinearConstraint constraint) const;
 };
@@ -439,6 +459,16 @@ struct LinearExpression : Expression {
   inline LinearConstraint operator>=(const LinearTerm& term) const;
   inline LinearConstraint operator>=(const LinearExpression& expression) const;
 
+  inline LinearConstraint operator<(double constant) const;
+  inline LinearConstraint operator<(const Variable& variable) const;
+  inline LinearConstraint operator<(const LinearTerm& term) const;
+  inline LinearConstraint operator<(const LinearExpression& expression) const;
+
+  inline LinearConstraint operator>(double constant) const;
+  inline LinearConstraint operator>(const Variable& variable) const;
+  inline LinearConstraint operator>(const LinearTerm& term) const;
+  inline LinearConstraint operator>(const LinearExpression& expression) const;
+
   std::string stringify() const override {
     std::string result = ( constant < -std::numeric_limits<double>::epsilon() ? std::format("{:.2f}", constant) : std::format("{:.2f}", std::abs(constant)) );
     for (auto& term : terms) {
@@ -512,7 +542,7 @@ inline LinearExpression operator-(double constant, LinearExpression expression) 
  * @brief Represents a constraint comparing a linear expression with zero.
  */
 struct LinearConstraint : Constraint {
-  enum class Type { EQUAL, LESSOREQUAL, GREATEROREQUAL };
+  enum class Type { EQUAL, LESSOREQUAL, GREATEROREQUAL, LESSTHAN, GREATERTHAN };
   LinearConstraint(Type type, LinearExpression expression) : type(type), expression(expression) {};
   Type type;
   LinearExpression expression;
@@ -527,6 +557,12 @@ struct LinearConstraint : Constraint {
     }
     else if ( type == Type::GREATEROREQUAL ) {
       result += " >= 0";
+    }
+    else if ( type == Type::LESSTHAN ) {
+      result += " < 0";
+    }
+    else if ( type == Type::GREATERTHAN ) {
+      result += " > 0";
     }
     return result;
   };
@@ -572,6 +608,32 @@ inline LinearConstraint Variable::operator>=(const LinearExpression& expression)
   return LinearConstraint( LinearConstraint::Type::GREATEROREQUAL, LinearTerm(1.0,*this) - expression );
 };
 
+inline LinearConstraint Variable::operator<(double constant) const { 
+  return LinearConstraint( LinearConstraint::Type::LESSTHAN, LinearExpression( -constant, LinearTerm(1.0,*this) ) ); 
+};
+inline LinearConstraint Variable::operator<(const Variable& variable) const {
+  return LinearConstraint( LinearConstraint::Type::LESSTHAN, LinearExpression( 0.0, LinearTerm(1.0,*this), LinearTerm(-1.0,variable) ) ); 
+};
+inline LinearConstraint Variable::operator<(const LinearTerm& term) const  {
+  return LinearConstraint( LinearConstraint::Type::LESSTHAN, LinearExpression( 0.0, LinearTerm(1.0,*this), LinearTerm(-term.coefficient,term.variable) ) ); 
+};
+inline LinearConstraint Variable::operator<(const LinearExpression& expression) const {
+  return LinearConstraint( LinearConstraint::Type::LESSTHAN, LinearTerm(1.0,*this) - expression );
+};
+
+inline LinearConstraint Variable::operator>(double constant) const { 
+  return LinearConstraint( LinearConstraint::Type::GREATERTHAN, LinearExpression( -constant, LinearTerm(1.0,*this) ) ); 
+};
+inline LinearConstraint Variable::operator>(const Variable& variable) const {
+  return LinearConstraint( LinearConstraint::Type::GREATERTHAN, LinearExpression( 0.0, LinearTerm(1.0,*this), LinearTerm(-1.0,variable) ) ); 
+};
+inline LinearConstraint Variable::operator>(const LinearTerm& term) const  {
+  return LinearConstraint( LinearConstraint::Type::GREATERTHAN, LinearExpression( 0.0, LinearTerm(1.0,*this), LinearTerm(-term.coefficient,term.variable) ) ); 
+};
+inline LinearConstraint Variable::operator>(const LinearExpression& expression) const {
+  return LinearConstraint( LinearConstraint::Type::GREATERTHAN, LinearTerm(1.0,*this) - expression );
+};
+
 inline LinearConstraint LinearTerm::operator==(double constant) const { 
   return LinearConstraint( LinearConstraint::Type::EQUAL, LinearExpression( -constant, *this ) ); 
 };
@@ -609,6 +671,32 @@ inline LinearConstraint LinearTerm::operator>=(const LinearTerm& term) const  {
 };
 inline LinearConstraint LinearTerm::operator>=(const LinearExpression& expression) const {
   return LinearConstraint( LinearConstraint::Type::GREATEROREQUAL, *this - expression );
+};
+
+inline LinearConstraint LinearTerm::operator<(double constant) const { 
+  return LinearConstraint( LinearConstraint::Type::LESSTHAN, LinearExpression( -constant, *this ) ); 
+};
+inline LinearConstraint LinearTerm::operator<(const Variable& variable) const {
+  return LinearConstraint( LinearConstraint::Type::LESSTHAN, LinearExpression( 0.0, *this, LinearTerm(-1.0,variable) ) ); 
+};
+inline LinearConstraint LinearTerm::operator<(const LinearTerm& term) const  {
+  return LinearConstraint( LinearConstraint::Type::LESSTHAN, LinearExpression( 0.0, *this, LinearTerm(-term.coefficient,term.variable) ) ); 
+};
+inline LinearConstraint LinearTerm::operator<(const LinearExpression& expression) const {
+  return LinearConstraint( LinearConstraint::Type::LESSTHAN, *this - expression );
+};
+
+inline LinearConstraint LinearTerm::operator>(double constant) const { 
+  return LinearConstraint( LinearConstraint::Type::GREATERTHAN, LinearExpression( -constant, *this ) ); 
+};
+inline LinearConstraint LinearTerm::operator>(const Variable& variable) const {
+  return LinearConstraint( LinearConstraint::Type::GREATERTHAN, LinearExpression( 0.0, *this, LinearTerm(-1.0,variable) ) ); 
+};
+inline LinearConstraint LinearTerm::operator>(const LinearTerm& term) const  {
+  return LinearConstraint( LinearConstraint::Type::GREATERTHAN, LinearExpression( 0.0, *this, LinearTerm(-term.coefficient,term.variable) ) ); 
+};
+inline LinearConstraint LinearTerm::operator>(const LinearExpression& expression) const {
+  return LinearConstraint( LinearConstraint::Type::GREATERTHAN, *this - expression );
 };
 
 inline LinearConstraint LinearExpression::operator==(double constant) const { 
@@ -650,6 +738,32 @@ inline LinearConstraint LinearExpression::operator>=(const LinearExpression& exp
   return LinearConstraint( LinearConstraint::Type::GREATEROREQUAL, LinearExpression(*this) - expression );
 };
 
+inline LinearConstraint LinearExpression::operator<(double constant) const { 
+  return LinearConstraint( LinearConstraint::Type::LESSTHAN, LinearExpression(*this) - constant ); 
+};
+inline LinearConstraint LinearExpression::operator<(const Variable& variable) const {
+  return LinearConstraint( LinearConstraint::Type::LESSTHAN, LinearExpression(*this) - LinearTerm(1.0,variable) ); 
+};
+inline LinearConstraint LinearExpression::operator<(const LinearTerm& term) const  {
+  return LinearConstraint( LinearConstraint::Type::LESSTHAN, LinearExpression(*this) - term ); 
+};
+inline LinearConstraint LinearExpression::operator<(const LinearExpression& expression) const {
+  return LinearConstraint( LinearConstraint::Type::LESSTHAN, LinearExpression(*this) - expression );
+};
+
+inline LinearConstraint LinearExpression::operator>(double constant) const { 
+  return LinearConstraint( LinearConstraint::Type::GREATERTHAN, LinearExpression(*this) - constant ); 
+};
+inline LinearConstraint LinearExpression::operator>(const Variable& variable) const {
+  return LinearConstraint( LinearConstraint::Type::GREATERTHAN, LinearExpression(*this) - LinearTerm(1.0,variable) ); 
+};
+inline LinearConstraint LinearExpression::operator>(const LinearTerm& term) const  {
+  return LinearConstraint( LinearConstraint::Type::GREATERTHAN, LinearExpression(*this) - term ); 
+};
+inline LinearConstraint LinearExpression::operator>(const LinearExpression& expression) const {
+  return LinearConstraint( LinearConstraint::Type::GREATERTHAN, LinearExpression(*this) - expression );
+};
+
 // Yoda comparisons
 inline LinearConstraint operator==(double constant, const Variable& variable) {  return variable == constant; };
 inline LinearConstraint operator==(double constant, const LinearTerm& term) {  return term == constant; };
@@ -662,6 +776,14 @@ inline LinearConstraint operator<=(double constant, const LinearExpression& expr
 inline LinearConstraint operator>=(double constant, const Variable& variable) {  return variable <= constant; };
 inline LinearConstraint operator>=(double constant, const LinearTerm& term) {  return term <= constant; };
 inline LinearConstraint operator>=(double constant, const LinearExpression& expression) {  return expression <= constant; };
+
+inline LinearConstraint operator<(double constant, const Variable& variable) {  return variable > constant; };
+inline LinearConstraint operator<(double constant, const LinearTerm& term) {  return term > constant; };
+inline LinearConstraint operator<(double constant, const LinearExpression& expression) {  return expression > constant; };
+
+inline LinearConstraint operator>(double constant, const Variable& variable) {  return variable < constant; };
+inline LinearConstraint operator>(double constant, const LinearTerm& term) {  return term < constant; };
+inline LinearConstraint operator>(double constant, const LinearExpression& expression) {  return expression < constant; };
 
 /**
  * @brief Represents a term in a logical expression.
@@ -677,13 +799,13 @@ struct BooleanTerm {
   const Variable& variable;
   bool negated;
   inline BooleanTerm operator!() const { return BooleanTerm(variable,!negated); };
-  inline AndExpression operator&&(const Variable& variable) const;
-  inline AndExpression operator&&(const BooleanTerm& term) const;
-  inline AndExpression operator&&(AndExpression expression) const;
+  inline BooleanExpression operator&&(const Variable& variable) const;
+  inline BooleanExpression operator&&(const BooleanTerm& term) const;
+  inline BooleanExpression operator&&(BooleanExpression expression) const;
 
-  inline OrExpression operator||(const Variable& variable) const;
-  inline OrExpression operator||(const BooleanTerm& term) const;
-  inline OrExpression operator||(OrExpression expression) const;
+  inline BooleanExpression operator||(const Variable& variable) const;
+  inline BooleanExpression operator||(const BooleanTerm& term) const;
+  inline BooleanExpression operator||(BooleanExpression expression) const;
 
   inline BooleanConstraint operator==(bool constant) const;
   inline BooleanConstraint operator!=(bool constant) const;
@@ -694,11 +816,8 @@ struct BooleanTerm {
   inline BooleanConstraint operator==(const BooleanTerm& term) const;
   inline BooleanConstraint operator!=(const BooleanTerm& term) const;
 
-  inline BooleanConstraint operator==(const AndExpression& expression) const;
-  inline BooleanConstraint operator!=(const AndExpression& expression) const;
-
-  inline BooleanConstraint operator==(const OrExpression& expression) const;
-  inline BooleanConstraint operator!=(const OrExpression& expression) const;
+  inline BooleanConstraint operator==(const BooleanExpression& expression) const;
+  inline BooleanConstraint operator!=(const BooleanExpression& expression) const;
 
   inline ConditionalConstraint implies(LinearConstraint linearConstraint) const;
   
@@ -709,134 +828,180 @@ struct BooleanTerm {
 
 inline BooleanTerm Variable::operator!() const { return BooleanTerm(*this, true); }
 
-/**
- * @brief Represents an logical AND expression.
- */
- struct AndExpression : Expression {
-  AndExpression(const Variable& variable) { this->terms.push_back(BooleanTerm(variable)); }
-  // Variadic template constructor
-  template<typename... Terms>
-  AndExpression(Terms... terms) { (this->terms.push_back(terms), ...); }
-  std::list< BooleanTerm > terms;
-  
-  inline AndExpression operator&&(const Variable& variable) {
-    auto result = *this;
-    result.terms.push_back( BooleanTerm(variable) );
-    return result;
-  };
-  inline AndExpression operator&&(const BooleanTerm& term) {
-    auto result = *this;
-    result.terms.push_back(term);
-    return result;
-  };
-  inline AndExpression operator&&(const AndExpression& expression) {
-    auto result = *this;
-    for ( auto& term : expression.terms ) {
-      result.terms.push_back(term);
-    }
-    return result;
-  };
-  
-  std::string stringify() const override {
-    std::string result = (terms.front().negated ? "!" : "") + terms.front().variable.name;
-    for (auto term : std::ranges::drop_view(terms, 1) ) {
-      result += (std::string)" && " + (term.negated ? "!" : "") + term.variable.name;
-    }
-    return result;
-  };
-
-};
-
-inline AndExpression Variable::operator&&(const BooleanTerm& term) const {
-  return AndExpression( BooleanTerm(*this), term );
-}
-
-inline AndExpression Variable::operator&&(AndExpression expression) const {
-  expression.terms.push_front( BooleanTerm(*this) );
-  return expression;
-}
-
-inline AndExpression BooleanTerm::operator&&(const Variable& variable) const {
-  return AndExpression(*this,BooleanTerm(variable));
-}
-
-inline AndExpression BooleanTerm::operator&&(AndExpression expression) const {
-  expression.terms.push_front( *this );
-  return expression;
-}
 
 /**
- * @brief Represents an logical OR expression.
+ * @brief Represents a boolean expression applying !, &&, || to boolean expressions, boolean terms, and linear constraints.
  */
-struct OrExpression : Expression {
-  OrExpression(const Variable& variable) { this->terms.push_back(BooleanTerm(variable)); }
+struct BooleanExpression : Expression {
+  enum class Type { NEGATE, AND, OR, BOOLIFY };
+  BooleanExpression(const LinearConstraint& constraint) : type(Type::BOOLIFY){ this->terms.push_back(constraint); }
   // Variadic template constructor
   template<typename... Terms>
-  OrExpression(Terms... terms) { (this->terms.push_back(terms), ...); }
-  std::list< BooleanTerm > terms;
+  BooleanExpression(Type type, Terms... terms) : type(type) { (this->terms.push_back(terms), ...); }
+  Type type;
+  std::list< std::variant< BooleanExpression, BooleanTerm, LinearConstraint > > terms;
   
-  inline OrExpression operator||(const Variable& variable) {
-    auto result = *this;
-    result.terms.push_back( BooleanTerm(variable) );
-    return result;
+  inline BooleanExpression operator!() const { 
+    return BooleanExpression(Type::NEGATE,*this);
   };
-  inline OrExpression operator||(const BooleanTerm& term) {
-    auto result = *this;
-    result.terms.push_back(term);
-    return result;
-  };
-  inline OrExpression operator||(const OrExpression& expression) {
-    auto result = *this;
-    for ( auto& term : expression.terms ) {
-      result.terms.push_back(term);
+
+  inline BooleanExpression operator&&(const Variable& variable) {
+    if ( type == Type::AND ) {
+      auto result = *this;
+      result.terms.push_back( BooleanTerm(variable) );
+      return result;
     }
-    return result;
+    return BooleanExpression(Type::AND,*this,BooleanTerm(variable));
+  };
+  inline BooleanExpression operator&&(const BooleanTerm& term) {
+    if ( type == Type::AND ) {
+      auto result = *this;
+      result.terms.push_back(term);
+      return result;
+    }
+    return BooleanExpression(Type::AND,*this,term);
+  };
+  inline BooleanExpression operator&&(const BooleanExpression& expression) {
+    if ( type == Type::AND && expression.type == Type::AND ) {
+      auto result = *this;
+      for ( auto& term : expression.terms ) {
+        result.terms.push_back(term);
+      }
+      return result;
+    }
+    else if ( type == Type::AND ) {
+      auto result = *this;
+      result.terms.push_back(expression);
+      return result;
+    }
+    else if ( expression.type == Type::AND ) {
+      auto result = expression;
+      result.terms.push_front(*this);
+      return result;
+    }
+    return BooleanExpression(Type::AND,*this,expression);
+  };
+  
+///
+  inline BooleanExpression operator||(const Variable& variable) {
+    if ( type == Type::OR ) {
+      auto result = *this;
+      result.terms.push_back( BooleanTerm(variable) );
+      return result;
+    }
+    return BooleanExpression(Type::OR,*this,BooleanTerm(variable));
+  };
+  inline BooleanExpression operator||(const BooleanTerm& term) {
+    if ( type == Type::OR ) {
+      auto result = *this;
+      result.terms.push_back(term);
+      return result;
+    }
+    return BooleanExpression(Type::OR,*this,term);
+  };
+  inline BooleanExpression operator||(const BooleanExpression& expression) {
+    if ( type == Type::OR && expression.type == Type::OR ) {
+      auto result = *this;
+      for ( auto& term : expression.terms ) {
+        result.terms.push_back(term);
+      }
+      return result;
+    }
+    else if ( type == Type::OR ) {
+      auto result = *this;
+      result.terms.push_back(expression);
+      return result;
+    }
+    else if ( expression.type == Type::OR ) {
+      auto result = expression;
+      result.terms.push_front(*this);
+      return result;
+    }
+    return BooleanExpression(Type::OR,*this,expression);
   };
 
   std::string stringify() const override {
-    std::string result = (terms.front().negated ? "!" : "") + terms.front().variable.name;
-    for (auto term : std::ranges::drop_view(terms, 1) ) {
-      result += (std::string)" || " + (term.negated ? "!" : "") + term.variable.name;
+    if ( type == Type::BOOLIFY ) {
+      return "(" + std::visit([](const auto& term) { return term.stringify(); }, terms.front()) + ")";
     }
+    if ( type == Type::NEGATE ) {
+      return "!" + std::visit([](const auto& term) { return term.stringify(); }, terms.front());
+    }
+    std::string result = "(";
+    result += std::visit([](const auto& term) { return term.stringify(); }, terms.front());
+    for (auto term : std::ranges::drop_view(terms, 1) ) {
+      result += (std::string) (type == Type::AND ? " && " : " || " ) + std::visit([](const auto& term) { return term.stringify(); }, term);
+    }
+    result += ")";
     return result;
   };
-
 };
 
-inline OrExpression Variable::operator||(const BooleanTerm& term) const {
-  return OrExpression( BooleanTerm(*this), term );
+inline BooleanExpression Variable::operator&&(const BooleanTerm& term) const {
+  return BooleanExpression( BooleanExpression::Type::AND, BooleanTerm(*this), term );
 }
 
-inline OrExpression Variable::operator||(OrExpression expression) const {
-  expression.terms.push_front( BooleanTerm(*this) );
-  return expression;
+inline BooleanExpression Variable::operator&&(BooleanExpression expression) const {
+  if ( expression.type == BooleanExpression::Type::AND ) {
+    expression.terms.push_front( BooleanTerm(*this) );
+    return expression;
+  }
+  return BooleanExpression( BooleanExpression::Type::AND, BooleanTerm(*this), expression );
 }
 
-inline OrExpression BooleanTerm::operator||(const Variable& variable) const {
-  return OrExpression(*this,BooleanTerm(variable));
+inline BooleanExpression BooleanTerm::operator&&(const Variable& variable) const {
+  return BooleanExpression( BooleanExpression::Type::AND, *this, BooleanTerm(variable) );
 }
 
-inline OrExpression BooleanTerm::operator||(OrExpression expression) const {
-  expression.terms.push_front( *this );
-  return expression;
+inline BooleanExpression BooleanTerm::operator&&(BooleanExpression expression) const {
+  if ( expression.type == BooleanExpression::Type::AND ) {
+    expression.terms.push_front( *this );
+    return expression;
+  }
+  return BooleanExpression( BooleanExpression::Type::AND, *this, expression );
+}
+
+
+inline BooleanExpression Variable::operator||(const BooleanTerm& term) const {
+  return BooleanExpression( BooleanExpression::Type::OR, BooleanTerm(*this), term );
+}
+
+inline BooleanExpression Variable::operator||(BooleanExpression expression) const {
+  if ( expression.type == BooleanExpression::Type::OR ) {
+    expression.terms.push_front( BooleanTerm(*this) );
+    return expression;
+  }
+  return BooleanExpression( BooleanExpression::Type::OR, BooleanTerm(*this), expression );
+}
+
+inline BooleanExpression BooleanTerm::operator||(const Variable& variable) const {
+  return BooleanExpression( BooleanExpression::Type::OR, *this, BooleanTerm(variable) );
+}
+
+inline BooleanExpression BooleanTerm::operator||(BooleanExpression expression) const {
+  if ( expression.type == BooleanExpression::Type::OR ) {
+    expression.terms.push_front( *this );
+    return expression;
+  }
+  return BooleanExpression( BooleanExpression::Type::OR, *this, expression );
 }
 
 struct BooleanConstraint : Constraint {
   enum class Type { EQUAL, NOTEQUAL };
-  BooleanConstraint(Type type, std::variant<bool,BooleanTerm,AndExpression,OrExpression> lhs, std::variant<bool,BooleanTerm,AndExpression,OrExpression> rhs) : type(type), lhs(lhs), rhs(rhs) {};
+  BooleanConstraint(Type type, std::variant<bool,BooleanTerm,BooleanExpression> lhs, std::variant<bool,BooleanTerm,BooleanExpression> rhs) : type(type), lhs(lhs), rhs(rhs) {};
   Type type;
-  std::variant<bool,BooleanTerm,AndExpression,OrExpression> lhs;
-  std::variant<bool,BooleanTerm,AndExpression,OrExpression> rhs;
+  std::variant<bool,BooleanTerm,BooleanExpression> lhs;
+  std::variant<bool,BooleanTerm,BooleanExpression> rhs;
   std::string stringify() const override {
     std::string result;
     if ( std::holds_alternative<BooleanTerm>(lhs) ) {
       result += std::get<BooleanTerm>(lhs).stringify();
     }
-    else if ( std::holds_alternative<AndExpression>(lhs) ) {
-      result += std::get<AndExpression>(lhs).stringify();
+    else if ( std::holds_alternative<BooleanExpression>(lhs) ) {
+      result += std::get<BooleanExpression>(lhs).stringify();
     }
-    else if ( std::holds_alternative<OrExpression>(lhs) ) {
-      result += std::get<OrExpression>(lhs).stringify();
+    else if ( std::holds_alternative<BooleanExpression>(lhs) ) {
+      result += std::get<BooleanExpression>(lhs).stringify();
     }
     else {
       result += ( std::holds_alternative<bool>(lhs) ? "true" : "false" );
@@ -845,11 +1010,11 @@ struct BooleanConstraint : Constraint {
     if ( std::holds_alternative<BooleanTerm>(rhs) ) {
       result += std::get<BooleanTerm>(rhs).stringify();
     }
-    else if ( std::holds_alternative<AndExpression>(rhs) ) {
-      result += std::get<AndExpression>(rhs).stringify();
+    else if ( std::holds_alternative<BooleanExpression>(rhs) ) {
+      result += std::get<BooleanExpression>(rhs).stringify();
     }
-    else if ( std::holds_alternative<OrExpression>(rhs) ) {
-      result += std::get<OrExpression>(rhs).stringify();
+    else if ( std::holds_alternative<BooleanExpression>(rhs) ) {
+      result += std::get<BooleanExpression>(rhs).stringify();
     }
     else {
       result += ( std::holds_alternative<bool>(rhs) ? "true" : "false" );

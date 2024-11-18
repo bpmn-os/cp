@@ -33,8 +33,8 @@ int main()
   assert( (3 * (x + 2 - 5 * z) / 4).stringify() == "1.50 + 0.75*x - 3.75*z");
   assert( (2 + 3 * (x + 2 + 5 * z / 0.5)).stringify() == "8.00 + 3.00*x + 30.00*z");
 
-  assert( (!y && y).stringify() == "!y && y");
-  assert( (y || !y).stringify() == "y || !y");
+  assert( (!y && y).stringify() == "(!y && y)");
+  assert( (y || !y).stringify() == "(y || !y)");
 
   assert( CP::max( 0, x, 3 * z ).stringify() == "max{ 0.00, 0.00 + 1.00*x, 0.00 + 3.00*z }");
   assert( CP::min( 0, x, 3 * z ).stringify() == "min{ 0.00, 0.00 + 1.00*x, 0.00 + 3.00*z }");
@@ -42,8 +42,14 @@ int main()
   assert( CP::if_then_else( y, x, 3 * z ).stringify() == "if y then 0.00 + 1.00*x else 0.00 + 3.00*z");
   assert( CP::n_ary_if( { {y, x}, {!y, 5} }, 3 * z ).stringify() == "if y then 0.00 + 1.00*x else if !y then 5.00 else 0.00 + 3.00*z");
 
-  auto& w = model.addVariable(CP::Variable::Type::BOOLEAN, "w", (y || !y) );
-  assert( w.stringify() == "w := y || !y");
+  auto& q = model.addVariable(CP::Variable::Type::BOOLEAN, "q", (x < z) );
+  assert( q.stringify() == "q := (0.00 + 1.00*x - 1.00*z < 0)");
+
+  auto& u = model.addVariable(CP::Variable::Type::BOOLEAN, "u", !(y && !y) );
+  assert( u.stringify() == "u := !(y && !y)");
+
+  auto& w = model.addVariable(CP::Variable::Type::BOOLEAN, "w", (y || !y) && !(y && !y) );
+  assert( w.stringify() == "w := ((y || !y) && !(y && !y))");
 
   auto& v = model.addVariable(CP::Variable::Type::INTEGER, "v", CP::n_ary_if( { {y, x}, {!y, 5} }, 3 * z ) );
   assert( v.stringify() == "v := if y then 0.00 + 1.00*x else if !y then 5.00 else 0.00 + 3.00*z");
