@@ -941,6 +941,9 @@ struct BooleanExpression : Expression {
   };
 
   std::string stringify() const override {
+    if ( terms.empty() ) {
+      return "(nil)";
+    }
     if ( type == Type::BOOLIFY ) {
       return "(" + std::visit([](const auto& term) { return term.stringify(); }, terms.front()) + ")";
     }
@@ -1123,7 +1126,7 @@ concept LinearExpressions = std::is_convertible_v<T, LinearExpression>;
   MaxExpression(std::list<LinearExpression> expressions) :  expressions(std::move(expressions)) {};
 
   std::list< LinearExpression > expressions;
-
+  void emplace_back(LinearExpression expression) { expressions.emplace_back(std::move(expression)); };
   std::string stringify() const override {
     std::string result = "max{ " + expressions.front().stringify();
     for (auto expression : std::ranges::drop_view(expressions, 1) ) {
@@ -1136,6 +1139,19 @@ concept LinearExpressions = std::is_convertible_v<T, LinearExpression>;
 
 template<LinearExpressions... Expressions>
 MaxExpression max(Expressions&&... expressions) { return MaxExpression(expressions...); }
+
+template<LinearExpressions... Expressions>
+MaxExpression max(CP::MaxExpression maxExpression, Expressions&&... expressions) {
+    (maxExpression.expressions.emplace_back(std::forward<Expressions>(expressions)), ...);
+    return maxExpression;
+}
+
+template<LinearExpressions... Expressions>
+MaxExpression max(Expressions&&... expressions, CP::MaxExpression maxExpression) {
+    (maxExpression.expressions.emplace_front(std::forward<Expressions>(expressions)), ...);
+    return maxExpression;
+}
+
 
 /**
  * @brief Represents an expression providing the minimum of a collection of terms and an upper bound value.
@@ -1160,6 +1176,18 @@ struct MinExpression : Expression {
 
 template<LinearExpressions... Expressions>
 MinExpression min(Expressions&&... expressions) { return MinExpression(expressions...); }
+
+template<LinearExpressions... Expressions>
+MinExpression min(CP::MinExpression minExpression, Expressions&&... expressions) {
+    (minExpression.expressions.emplace_back(std::forward<Expressions>(expressions)), ...);
+    return minExpression;
+}
+
+template<LinearExpressions... Expressions>
+MinExpression min(Expressions&&... expressions, CP::MinExpression minExpression) {
+    (minExpression.expressions.emplace_front(std::forward<Expressions>(expressions)), ...);
+    return minExpression;
+}
 
 using Case = std::pair<BooleanTerm,LinearExpression>;
 
