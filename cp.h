@@ -55,7 +55,7 @@ struct Variable {
    * 
    * @param type The type of the variable (BOOLEAN, INTEGER, REAL).
    */
-  Variable(Type type, std::string name ) 
+  inline Variable(Type type, std::string name ) 
     : type(type)
     , name(std::move(name))
     , lowerBound( type == Type::BOOLEAN ? 0 : std::numeric_limits<double>::lowest() )
@@ -71,7 +71,7 @@ struct Variable {
    * @param lowerBound The lower bound of the variable.
    * @param upperBound The upper bound of the variable.
    */
-  Variable(Type type, std::string name, double lowerBound, double upperBound ) 
+  inline Variable(Type type, std::string name, double lowerBound, double upperBound ) 
     : type(type)
     , name(std::move(name))
     , lowerBound(lowerBound)
@@ -88,7 +88,7 @@ struct Variable {
    * @param expression The expression used to initialize the variable.
    */
   template<typename ExpressionType>
-  Variable(Type type, std::string name, const ExpressionType& expression ) 
+  inline Variable(Type type, std::string name, const ExpressionType& expression ) 
     : type(type)
     , name(std::move(name))
     , lowerBound( type == Type::BOOLEAN ? 0 : std::numeric_limits<double>::lowest() )
@@ -181,7 +181,7 @@ struct Variable {
   inline ConditionalConstraint implies(LinearConstraint constraint) const;
   inline ConditionalConstraint implies(BooleanConstraint constraint) const;
 
-  std::string stringify() const {
+  inline std::string stringify() const {
     if ( deducedFrom ) {
       return name + " := " + deducedFrom->stringify();
     }
@@ -199,12 +199,12 @@ template<typename T>
 class reference_vector : public std::vector<std::reference_wrapper<T>> {
 public:
   // Overloading the [] operator to return a const reference to T
-  const T& operator[](std::size_t index) const {
+  inline const T& operator[](std::size_t index) const {
     return std::vector<std::reference_wrapper<T>>::at(index).get();
   }
 
   // Overloading the [] operator to return a reference to T
-  T& operator[](std::size_t index) {
+  inline T& operator[](std::size_t index) {
     return std::vector<std::reference_wrapper<T>>::at(index).get();
   }
 };
@@ -212,24 +212,24 @@ public:
 struct IndexedVariables;
 
 struct IndexedVariable {
-  IndexedVariable(const IndexedVariables& container, const Variable& index) : container(container), index(index) {}
+  inline IndexedVariable(const IndexedVariables& container, const Variable& index) : container(container), index(index) {}
   const IndexedVariables& container;
   const Variable& index;
-  std::string stringify() const;
+  inline std::string stringify() const;
 };
 
 struct IndexedVariables {
   Variable::Type type;
   std::string name;
-  IndexedVariables(Variable::Type type, std::string name) : type(type), name(std::move(name)) {} 
+  inline IndexedVariables(Variable::Type type, std::string name) : type(type), name(std::move(name)) {} 
   IndexedVariables(const IndexedVariables&) = delete; // Disable copy constructor
   IndexedVariables& operator=(const IndexedVariables&) = delete; // Disable copy assignment
 
-  const Variable& operator[](std::size_t index) const {
+  inline const Variable& operator[](std::size_t index) const {
     return _references.at(index);
   }
 
-  IndexedVariable operator[](const Variable& index) const {
+  inline IndexedVariable operator[](const Variable& index) const {
      return IndexedVariable(*this,index);
   }
 
@@ -246,7 +246,7 @@ struct IndexedVariables {
   inline auto end() { return _variables.end(); }
   inline auto end() const { return _variables.cend(); }
     
-  std::string stringify() const {
+  inline std::string stringify() const {
     std::string result = name + " := {";
     for ( const Variable& variable : _variables ) {
       result += " " + variable.stringify() + ",";
@@ -262,13 +262,13 @@ private:
   reference_vector<Variable> _references;
 };
 
-std::string IndexedVariable::stringify() const { return container.name + "[" + index.name + "]"; }
+inline std::string IndexedVariable::stringify() const { return container.name + "[" + index.name + "]"; }
 
 /**
  * @brief Represents a term in a linear expression.
  */
 struct LinearTerm {
-  LinearTerm(double coefficient, const Variable& variable) : coefficient(coefficient), variable(variable) {};
+  inline LinearTerm(double coefficient, const Variable& variable) : coefficient(coefficient), variable(variable) {};
   double coefficient;
   const Variable& variable;
   inline LinearTerm operator*(double multiplier) const {
@@ -335,17 +335,17 @@ inline LinearTerm operator*(double multiplier, LinearTerm term) {
  * @brief Represents a linear expression composed of linear terms and a constant.
  */
 struct LinearExpression : Expression {
-  LinearExpression() : constant(0.0) {};
-  LinearExpression(double constant) : constant(constant) {};
-  LinearExpression(const Variable& variable) : constant(0.0) {
+  inline LinearExpression() : constant(0.0) {};
+  inline LinearExpression(double constant) : constant(constant) {};
+  inline LinearExpression(const Variable& variable) : constant(0.0) {
     terms.push_back( LinearTerm(1.0,variable) );
   };
-  LinearExpression(const LinearTerm& term) : constant(0.0) {
+  inline LinearExpression(const LinearTerm& term) : constant(0.0) {
     terms.push_back( std::move(term) );
   };
   // Variadic template constructor
   template<typename... Terms>
-  LinearExpression(double constant, Terms&&... terms) : constant(constant) { (this->terms.push_back(terms), ...); }
+  inline LinearExpression(double constant, Terms&&... terms) : constant(constant) { (this->terms.push_back(terms), ...); }
     
   inline LinearExpression operator*(double multiplier) const {
     auto result = *this;
@@ -471,7 +471,7 @@ struct LinearExpression : Expression {
   inline LinearConstraint operator>(const LinearTerm& term) const;
   inline LinearConstraint operator>(const LinearExpression& expression) const;
 
-  std::string stringify() const override {
+  inline std::string stringify() const override {
     std::string result = ( constant < -std::numeric_limits<double>::epsilon() ? std::format("{:.2f}", constant) : std::format("{:.2f}", std::abs(constant)) );
     for (auto& term : terms) {
       if ( term.coefficient < -std::numeric_limits<double>::epsilon() ) {
@@ -505,7 +505,7 @@ inline LinearExpression operator*(double multiplier, LinearExpression expression
   return expression;
 };
 
-Variable::Variable(Type type, std::string name, const Variable& other ) 
+inline Variable::Variable(Type type, std::string name, const Variable& other ) 
   : type(type)
   , name(std::move(name))
   , lowerBound( type == Type::BOOLEAN ? 0 : std::numeric_limits<double>::lowest() )
@@ -545,11 +545,11 @@ inline LinearExpression operator-(double constant, LinearExpression expression) 
  */
 struct LinearConstraint : Constraint {
   enum class Type { EQUAL, LESSOREQUAL, GREATEROREQUAL, LESSTHAN, GREATERTHAN };
-  LinearConstraint(Type type, LinearExpression expression) : type(type), expression(expression) {};
+  inline LinearConstraint(Type type, LinearExpression expression) : type(type), expression(expression) {};
   Type type;
   LinearExpression expression;
 
-  std::string stringify() const override {
+  inline std::string stringify() const override {
     std::string result = expression.stringify();
     if ( type == Type::EQUAL ) {
       result += " == 0";
@@ -825,7 +825,7 @@ struct BooleanTerm {
 
   inline ConditionalConstraint implies(LinearConstraint linearConstraint) const;
   
-  std::string stringify() const {
+  inline std::string stringify() const {
     return(negated ? "!" : "") + variable.name;
   };
 };
@@ -838,11 +838,11 @@ inline BooleanTerm Variable::operator!() const { return BooleanTerm(*this, true)
  */
 struct BooleanExpression : Expression {
   enum class Type { NEGATE, AND, OR, BOOLIFY };
-  BooleanExpression(bool value) : type( value ? Type::AND : Type::OR) {}
-  BooleanExpression(const LinearConstraint& constraint) : type(Type::BOOLIFY){ this->terms.push_back(constraint); }
+  inline BooleanExpression(bool value) : type( value ? Type::AND : Type::OR) {}
+  inline BooleanExpression(const LinearConstraint& constraint) : type(Type::BOOLIFY){ this->terms.push_back(constraint); }
   // Variadic template constructor
   template<typename... Terms>
-  BooleanExpression(Type type, Terms... terms) : type(type) { (this->terms.push_back(terms), ...); }
+  inline BooleanExpression(Type type, Terms... terms) : type(type) { (this->terms.push_back(terms), ...); }
   Type type;
   std::list< std::variant< BooleanExpression, BooleanTerm, LinearConstraint > > terms;
   
@@ -940,7 +940,7 @@ struct BooleanExpression : Expression {
     return BooleanExpression(Type::OR,*this,expression);
   };
 
-  std::string stringify() const override {
+  inline std::string stringify() const override {
     if ( terms.empty() ) {
       return "(nil)";
     }
@@ -1026,11 +1026,11 @@ inline BooleanExpression BooleanTerm::operator||(BooleanExpression expression) c
 
 struct BooleanConstraint : Constraint {
   enum class Type { EQUAL, NOTEQUAL };
-  BooleanConstraint(Type type, std::variant<bool,BooleanTerm,BooleanExpression> lhs, std::variant<bool,BooleanTerm,BooleanExpression> rhs) : type(type), lhs(lhs), rhs(rhs) {};
+  inline BooleanConstraint(Type type, std::variant<bool,BooleanTerm,BooleanExpression> lhs, std::variant<bool,BooleanTerm,BooleanExpression> rhs) : type(type), lhs(lhs), rhs(rhs) {};
   Type type;
   std::variant<bool,BooleanTerm,BooleanExpression> lhs;
   std::variant<bool,BooleanTerm,BooleanExpression> rhs;
-  std::string stringify() const override {
+  inline std::string stringify() const override {
     std::string result;
     if ( std::holds_alternative<BooleanTerm>(lhs) ) {
       result += std::get<BooleanTerm>(lhs).stringify();
@@ -1065,10 +1065,10 @@ struct BooleanConstraint : Constraint {
  * @brief Represents a conditional constraint comparing a linear expression with zero if the respective condition holds.
  */
 struct ConditionalConstraint : Constraint {
-  ConditionalConstraint(BooleanTerm condition, std::variant<LinearConstraint,BooleanConstraint> constraint) : condition(condition), constraint(constraint) {};
+  inline ConditionalConstraint(BooleanTerm condition, std::variant<LinearConstraint,BooleanConstraint> constraint) : condition(condition), constraint(constraint) {};
   BooleanTerm condition;
   std::variant<LinearConstraint,BooleanConstraint> constraint;
-  std::string stringify() const override {
+  inline std::string stringify() const override {
     std::string result = (std::string)"if " + (condition.negated ? "!" : "") + condition.variable.name + " then ";
     if ( std::holds_alternative<LinearConstraint>(constraint) ) {
       result += std::get<LinearConstraint>(constraint).stringify();
@@ -1088,7 +1088,7 @@ inline ConditionalConstraint BooleanTerm::implies(LinearConstraint linearConstra
  * @brief Represents a collection of integer variables with the property that the variable values are a permutation of {1, ..., n}.
  */
 struct Sequence {
-  Sequence(std::string name, size_t n) {
+  inline Sequence(std::string name, size_t n) {
     for ( size_t i = 0; i < n; i++ ) {
       _variables.emplace_back(Variable::Type::INTEGER, name + '[' + std::to_string(i) + ']', 1, n );
       variables.push_back( _variables.back() );
@@ -1098,7 +1098,7 @@ struct Sequence {
   Sequence& operator=(const Sequence&) = delete; // Disable copy assignment
   reference_vector<const Variable> variables;
 
-  std::string stringify() const {
+  inline std::string stringify() const {
     std::string result = "(";
     for ( const Variable& variable : variables ) {
       result += " " + variable.name + ",";
@@ -1122,12 +1122,12 @@ concept LinearExpressions = std::is_convertible_v<T, LinearExpression>;
  struct MaxExpression : Expression {
   // Variadic template constructor
   template<LinearExpressions... Expressions>
-  MaxExpression(Expressions&&... expressions) { (this->expressions.push_back(std::forward<Expressions>(expressions)), ...); }
-  MaxExpression(std::list<LinearExpression> expressions) :  expressions(std::move(expressions)) {};
+  inline MaxExpression(Expressions&&... expressions) { (this->expressions.push_back(std::forward<Expressions>(expressions)), ...); }
+  inline MaxExpression(std::list<LinearExpression> expressions) :  expressions(std::move(expressions)) {};
 
   std::list< LinearExpression > expressions;
   void emplace_back(LinearExpression expression) { expressions.emplace_back(std::move(expression)); };
-  std::string stringify() const override {
+  inline std::string stringify() const override {
     std::string result = "max{ " + expressions.front().stringify();
     for (auto expression : std::ranges::drop_view(expressions, 1) ) {
       result += ", " + expression.stringify();
@@ -1159,12 +1159,12 @@ MaxExpression max(Expressions&&... expressions, CP::MaxExpression maxExpression)
 struct MinExpression : Expression {
   // Variadic template constructor
   template<LinearExpressions... Expressions>
-  MinExpression(Expressions&&... expressions) { (this->expressions.push_back(std::forward<Expressions>(expressions)), ...); }
-  MinExpression(std::list<LinearExpression> expressions) :  expressions(std::move(expressions)) {};
+  inline MinExpression(Expressions&&... expressions) { (this->expressions.push_back(std::forward<Expressions>(expressions)), ...); }
+  inline MinExpression(std::list<LinearExpression> expressions) :  expressions(std::move(expressions)) {};
 
   std::list< LinearExpression > expressions;
 
-  std::string stringify() const override {
+  inline std::string stringify() const override {
     std::string result = "min{ " + expressions.front().stringify();
     for (auto expression : std::ranges::drop_view(expressions, 1) ) {
       result += ", " + expression.stringify();
@@ -1207,7 +1207,7 @@ using Cases = std::list< Case >;
  * ```
  */
 struct NAryExpression : Expression {
-  NAryExpression(BooleanTerm term, LinearExpression ifExpression, LinearExpression elseExpression) : cases({{std::move(term),std::move(ifExpression)}}), elseExpression(std::move(elseExpression)) {};
+  inline NAryExpression(BooleanTerm term, LinearExpression ifExpression, LinearExpression elseExpression) : cases({{std::move(term),std::move(ifExpression)}}), elseExpression(std::move(elseExpression)) {};
 /*
 // Variadic template constructor  
   template<typename... Pairs>
@@ -1216,12 +1216,12 @@ struct NAryExpression : Expression {
     operands = {std::move(pairs)...};
   }
 */
-  NAryExpression(Cases cases, LinearExpression elseExpression) : cases(std::move(cases)), elseExpression(std::move(elseExpression)) {};
+  inline NAryExpression(Cases cases, LinearExpression elseExpression) : cases(std::move(cases)), elseExpression(std::move(elseExpression)) {};
 
   Cases cases;
   LinearExpression elseExpression;
 
-  std::string stringify() const override {
+  inline std::string stringify() const override {
     std::string result = (std::string)"if " + (cases.front().first.negated ? "!" : "") + cases.front().first.variable.name + " then " + cases.front().second.stringify();
     for (auto case_ : std::ranges::drop_view(cases, 1) ) {
       result +=  (std::string)" else if " + (case_.first.negated ? "!" : "") + case_.first.variable.name + " then " + case_.second.stringify();
@@ -1249,10 +1249,7 @@ inline NAryExpression n_ary_if(Cases cases, LinearExpression elseExpression) { r
 class Model {
 public:
   enum class ObjectiveSense { FEASIBLE, MINIMIZE, MAXIMIZE };
-  Model(ObjectiveSense objectiveSense = ObjectiveSense::FEASIBLE )
-   : objectiveSense(objectiveSense)
-  {
-  };
+  inline Model(ObjectiveSense objectiveSense = ObjectiveSense::FEASIBLE ) : objectiveSense(objectiveSense) {};
   inline ObjectiveSense getObjectiveSense() const { return objectiveSense; };
   inline const LinearExpression& getObjective() const { return objective; };
   inline const std::list< Variable >& getVariables() const { return variables; };
@@ -1323,7 +1320,7 @@ public:
     return std::get<ConditionalConstraint>(constraints.back());
   };
 
-  std::string stringify() const {
+  inline std::string stringify() const {
     std::string result;
     result +=  "Sequences:\n";
     for (const auto& sequence : getSequences()) {
