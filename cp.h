@@ -1104,7 +1104,7 @@ struct Sequence {
       result += " " + variable.name + ",";
     }
     result.back() = ' ';
-    result += ") is permutation of { 1, ..., " + std::to_string(variables.size()) + " }";
+    result += ") is permutation of { 1, " + ( variables.size() > 2 ? "..., " : "" ) + std::to_string(variables.size()) + " }";
     return result;
   };
 private:
