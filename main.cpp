@@ -22,9 +22,9 @@ int main()
   auto& x = model.addRealVariable("x");
   assert( x.stringify() == "x ∈ [ -infinity, infinity ]");
   auto& y = model.addBinaryVariable("y");
-  assert( y.stringify() == "y ∈ [ 0.00, 1.00 ]");
+  assert( y.stringify() == "y ∈ { false, true }");
   auto& z = model.addIntegerVariable("z");
-  assert( z.stringify() == "z ∈ [ -infinity, infinity ]");
+  assert( z.stringify() == "z ∈ { -infinity, ..., infinity }");
   
   assert( (x * 3 + z * 5).stringify() == "0.00 + 3.00*x + 5.00*z");
   assert( (3 * x + 5 * z - 4).stringify() == "-4.00 + 3.00*x + 5.00*z");
@@ -65,7 +65,7 @@ int main()
   a.emplace_back(0,5);
   a.emplace_back( w + 4 );
   a.emplace_back( a[1] + 5 );
-  assert( model.getIndexedVariables().back().stringify() == "a := { a[0] ∈ [ 0.00, 5.00 ], a[1] := 4.00 + 1.00*w, a[2] := 5.00 + 1.00*a[1] }" );
+  assert( model.getIndexedVariables().back().stringify() == "a := { a[0] ∈ { 0, ..., 5 }, a[1] := 4.00 + 1.00*w, a[2] := 5.00 + 1.00*a[1] }" );
   assert( a[1].stringify() == "a[1] := 4.00 + 1.00*w" );
   assert( a[z].stringify() == "a[z]" );
   

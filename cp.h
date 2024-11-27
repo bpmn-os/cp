@@ -186,10 +186,22 @@ struct Variable {
       return name + " := " + deducedFrom->stringify();
     }
     
+    if ( type == Type::BOOLEAN ) {
+      if ( lowerBound == upperBound ) {
+        return name + " := " + ( lowerBound ? "true" : "false" );
+      }
+      return name + " ∈ { false, true }"; 
+    }
+    else if ( type == Type::INTEGER ) {
+      if ( lowerBound == upperBound ) {
+        return name + " := " + std::to_string( (int)lowerBound );
+      }
+      return name + " ∈ { " + ( lowerBound == std::numeric_limits<double>::lowest() ? std::string("-infinity") : std::to_string( (int)lowerBound ) ) + ", ..., " + ( upperBound == std::numeric_limits<double>::max() ? std::string("infinity") : std::to_string( (int)upperBound ) ) + " }";
+    }
+
     if ( lowerBound == upperBound ) {
       return name + " := " + std::format("{:.2f}", lowerBound);
-    }
-     
+    }     
     return name + " ∈ [ " + ( lowerBound == std::numeric_limits<double>::lowest() ? "-infinity" : std::format("{:.2f}", lowerBound) ) + ", " + ( upperBound == std::numeric_limits<double>::max() ? "infinity" : std::format("{:.2f}", upperBound) ) + " ]";
   }
 
