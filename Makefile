@@ -2,7 +2,7 @@
 CXX = g++
 
 # Compiler flags
-CXXFLAGS = -std=c++20 -Wall -Wextra -Werror
+CXXFLAGS = -std=c++20 -Wall -Wextra -Werror  -fmax-errors=1
 
 # Source files
 SRCS = main.cpp
