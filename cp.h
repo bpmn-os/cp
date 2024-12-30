@@ -21,6 +21,10 @@ namespace CP {
 
 struct Expression;
 
+/*******************************************
+ * Variable
+ ******************************************/
+
 /**
  * @brief Represents a variable in a constraint program.
  */
@@ -157,6 +161,10 @@ public:
   }
 };
 
+/*******************************************
+ * IndexedVariable(s)
+ ******************************************/
+
 struct IndexedVariables;
 
 struct IndexedVariable {
@@ -212,6 +220,9 @@ private:
 
 inline std::string IndexedVariable::stringify() const { return container.name + "[" + index.name + "]"; }
 
+/*******************************************
+ * Expression
+ ******************************************/
 
 /**
  * @brief Represents an expression.
@@ -239,11 +250,7 @@ struct Expression {
   inline Expression(double constant) : _operator(Operator::none), operands({constant}) {};
   inline Expression(const Variable& variable) : _operator(Operator::none), operands({std::ref(variable)}) {};
   inline Expression(Operator _operator, const std::vector< std::variant< size_t, double, std::reference_wrapper<const CP::Variable>, Expression> >& operands) : _operator(_operator), operands(operands) {};
-/*
-  // Variadic template constructor
-  template<typename... Terms>
-  inline Expression(double constant, Terms&&... terms) : constant(constant) { (this->terms.push_back(terms), ...); }
-*/    
+
   inline Expression operator-() const { return Expression(Operator::negate, {*this}); };
   inline Expression operator!() const { return Expression(Operator::logical_not, {*this}); };
 
@@ -519,7 +526,7 @@ std::optional<std::pair<Expression, Expression>> isImplication( const Expression
 };
 
 /*******************************************
- * Variable
+ * Variable (implementation)
  ******************************************/
 
 inline Variable::Variable(Type type, std::string name, const Variable& other ) 
@@ -600,8 +607,10 @@ inline std::string Variable::stringify() const {
   return name + " ∈ [ " + ( lowerBound == std::numeric_limits<double>::lowest() ? "-infinity" : std::format("{:.2f}", lowerBound) ) + ", " + ( upperBound == std::numeric_limits<double>::max() ? "infinity" : std::format("{:.2f}", upperBound) ) + " ]";
 }
 
+/*******************************************
+ * Left side operators
+ ******************************************/
 
-// Left side operators
 inline Expression operator&&(bool constant, const Variable& variable) { return Expression(Expression::Operator::logical_and, {(double)constant,std::ref(variable)}); };
 inline Expression operator||(bool constant, const Variable& variable) { return Expression(Expression::Operator::logical_or, {(double)constant,std::ref(variable)}); };
 inline Expression operator+(double constant, const Variable& variable) { return Expression(Expression::Operator::add, {constant,std::ref(variable)}); };
@@ -618,7 +627,10 @@ inline Expression operator/(double constant, const Expression& expression) { ret
 
 
 
-// Yoda comparisons
+/*******************************************
+ * Yoda comparisons
+ ******************************************/
+
 inline Expression operator<(double constant, const Variable& variable) {  return Expression(Expression::Operator::less_than, {constant,std::ref(variable)}); };
 inline Expression operator>(double constant, const Variable& variable) {  return Expression(Expression::Operator::greater_than, {constant,std::ref(variable)}); };
 inline Expression operator<=(double constant, const Variable& variable) {  return Expression(Expression::Operator::less_or_equal, {constant,std::ref(variable)}); };
@@ -633,6 +645,9 @@ inline Expression operator>=(double constant, const Expression& expression) {  r
 inline Expression operator==(double constant, const Expression& expression) {  return Expression(Expression::Operator::equal, {constant,expression}); };
 inline Expression operator!=(double constant, const Expression& expression) {  return Expression(Expression::Operator::not_equal, {constant,expression}); };
 
+/*******************************************
+ * Sequence
+ ******************************************/
 
 /**
  * @brief Represents a collection of integer variables with the property that the variable values are a permutation of {1, ..., n}.
@@ -660,6 +675,10 @@ struct Sequence {
 private:
   std::list<Variable> _variables;
 };
+
+/*******************************************
+ * Custom operators
+ ******************************************/
 
 template<typename... Terms>
 Expression customOperator(const std::string& name, Terms&&... terms) {
@@ -742,6 +761,10 @@ Expression n_ary_if(Cases cases, Expression elseExpression) {
 
   return Expression(Expression::Operator::custom,std::move(operands));
 };
+
+/*******************************************
+ * Model
+ ******************************************/
 
 /**
  * @brief Represents a model of a constraint program.
