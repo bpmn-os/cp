@@ -661,19 +661,19 @@ private:
   std::list<Variable> _variables;
 };
 
-
 template<typename... Terms>
-Expression max(Terms&&... terms) {
+Expression customOperator(const std::string& name, Terms&&... terms) {
+  // Static assert to ensure all terms are either arithmetic, CP::Variable, or Expression
   static_assert(((
     std::is_arithmetic_v<std::decay_t<Terms>> || 
     std::is_same_v<std::decay_t<Terms>, CP::Variable> ||
     std::is_same_v<std::decay_t<Terms>, Expression>) && ...),
-    "CP: All terms must be a number, variabe, or expression"
+    "CP: All terms must be a number, variable, or expression"
   );
 
   std::vector< std::variant< size_t, double, std::reference_wrapper<const CP::Variable>, Expression> > operands;
 
-  operands.push_back( Expression::getCustomIndex("max") );
+  operands.push_back( Expression::getCustomIndex(name) );
 
   // Lambda to handle each term and push it into operands
   auto add_term = [&operands](auto&& term) {
@@ -691,39 +691,17 @@ Expression max(Terms&&... terms) {
   // Expand the parameter pack and process each term
   (add_term(std::forward<Terms>(terms)), ...);
 
-  return Expression(Expression::Operator::custom,std::move(operands));
+  return Expression(Expression::Operator::custom, std::move(operands));
+}
+
+template<typename... Terms>
+Expression max(Terms&&... terms) {
+  return customOperator("max", std::forward<Terms>(terms)...);
 };
 
 template<typename... Terms>
 Expression min(Terms&&... terms) {
-  static_assert(((
-    std::is_arithmetic_v<std::decay_t<Terms>> || 
-    std::is_same_v<std::decay_t<Terms>, CP::Variable> ||
-    std::is_same_v<std::decay_t<Terms>, Expression>) && ...),
-    "CP: All terms must be a number, variabe, or expression"
-  );
-
-  std::vector< std::variant< size_t, double, std::reference_wrapper<const CP::Variable>, Expression> > operands;
-
-  operands.push_back( Expression::getCustomIndex("min") );
-
-  // Lambda to handle each term and push it into operands
-  auto add_term = [&operands](auto&& term) {
-    if constexpr (std::is_arithmetic_v<std::decay_t<decltype(term)>>) {
-      operands.push_back((double)term);
-    }
-    else if constexpr (std::is_same_v<std::decay_t<decltype(term)>, CP::Variable>) {
-      operands.push_back(std::ref(term));
-    }
-    else if constexpr (std::is_same_v<std::decay_t<decltype(term)>, Expression>) {
-      operands.push_back(std::move(term));
-    }
-  };
-
-  // Expand the parameter pack and process each term
-  (add_term(std::forward<Terms>(terms)), ...);
-
-  return Expression(Expression::Operator::custom,std::move(operands));
+  return customOperator("min", std::forward<Terms>(terms)...);
 };
 
 
@@ -760,7 +738,6 @@ Expression n_ary_if(Cases cases, Expression elseExpression) {
     operands.push_back(std::move(condition));
     operands.push_back(std::move(expression));
   }
-
   operands.push_back(std::move(elseExpression));
 
   return Expression(Expression::Operator::custom,std::move(operands));
