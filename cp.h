@@ -223,6 +223,7 @@ inline std::string IndexedVariable::stringify() const { return container.name + 
 /*******************************************
  * Expression
  ******************************************/
+using Operand = std::variant< size_t, double, std::reference_wrapper<const Variable>, Expression>;
 
 /**
  * @brief Represents an expression.
@@ -249,7 +250,7 @@ struct Expression {
   inline Expression() : Expression(Operator::none,{0.0}) {};
   inline Expression(double constant) : _operator(Operator::none), operands({constant}) {};
   inline Expression(const Variable& variable) : _operator(Operator::none), operands({std::ref(variable)}) {};
-  inline Expression(Operator _operator, const std::vector< std::variant< size_t, double, std::reference_wrapper<const CP::Variable>, Expression> >& operands) : _operator(_operator), operands(operands) {};
+  inline Expression(Operator _operator, const std::vector< Operand >& operands) : _operator(_operator), operands(operands) {};
 
   inline Expression operator-() const { return Expression(Operator::negate, {*this}); };
   inline Expression operator!() const { return Expression(Operator::logical_not, {*this}); };
@@ -489,7 +490,7 @@ struct Expression {
   };
   
   Operator _operator;
-  std::vector< std::variant< size_t, double, std::reference_wrapper<const CP::Variable>, Expression> > operands;
+  std::vector< Operand > operands;
   static std::vector<std::string> customOperators;
   inline static size_t getCustomIndex(std::string name) {
     for ( size_t i = 0; i < customOperators.size(); i++) {
@@ -690,7 +691,7 @@ Expression customOperator(const std::string& name, Terms&&... terms) {
     "CP: All terms must be a number, variable, or expression"
   );
 
-  std::vector< std::variant< size_t, double, std::reference_wrapper<const CP::Variable>, Expression> > operands;
+  std::vector< Operand > operands;
 
   operands.push_back( Expression::getCustomIndex(name) );
 
@@ -725,7 +726,7 @@ Expression min(Terms&&... terms) {
 
 
 Expression if_then_else(Expression condition, Expression ifExpression, Expression elseExpression) {
-  std::vector< std::variant< size_t, double, std::reference_wrapper<const CP::Variable>, Expression> > operands;
+  std::vector< Operand > operands;
 
   operands.push_back( Expression::getCustomIndex("if_then_else") );
   operands.push_back(std::move(condition));
@@ -750,7 +751,7 @@ using Cases = std::vector< std::pair<Expression, Expression> >;
  * ```
  */
 Expression n_ary_if(Cases cases, Expression elseExpression) {
-  std::vector< std::variant< size_t, double, std::reference_wrapper<const CP::Variable>, Expression> > operands;
+  std::vector< Operand > operands;
 
   operands.push_back( Expression::getCustomIndex("n_ary_if") );
   for ( auto& [condition,expression] : cases ) {
