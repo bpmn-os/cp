@@ -299,8 +299,7 @@ struct Expression {
   inline std::string stringify() const {
     std::string result;
 
-    auto stringify_unary = [&](const std::string& op, const Operand& term) -> std::string {
-//      auto& term = operands.front();
+    auto stringify_unary = [](const std::string& op, const Operand& term) -> std::string {
       std::string result = op;
       if (std::holds_alternative<double>(term)) {
         auto constant = std::get<double>(term);
@@ -320,9 +319,7 @@ struct Expression {
       return result;
     };
     
-    auto stringify_binary = [&](const Operand& lhs, const std::string& op, const Operand& rhs) -> std::string {
-//      auto& lhs = operands.front();
-//      auto& rhs = operands.back();
+    auto stringify_binary = [](const Operand& lhs, const std::string& op, const Operand& rhs) -> std::string {
       std::string result;
       if (std::holds_alternative<double>(lhs)) {
         auto constant = std::get<double>(lhs);
@@ -334,7 +331,7 @@ struct Expression {
       }
       else if (std::holds_alternative<Expression>(lhs)) {
         auto& expression = std::get<Expression>(lhs);
-        if ( (int)_operator < (int)Operator::less_than ) {
+        if ( expression._operator != Operator::custom && op.front() != '<' && op.front() != '>' && op != "==" && op != "!="  ) {
           result += "( " + expression.stringify() + " )";
         }
         else {
@@ -355,7 +352,7 @@ struct Expression {
       }
       else if (std::holds_alternative<Expression>(rhs)) {
         auto& expression = std::get<Expression>(rhs);
-        if ( (int)_operator < (int)Operator::less_than && expression._operator != Operator::custom ) {
+        if ( expression._operator != Operator::custom && op.front() != '<' && op.front() != '>' && op != "==" && op != "!="  ) {
           result += "( " + expression.stringify() + " )";
         }
         else {
