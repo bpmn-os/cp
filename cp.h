@@ -491,7 +491,7 @@ struct Expression {
   
   Operator _operator;
   std::vector< Operand > operands;
-  static std::vector<std::string> customOperators;
+  inline static std::vector<std::string> customOperators = {};
   inline static size_t getCustomIndex(std::string name) {
     for ( size_t i = 0; i < customOperators.size(); i++) {
       if ( customOperators[i] == name ) {
@@ -503,7 +503,6 @@ struct Expression {
   } 
 };
 
-std::vector<std::string> Expression::customOperators = {};
 std::optional<std::pair<Expression, Expression>> isImplication( const Expression& expression ) {
   if (
     expression._operator == Expression::Operator::logical_or &&
