@@ -3,6 +3,11 @@
 
 #include "cp.h"
 
+#define USE_LIMEX
+#ifdef USE_LIMEX
+  #include "limex_callables.h"
+#endif 
+
 int main()
 {
   std::cout << ("Create model.") << std::endl;
@@ -42,7 +47,7 @@ int main()
 
   assert( CP::n_ary_if( {{y, x}, {!y, 5}}, 3 * z ).stringify() == "n_ary_if( y, x, !y, 5.00, 3.00 * z )");
   auto& v = model.addVariable(CP::Variable::Type::INTEGER, "v", r + CP::n_ary_if( { {y, x}, {!y, 5} }, 3 * z ) );
-std::cout << v.stringify() << std::endl;  
+//std::cout << v.stringify() << std::endl;  
   assert( v.stringify() == "v := r + n_ary_if( y, x, !y, 5.00, 3.00 * z )");
 
   auto& q = model.addVariable(CP::Variable::Type::BOOLEAN, "q", (x < z) );
@@ -76,6 +81,7 @@ std::cout << v.stringify() << std::endl;
   auto c2 = model.addConstraint( x == z );
   assert( c2.stringify() == "x == z");
   assert( c2._operator == CP::Expression::Operator::equal );
+
   auto c3 = model.addConstraint( true + x <= 3 * z );
   assert( c3.stringify() == "1.00 + x <= 3.00 * z");
   assert( c3._operator == CP::Expression::Operator::less_or_equal );
@@ -95,8 +101,33 @@ std::cout << v.stringify() << std::endl;
   else {
     assert(!"Error");
   }
-
   std::cout << model.stringify() << std::endl;
+
+
+#ifdef USE_LIMEX
+
+  LIMEX::Expression<CP::Expression>::createBuiltInCallables();
+  auto l1 = LIMEX::Expression<CP::Expression>("z not in {3, abs(x), y + 5}");
+//std::cout << "LIMEX: " << l1.stringify() << std::endl;
+  auto e1 = l1.evaluate({z, x, y});
+//std::cout << "CP: " << e1.stringify() << std::endl;
+  assert( e1.stringify() == "n_ary_if( z == 3.00, 0.00, z == if_then_else( x >= 0.00, x, -( x ) ), 0.00, z == ( y ) + ( 5.00 ), 0.00, 1.00 )" );
+
+  auto l2 = LIMEX::Expression<CP::Expression>("min{3, x, y + 5}");
+  auto e2 = l2.evaluate( {x, y} );
+//std::cout << "CP: " << e2.stringify() << std::endl;
+  assert( e2.stringify() == "min( 3.00, x, ( y ) + ( 5.00 ) )" );
+
+  auto l3 = LIMEX::Expression<CP::Expression>("w := z[v]");
+//std::cout << "LIMEX: " << l3.stringify() << std::endl;
+//for ( auto variable : l3.getVariables() ) std::cerr << variable << std::endl; 
+  assert( !l3.getVariables().empty() && l3.getVariables().front() == "v" );
+  assert( l3.getTarget() && l3.getTarget().value() == "w" );
+  auto e3 = l3.evaluate({v},{ {x, y} });
+//std::cout << "CP: " << e3.stringify() << std::endl;
+  assert( e3.stringify() == "n_ary_if( v == 1.00, x, v == 2.00, y, 0.00 )" );
+#endif 
+
   return 0;
 }
 
