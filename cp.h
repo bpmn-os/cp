@@ -299,27 +299,31 @@ struct Expression {
   inline std::string stringify() const {
     std::string result;
 
-    auto stringify_unary = [&](const std::string& op) {
-      auto& term = operands.front();
+    auto stringify_unary = [&](const std::string& op, const Operand& term) -> std::string {
+//      auto& term = operands.front();
+      std::string result = op;
       if (std::holds_alternative<double>(term)) {
         auto constant = std::get<double>(term);
-        result += op + ( constant < -std::numeric_limits<double>::epsilon() ? std::format("{:.2f}", constant) : std::format("{:.2f}", std::abs(constant)) );
+        result += ( constant < -std::numeric_limits<double>::epsilon() ? std::format("{:.2f}", constant) : std::format("{:.2f}", std::abs(constant)) );
       }
       else if (std::holds_alternative<std::reference_wrapper<const CP::Variable>>(term)) {
         auto& variable = std::get<std::reference_wrapper<const CP::Variable>>(term).get();
-        result += op + variable.name;
+        result += variable.name;
       }
       else if ( std::holds_alternative<Expression>(term) ) {
         auto& expression = std::get<Expression>(term);
-        result += op + "( " + expression.stringify() + " )";
+        result += "( " + expression.stringify() + " )";
       }
       else {
         throw std::logic_error("CP: unexpected operand for unaray operator " + op);
       }
+      return result;
     };
-    auto stringify_binary = [&](const std::string& op) {
-      auto& lhs = operands.front();
-      auto& rhs = operands.back();
+    
+    auto stringify_binary = [&](const Operand& lhs, const std::string& op, const Operand& rhs) -> std::string {
+//      auto& lhs = operands.front();
+//      auto& rhs = operands.back();
+      std::string result;
       if (std::holds_alternative<double>(lhs)) {
         auto constant = std::get<double>(lhs);
         result += ( constant < -std::numeric_limits<double>::epsilon() ? std::format("{:.2f}", constant) : std::format("{:.2f}", std::abs(constant)) );
@@ -361,7 +365,9 @@ struct Expression {
       else {
         throw std::logic_error("CP: unexpected operands for binary operator " + op);
       }
+      return result;
     };
+    
     switch (_operator) {
       case Operator::none:
       {
@@ -381,47 +387,42 @@ struct Expression {
       }
       case Operator::negate:
       {
-        stringify_unary("-");
+        result += stringify_unary("-", operands[0]);
         break;
       }
       case Operator::logical_not:
       {
-        stringify_unary("!");
+        result += stringify_unary("!", operands[0]);
         break;
       }
       case Operator::logical_and:
       {
-        stringify_binary("&&");
+        result += stringify_binary(operands[0], "&&", operands[1]);
         break;
       }
       case Operator::logical_or:
       {
-        stringify_binary("||");
+        result += stringify_binary(operands[0], "||", operands[1]);
         break;
       }
       case Operator::add:
       {
-        stringify_binary("+");
+        result += stringify_binary(operands[0], "+", operands[1]);
         break;
       }
       case Operator::subtract:
       {
-        stringify_binary("-");
+        result += stringify_binary(operands[0], "-", operands[1]);
         break;
       }
       case Operator::multiply:
       {
-        stringify_binary("*");
+        result += stringify_binary(operands[0], "*", operands[1]);
         break;
       }
       case Operator::divide:
       {
-        stringify_binary("/");
-        break;
-      }
-      case Operator::less_than:
-      {
-        stringify_binary("<");
+        result += stringify_binary(operands[0], "/", operands[1]);
         break;
       }
       case Operator::custom:
@@ -456,29 +457,34 @@ struct Expression {
         result += ")";
         break;
       }
+      case Operator::less_than:
+      {
+        result += stringify_binary(operands[0], "<", operands[1]);
+        break;
+      }
       case Operator::less_or_equal:
       {
-        stringify_binary("<=");
+        result += stringify_binary(operands[0], "<=", operands[1]);
         break;
       }
       case Operator::greater_than:
       {
-        stringify_binary(">");
+        result += stringify_binary(operands[0], ">", operands[1]);
         break;
       }
       case Operator::greater_or_equal:
       {
-        stringify_binary(">=");
+        result += stringify_binary(operands[0], ">=", operands[1]);
         break;
       }
       case Operator::equal:
       {
-        stringify_binary("==");
+        result += stringify_binary(operands[0], "==", operands[1]);
         break;
       }
       case Operator::not_equal:
       {
-        stringify_binary("!=");
+        result += stringify_binary(operands[0], "!=", operands[1]);
         break;
       }
       default:
