@@ -296,200 +296,120 @@ struct Expression {
 
   inline Expression implies(const Expression& expression) const { return !(*this) || expression; };
 
-  inline std::string stringify() const {
+  inline static std::string stringify(const Operand& term, bool parenthesize = true) {
     std::string result;
-
-    auto stringify_unary = [](const std::string& op, const Operand& term) -> std::string {
-      std::string result = op;
-      if (std::holds_alternative<double>(term)) {
-        auto constant = std::get<double>(term);
-        result += ( constant < -std::numeric_limits<double>::epsilon() ? std::format("{:.2f}", constant) : std::format("{:.2f}", std::abs(constant)) );
-      }
-      else if (std::holds_alternative<std::reference_wrapper<const CP::Variable>>(term)) {
-        auto& variable = std::get<std::reference_wrapper<const CP::Variable>>(term).get();
-        result += variable.name;
-      }
-      else if ( std::holds_alternative<Expression>(term) ) {
-        auto& expression = std::get<Expression>(term);
+    if (std::holds_alternative<double>(term)) {
+      auto constant = std::get<double>(term);
+      result += std::format("{:.2f}", constant);
+    }
+    else if (std::holds_alternative<std::reference_wrapper<const CP::Variable>>(term)) {
+      auto& variable = std::get<std::reference_wrapper<const CP::Variable>>(term).get();
+      result += variable.name;
+    }
+    else if ( std::holds_alternative<Expression>(term) ) {
+      auto& expression = std::get<Expression>(term);
+      if ( expression._operator != Operator::custom && parenthesize ) {
         result += "( " + expression.stringify() + " )";
       }
       else {
-        throw std::logic_error("CP: unexpected operand for unaray operator " + op);
+        result += expression.stringify();
       }
-      return result;
-    };
-    
-    auto stringify_binary = [](const Operand& lhs, const std::string& op, const Operand& rhs) -> std::string {
-      std::string result;
-      if (std::holds_alternative<double>(lhs)) {
-        auto constant = std::get<double>(lhs);
-        result += ( constant < -std::numeric_limits<double>::epsilon() ? std::format("{:.2f}", constant) : std::format("{:.2f}", std::abs(constant)) );
-      }
-      else if (std::holds_alternative<std::reference_wrapper<const CP::Variable>>(lhs)) {
-        auto& variable = std::get<std::reference_wrapper<const CP::Variable>>(lhs).get();
-        result += variable.name;
-      }
-      else if (std::holds_alternative<Expression>(lhs)) {
-        auto& expression = std::get<Expression>(lhs);
-        if ( expression._operator != Operator::custom && op.front() != '<' && op.front() != '>' && op != "==" && op != "!="  ) {
-          result += "( " + expression.stringify() + " )";
-        }
-        else {
-          result += expression.stringify();
-        }
-      }
-      else {
-        throw std::logic_error("CP: unexpected operands for binary operator " + op);
-      }
-      result += " " + op + " ";
-      if (std::holds_alternative<double>(rhs)) {
-        auto constant = std::get<double>(rhs);
-        result += ( constant < -std::numeric_limits<double>::epsilon() ? std::format("{:.2f}", constant) : std::format("{:.2f}", std::abs(constant)) );
-      }
-      else if (std::holds_alternative<std::reference_wrapper<const CP::Variable>>(rhs)) {
-        auto& variable = std::get<std::reference_wrapper<const CP::Variable>>(rhs).get();
-        result += variable.name;
-      }
-      else if (std::holds_alternative<Expression>(rhs)) {
-        auto& expression = std::get<Expression>(rhs);
-        if ( expression._operator != Operator::custom && op.front() != '<' && op.front() != '>' && op != "==" && op != "!="  ) {
-          result += "( " + expression.stringify() + " )";
-        }
-        else {
-          result += expression.stringify();
-        }
-      }
-      else {
-        throw std::logic_error("CP: unexpected operands for binary operator " + op);
-      }
-      return result;
-    };
-    
+    }
+    else {
+      throw std::logic_error("CP: unexpected operand");
+    }
+    return result;
+  }
+  
+  inline static std::string stringify(const std::string& op, const Operand& term) {
+    return op + stringify(term);
+  }
+
+
+  inline static std::string stringify(const Operand& lhs, const std::string& op, const Operand& rhs) {
+    bool parenthesize = ( op != "<" && op != ">" && op != "<=" && op != ">=" && op != "==" && op != "!="); 
+    return stringify(lhs, parenthesize) + " " + op + " " + stringify(rhs, parenthesize);
+  };
+
+  inline std::string stringify() const {
     switch (_operator) {
       case Operator::none:
       {
-        auto& term = operands.front();
-        if ( std::holds_alternative<double>(term) ) {
-          auto constant = std::get<double>(term);
-          result += ( constant < -std::numeric_limits<double>::epsilon() ? std::format("{:.2f}", constant) : std::format("{:.2f}", std::abs(constant)) );
-        }
-        else if ( std::holds_alternative<std::reference_wrapper<const CP::Variable>>(term) ) {
-          auto& variable = std::get<std::reference_wrapper<const CP::Variable>>(term).get();
-          result += variable.name;
-        }
-        else {
-          throw std::logic_error("CP: unexpected operand");
-        }
-        break;
+        return stringify(operands[0]);
       }
       case Operator::negate:
       {
-        result += stringify_unary("-", operands[0]);
-        break;
+        return stringify("-", operands[0]);
       }
       case Operator::logical_not:
       {
-        result += stringify_unary("!", operands[0]);
-        break;
+        return stringify("!", operands[0]);
       }
       case Operator::logical_and:
       {
-        result += stringify_binary(operands[0], "&&", operands[1]);
-        break;
+        return stringify(operands[0], "&&", operands[1]);
       }
       case Operator::logical_or:
       {
-        result += stringify_binary(operands[0], "||", operands[1]);
-        break;
+        return stringify(operands[0], "||", operands[1]);
       }
       case Operator::add:
       {
-        result += stringify_binary(operands[0], "+", operands[1]);
-        break;
+        return stringify(operands[0], "+", operands[1]);
       }
       case Operator::subtract:
       {
-        result += stringify_binary(operands[0], "-", operands[1]);
-        break;
+        return stringify(operands[0], "-", operands[1]);
       }
       case Operator::multiply:
       {
-        result += stringify_binary(operands[0], "*", operands[1]);
-        break;
+        return stringify(operands[0], "*", operands[1]);
       }
       case Operator::divide:
       {
-        result += stringify_binary(operands[0], "/", operands[1]);
-        break;
+        return stringify(operands[0], "/", operands[1]);
       }
       case Operator::custom:
       {
         auto index = std::get<size_t>(operands.front());
-        result += customOperators[index] + "( ";
+        std::string result = customOperators[index] + "( ";
         for ( size_t i = 1; i < operands.size(); i++) {
-          if (std::holds_alternative<double>(operands[i])) {
-            auto constant = std::get<double>(operands[i]);
-            result += ( constant < -std::numeric_limits<double>::epsilon() ? std::format("{:.2f}", constant) : std::format("{:.2f}", std::abs(constant)) );
-          }
-          else if (std::holds_alternative<std::reference_wrapper<const CP::Variable>>(operands[i])) {
-            auto& variable = std::get<std::reference_wrapper<const CP::Variable>>(operands[i]).get();
-            result += variable.name;
-          }
-          else if (std::holds_alternative<Expression>(operands[i])) {
-            auto& expression = std::get<Expression>(operands[i]);
-            if ( (int)_operator < (int)Operator::less_than ) {
-              result += expression.stringify();
-            }
-            else {
-              result += expression.stringify();
-            }
-          }
-          else {
-            throw std::logic_error("CP: unexpected operands for custom operator " + customOperators[index]);
-          }
-          result += ", ";
+          result += stringify(operands[i],false) + ", ";
         }
         result.pop_back();
         result.back() = ' ';
         result += ")";
-        break;
+        return result;
       }
       case Operator::less_than:
       {
-        result += stringify_binary(operands[0], "<", operands[1]);
-        break;
+        return stringify(operands[0], "<", operands[1]);
       }
       case Operator::less_or_equal:
       {
-        result += stringify_binary(operands[0], "<=", operands[1]);
-        break;
+        return stringify(operands[0], "<=", operands[1]);
       }
       case Operator::greater_than:
       {
-        result += stringify_binary(operands[0], ">", operands[1]);
-        break;
+        return stringify(operands[0], ">", operands[1]);
       }
       case Operator::greater_or_equal:
       {
-        result += stringify_binary(operands[0], ">=", operands[1]);
-        break;
+        return stringify(operands[0], ">=", operands[1]);
       }
       case Operator::equal:
       {
-        result += stringify_binary(operands[0], "==", operands[1]);
-        break;
+        return stringify(operands[0], "==", operands[1]);
       }
       case Operator::not_equal:
       {
-        result += stringify_binary(operands[0], "!=", operands[1]);
-        break;
+        return stringify(operands[0], "!=", operands[1]);
       }
       default:
       {
         throw std::logic_error("CP: unexpected operator");
       }
     }
-    return result;
   };
   
   Operator _operator;
