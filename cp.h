@@ -503,7 +503,7 @@ struct Expression {
   } 
 };
 
-std::optional<std::pair<Expression, Expression>> isImplication( const Expression& expression ) {
+inline std::optional<std::pair<Expression, Expression>> isImplication( const Expression& expression ) {
   if (
     expression._operator == Expression::Operator::logical_or &&
     expression.operands.size() == 2 &&
@@ -724,7 +724,7 @@ Expression min(Terms&&... terms) {
 };
 
 
-Expression if_then_else(Expression condition, Expression ifExpression, Expression elseExpression) {
+inline Expression if_then_else(Expression condition, Expression ifExpression, Expression elseExpression) {
   std::vector< Operand > operands;
 
   operands.push_back( Expression::getCustomIndex("if_then_else") );
@@ -749,7 +749,7 @@ using Cases = std::vector< std::pair<Expression, Expression> >;
  * end if
  * ```
  */
-Expression n_ary_if(Cases cases, Expression elseExpression) {
+inline Expression n_ary_if(Cases cases, Expression elseExpression) {
   std::vector< Operand > operands;
 
   operands.push_back( Expression::getCustomIndex("n_ary_if") );
