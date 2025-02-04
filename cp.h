@@ -644,7 +644,7 @@ Expression max(Terms&&... terms) {
   return customOperator("max", std::forward<Terms>(terms)...);
 };
 
-Expression max(std::vector<Expression> terms) {
+inline Expression max(std::vector<Expression> terms) {
   if (terms.empty()) {
     throw std::invalid_argument("CP: max requires at least one element");
   }
@@ -671,12 +671,12 @@ Expression min(Terms&&... terms) {
   return customOperator("min", std::forward<Terms>(terms)...);
 };
 
-Expression min(std::vector<Expression> terms) {
+inline Expression min(std::vector<Expression> terms) {
   if (terms.empty()) {
     throw std::invalid_argument("CP: min requires at least one element");
   }
 
-  // Construct operands with "max" identifier
+  // Construct operands with "min" identifier
   std::vector<Operand> operands;
   operands.reserve(terms.size() + 1);
   operands.push_back(Expression::getCustomIndex("min"));
