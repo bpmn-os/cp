@@ -605,10 +605,10 @@ private:
 
 template<typename... Terms>
 Expression customOperator(const std::string& name, Terms&&... terms) {
-  // Static assert to ensure all terms are either arithmetic, CP::Variable, or Expression
+  // Static assert to ensure all terms are either arithmetic, Variable, or Expression
   static_assert(((
     std::is_arithmetic_v<std::decay_t<Terms>> || 
-    std::is_same_v<std::decay_t<Terms>, CP::Variable> ||
+    std::is_same_v<std::decay_t<Terms>, Variable> ||
     std::is_same_v<std::decay_t<Terms>, Expression>) && ...),
     "CP: All terms must be a number, variable, or expression"
   );
@@ -636,16 +636,58 @@ Expression customOperator(const std::string& name, Terms&&... terms) {
   return Expression(Expression::Operator::custom, std::move(operands));
 }
 
-template<typename... Terms>
+template<
+  typename... Terms, 
+  typename = std::enable_if_t< !std::disjunction_v< std::is_same< std::decay_t<Terms>, std::vector<Expression> >...> >
+>
 Expression max(Terms&&... terms) {
   return customOperator("max", std::forward<Terms>(terms)...);
 };
 
-template<typename... Terms>
+Expression max(std::vector<Expression> terms) {
+  if (terms.empty()) {
+    throw std::invalid_argument("CP: max requires at least one element");
+  }
+
+  // Construct operands with "max" identifier
+  std::vector<Operand> operands;
+  operands.reserve(terms.size() + 1);
+  operands.push_back(Expression::getCustomIndex("max"));
+
+  // Move terms into operands
+  for (auto& term : terms) {
+    operands.push_back(std::move(term));
+  }
+
+  return Expression(Expression::Operator::custom, std::move(operands));
+}
+
+
+template<
+  typename... Terms, 
+  typename = std::enable_if_t< !std::disjunction_v< std::is_same< std::decay_t<Terms>, std::vector<Expression> >...> >
+>
 Expression min(Terms&&... terms) {
   return customOperator("min", std::forward<Terms>(terms)...);
 };
 
+Expression min(std::vector<Expression> terms) {
+  if (terms.empty()) {
+    throw std::invalid_argument("CP: min requires at least one element");
+  }
+
+  // Construct operands with "max" identifier
+  std::vector<Operand> operands;
+  operands.reserve(terms.size() + 1);
+  operands.push_back(Expression::getCustomIndex("min"));
+
+  // Move terms into operands
+  for (auto& term : terms) {
+    operands.push_back(std::move(term));
+  }
+
+  return Expression(Expression::Operator::custom, std::move(operands));
+}
 
 inline Expression if_then_else(Expression condition, Expression ifExpression, Expression elseExpression) {
   std::vector< Operand > operands;
