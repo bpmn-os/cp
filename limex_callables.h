@@ -9,10 +9,8 @@
 
 // Define built-in functions
 template <>
-void LIMEX::Expression<CP::Expression>::createBuiltInCallables() {
-  if ( callables.size() >= (size_t)BUILTIN::BUILTINS ) return;
-
-  addCallable(
+void LIMEX::Callables<CP::Expression>::initialize() {
+  add(
     std::string("if_then_else"), 
     [](const std::vector<CP::Expression>& args)
     {
@@ -21,7 +19,7 @@ void LIMEX::Expression<CP::Expression>::createBuiltInCallables() {
     }
   );
 
-  addCallable(
+  add(
     std::string("n_ary_if"), 
     [](const std::vector<CP::Expression>& args)
     {
@@ -32,7 +30,7 @@ void LIMEX::Expression<CP::Expression>::createBuiltInCallables() {
     }
   );
 
-  addCallable(
+  add(
     std::string("abs"), 
     [](const std::vector<CP::Expression>& args)
     {
@@ -41,7 +39,7 @@ void LIMEX::Expression<CP::Expression>::createBuiltInCallables() {
     }
   );
 
-  addCallable(
+  add(
     std::string("pow"), 
     [](const std::vector<CP::Expression>& args)
     {
@@ -50,7 +48,7 @@ void LIMEX::Expression<CP::Expression>::createBuiltInCallables() {
     }
   );
 
-  addCallable(
+  add(
     std::string("sqrt"), 
     [](const std::vector<CP::Expression>& args)
     {
@@ -59,7 +57,7 @@ void LIMEX::Expression<CP::Expression>::createBuiltInCallables() {
     }
   );
 
-  addCallable(
+  add(
     std::string("cbrt"), 
     [](const std::vector<CP::Expression>& args)
     {
@@ -68,7 +66,7 @@ void LIMEX::Expression<CP::Expression>::createBuiltInCallables() {
     }
   );
 
-  addCallable(
+  add(
     std::string("sum"), 
     [](const std::vector<CP::Expression>& args)
     {
@@ -80,7 +78,7 @@ void LIMEX::Expression<CP::Expression>::createBuiltInCallables() {
     }
   );
 
-  addCallable(
+  add(
     std::string("avg"), 
     [](const std::vector<CP::Expression>& args)
     {
@@ -93,7 +91,15 @@ void LIMEX::Expression<CP::Expression>::createBuiltInCallables() {
     }
   );
 
-  addCallable(
+  add(
+    std::string("count"), 
+    [](const std::vector<CP::Expression>& args)
+    {
+      return args.size();
+    }
+  );
+  
+  add(
     std::string("min"), 
     [](const std::vector<CP::Expression>& args)
     {
@@ -104,7 +110,7 @@ void LIMEX::Expression<CP::Expression>::createBuiltInCallables() {
     }
   );
 
-  addCallable(
+  add(
     std::string("max"), 
     [](const std::vector<CP::Expression>& args)
     {
@@ -115,7 +121,7 @@ void LIMEX::Expression<CP::Expression>::createBuiltInCallables() {
     }
   );
 
-  addCallable(
+  add(
     std::string("element_of"), 
     [](const std::vector<CP::Expression>& args)
     {
@@ -128,7 +134,7 @@ void LIMEX::Expression<CP::Expression>::createBuiltInCallables() {
     }
   );
 
-  addCallable(
+  add(
     std::string("not_element_of"), 
     [](const std::vector<CP::Expression>& args)
     {

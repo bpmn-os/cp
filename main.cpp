@@ -41,6 +41,10 @@ int main()
   
   assert( CP::max( 0.0, x, 3 * z ).stringify() == "max( 0.00, x, 3.00 * z )");
   assert( CP::min( 0, x, 3 * z ).stringify() == "min( 0.00, x, 3.00 * z )");
+  
+  std::vector<CP::Expression> terms = { 0.0, x, 3 * z };
+  assert( CP::max( terms ).stringify() == "max( 0.00, x, 3.00 * z )");
+  assert( CP::min( terms ).stringify() == "min( 0.00, x, 3.00 * z )");
 
   assert( CP::if_then_else( y, x, 3 * z ).stringify() == "if_then_else( y, x, 3.00 * z )");
   auto& r = model.addVariable(CP::Variable::Type::BOOLEAN, "r", CP::if_then_else( y, x, 3 * z ) );
@@ -106,19 +110,19 @@ int main()
 
 #ifdef USE_LIMEX
 
-  LIMEX::Expression<CP::Expression>::createBuiltInCallables();
-  auto l1 = LIMEX::Expression<CP::Expression>("z not in {3, abs(x), y + 5}");
+  LIMEX::Callables<CP::Expression> callables;
+  auto l1 = LIMEX::Expression<CP::Expression>("z not in {3, abs(x), y + 5}", callables);
 //std::cout << "LIMEX: " << l1.stringify() << std::endl;
   auto e1 = l1.evaluate({z, x, y});
 //std::cout << "CP: " << e1.stringify() << std::endl;
   assert( e1.stringify() == "n_ary_if( z == 3.00, 0.00, z == if_then_else( x >= 0.00, x, -( x ) ), 0.00, z == ( y ) + ( 5.00 ), 0.00, 1.00 )" );
 
-  auto l2 = LIMEX::Expression<CP::Expression>("min{3, x, y + 5}");
+  auto l2 = LIMEX::Expression<CP::Expression>("min{3, x, y + 5}", callables);
   auto e2 = l2.evaluate( {x, y} );
 //std::cout << "CP: " << e2.stringify() << std::endl;
   assert( e2.stringify() == "min( 3.00, x, ( y ) + ( 5.00 ) )" );
 
-  auto l3 = LIMEX::Expression<CP::Expression>("w := z[v]");
+  auto l3 = LIMEX::Expression<CP::Expression>("w := z[v]", callables);
 //std::cout << "LIMEX: " << l3.stringify() << std::endl;
 //for ( auto variable : l3.getVariables() ) std::cerr << variable << std::endl; 
   assert( !l3.getVariables().empty() && l3.getVariables().front() == "v" );
