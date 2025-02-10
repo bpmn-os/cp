@@ -838,214 +838,234 @@ inline double avg(const Solution* solution, const std::vector<Operand>& operands
  */
 class Solution {
 public:
-  Solution(const Model& model) : model(model) {
-    addEvaluator("max", static_cast<double(*)(const Solution*, const std::vector<Operand>&)>(max));
-    addEvaluator("min", static_cast<double(*)(const Solution*, const std::vector<Operand>&)>(min));
-    addEvaluator("if_then_else", [](const Solution* solution, const std::vector<Operand>& operands) { 
-      return solution->evaluate(operands[1]) ? solution->evaluate(operands[2]) : solution->evaluate(operands[3]);
-    });
-    addEvaluator("n_ary_if", static_cast<double(*)(const Solution*, const std::vector<Operand>&)>(n_ary_if));
-    addEvaluator("sum", static_cast<double(*)(const Solution*, const std::vector<Operand>&)>(sum));
-    addEvaluator("avg", static_cast<double(*)(const Solution*, const std::vector<Operand>&)>(avg));
-    addEvaluator("count", []([[maybe_unused]]const Solution* solution, const std::vector<Operand>& operands) { 
-      return operands.size()-1;
-    });
-    addEvaluator("pow", [](const Solution* solution, const std::vector<Operand>& operands) { 
-      return std::pow(solution->evaluate(operands[1]), solution->evaluate(operands[2]));
-    });
-  };
+  Solution(const Model& model);
   const Model& model;
   inline void setObjectiveValue(std::optional<double> value) { _objective = value; };
   inline std::optional<double> getObjectiveValue() const { return _objective; };
-  inline void setSequenceValues(const Sequence& sequence, std::vector<double> values) {
-    if ( sequence.variables.size() != values.size() ) {
-      throw std::invalid_argument("CP: illegal number of sequence values");
-    }
-    for (unsigned int i = 0; i < values.size(); i++) {
-      _variableValues[&sequence.variables[i]] = values[i];
-    }
-    _sequenceValues[&sequence] = std::move(values);
-  };
-  inline const std::vector<double>& getSequenceValues(const Sequence& sequence) const {
-    return _sequenceValues.at(&sequence);
-  };
-  inline void setVariableValue(const Variable& variable, double value) {
-    _variableValues[&variable] = value;
-  };
-  inline double getVariableValue(const Variable& variable) const {
-    return _variableValues.at(&variable);
-  };
+  inline void setSequenceValues(const Sequence& sequence, std::vector<double> values);
 
-  inline std::string validate() const {
-    std::string result;
-    for (const auto& constraint : model.getConstraints()) {
-      if ( ! evaluate(constraint) ) {
-        result += "infeasible: " + constraint.stringify() + "\n";        
-      }
-    }
-    auto objective = evaluate( model.getObjective() );
-    if ( !_objective.has_value() ) {
-      result +=  "missing objective, expected: " + std::format("{:.6f}", objective);        
-    }
-    else if ( 
-      _objective.value() < objective - std::numeric_limits<double>::epsilon() ||
-      _objective.value() > objective + std::numeric_limits<double>::epsilon()
-    )
-    {
-      result +=  "wrong objective, expected: " + std::format("{:.6f}", objective);        
-    }
-    else {
-      result +=  "objective: " + std::format("{:.6f}", objective);        
-    }
-    return result;
-  };
-  
-  inline double evaluate(const Operand& term) const {
-    if (std::holds_alternative<double>(term)) {
-      return std::get<double>(term);
-    }
-    else if (std::holds_alternative<std::reference_wrapper<const CP::Variable>>(term)) {
-      auto& variable = std::get<std::reference_wrapper<const CP::Variable>>(term).get();
-      if ( variable.deducedFrom ) {
-        return evaluate(*variable.deducedFrom);
-      }
-      else if ( variable.lowerBound == variable.upperBound ) {
-        return variable.lowerBound;
-      }
-      return getVariableValue(variable);
-    }
-    else if ( std::holds_alternative<Expression>(term) ) {
-      auto& expression = std::get<Expression>(term);
-      return evaluate(expression);
-    }
-    else {
-      throw std::logic_error("CP: unexpected operand");
-    }
-  };
-  
-  inline double evaluate(const Expression& expression) const {
-    auto& operands = expression.operands;
-    using enum Expression::Operator;
-    switch (expression._operator) {
-      case none:
-      {
-        return evaluate(operands[0]);
-      }
-      case negate:
-      {
-        return -evaluate(operands[0]);
-      }
-      case logical_not:
-      {
-        return !evaluate(operands[0]);
-      }
-      case logical_and:
-      {
-        return evaluate(operands[0]) && evaluate(operands[1]);
-      }
-      case logical_or:
-      {
-        return evaluate(operands[0]) || evaluate(operands[1]);
-      }
-      case add:
-      {
-        return evaluate(operands[0]) + evaluate(operands[1]);
-      }
-      case subtract:
-      {
-        return evaluate(operands[0]) - evaluate(operands[1]);
-      }
-      case multiply:
-      {
-        return evaluate(operands[0]) * evaluate(operands[1]);
-      }
-      case divide:
-      {
-        return evaluate(operands[0]) / evaluate(operands[1]);
-      }
-      case custom:
-      {
-        auto index = std::get<size_t>(operands.front());
-        return _customEvaluators.at(index)(this,operands);
-      }
-      case less_than:
-      {
-        return (evaluate(operands[0]) < evaluate(operands[1]));
-      }
-      case less_or_equal:
-      {
-        return (evaluate(operands[0]) <= evaluate(operands[1]));
-      }
-      case greater_than:
-      {
-        return (evaluate(operands[0]) > evaluate(operands[1]));
-      }
-      case greater_or_equal:
-      {
-        return (evaluate(operands[0]) >= evaluate(operands[1]));
-      }
-      case equal:
-      {
-        return (evaluate(operands[0]) == evaluate(operands[1]));
-      }
-      case not_equal:
-      {
-        return (evaluate(operands[0]) != evaluate(operands[1]));
-      }
-      default:
-      {
-        throw std::logic_error("CP: unexpected operator");
-      }
-    }
-  };
+  inline const std::vector<double>& getSequenceValues(const Sequence& sequence) const;
+  inline void setVariableValue(const Variable& variable, double value);
+  inline double getVariableValue(const Variable& variable) const;
 
-  inline void addEvaluator( const std::string& name, std::function< double(const Solution*, const std::vector<Operand>&) > implementation ) {
-    auto index = Expression::getCustomIndex(name);
-    if ( index >= _customEvaluators.size() ) {
-      _customEvaluators.resize(index+1);
-    }
-    _customEvaluators[index] = std::move(implementation);
-  }
+  inline void addEvaluator( const std::string& name, std::function< double(const Solution*, const std::vector<Operand>&) > implementation );
 
-  inline std::string stringify() const {
-    auto stringifyVariable = [&](const Variable& variable) {
-      std::string result = variable.name + " = ";
-      try {
-        result += std::to_string( evaluate(variable) ) + "\n";
-      }
-      catch (...) {
-        result += "n/a\n";
-      }
-      return result;
-    };
-    
-    std::string result;
+  inline double evaluate(const Operand& term) const;
+  inline double evaluate(const Expression& expression) const;
 
-    for ( auto& sequence : model.getSequences() ) {
-      for ( auto& variable : sequence.variables ) {
-        result += stringifyVariable(variable);
-      }
-    }
-
-    for ( auto& variable : model.getVariables()) {
-      result += stringifyVariable(variable);
-    }
-
-    for (const auto& indexedVariables : model.getIndexedVariables()) {
-      for ( auto& variable : indexedVariables ) {
-        result += stringifyVariable(variable);
-      }
-    }
-    result += "objective: " + (_objective.has_value() ? std::to_string(_objective.value()) : "n/a");
-    return result;
-  }
+  inline std::string validate() const;
+  inline std::string stringify() const;
 private:
   std::optional<double> _objective;
   std::unordered_map< const Sequence*, std::vector<double> > _sequenceValues;
   std::unordered_map< const Variable*, double > _variableValues;
-//  std::unordered_map< std::string, std::function<T(const std::vector< Operand >&)> > _customEvaluators;
   std::vector< std::function< double(const Solution*, const std::vector<Operand>&) > > _customEvaluators;
 };
+
+Solution::Solution(const Model& model) : model(model) {
+  addEvaluator("max", static_cast<double(*)(const Solution*, const std::vector<Operand>&)>(max));
+  addEvaluator("min", static_cast<double(*)(const Solution*, const std::vector<Operand>&)>(min));
+  addEvaluator("if_then_else", [](const Solution* solution, const std::vector<Operand>& operands) { 
+    return solution->evaluate(operands[1]) ? solution->evaluate(operands[2]) : solution->evaluate(operands[3]);
+  });
+  addEvaluator("n_ary_if", static_cast<double(*)(const Solution*, const std::vector<Operand>&)>(n_ary_if));
+  addEvaluator("sum", static_cast<double(*)(const Solution*, const std::vector<Operand>&)>(sum));
+  addEvaluator("avg", static_cast<double(*)(const Solution*, const std::vector<Operand>&)>(avg));
+  addEvaluator("count", []([[maybe_unused]]const Solution* solution, const std::vector<Operand>& operands) { 
+    return operands.size()-1;
+  });
+  addEvaluator("pow", [](const Solution* solution, const std::vector<Operand>& operands) { 
+    return std::pow(solution->evaluate(operands[1]), solution->evaluate(operands[2]));
+  });
+};
+
+inline void Solution::setSequenceValues(const Sequence& sequence, std::vector<double> values) {
+  if ( sequence.variables.size() != values.size() ) {
+    throw std::invalid_argument("CP: illegal number of sequence values");
+  }
+  for (unsigned int i = 0; i < values.size(); i++) {
+    _variableValues[&sequence.variables[i]] = values[i];
+  }
+  _sequenceValues[&sequence] = std::move(values);
+};
+
+inline const std::vector<double>& Solution::getSequenceValues(const Sequence& sequence) const {
+  return _sequenceValues.at(&sequence);
+};
+
+inline void Solution::setVariableValue(const Variable& variable, double value) {
+  _variableValues[&variable] = value;
+};
+
+inline double Solution::getVariableValue(const Variable& variable) const {
+  return _variableValues.at(&variable);
+};
+
+
+inline void Solution::addEvaluator( const std::string& name, std::function< double(const Solution*, const std::vector<Operand>&) > implementation ) {
+  auto index = Expression::getCustomIndex(name);
+  if ( index >= _customEvaluators.size() ) {
+    _customEvaluators.resize(index+1);
+  }
+  _customEvaluators[index] = std::move(implementation);
+}
+
+inline double Solution::evaluate(const Operand& term) const {
+  if (std::holds_alternative<double>(term)) {
+    return std::get<double>(term);
+  }
+  else if (std::holds_alternative<std::reference_wrapper<const CP::Variable>>(term)) {
+    auto& variable = std::get<std::reference_wrapper<const CP::Variable>>(term).get();
+    if ( variable.deducedFrom ) {
+      return evaluate(*variable.deducedFrom);
+    }
+    else if ( variable.lowerBound == variable.upperBound ) {
+      return variable.lowerBound;
+    }
+    return getVariableValue(variable);
+  }
+  else if ( std::holds_alternative<Expression>(term) ) {
+    auto& expression = std::get<Expression>(term);
+    return evaluate(expression);
+  }
+  else {
+    throw std::logic_error("CP: unexpected operand");
+  }
+};
+
+inline double Solution::evaluate(const Expression& expression) const {
+  auto& operands = expression.operands;
+  using enum Expression::Operator;
+  switch (expression._operator) {
+    case none:
+    {
+      return evaluate(operands[0]);
+    }
+    case negate:
+    {
+      return -evaluate(operands[0]);
+    }
+    case logical_not:
+    {
+      return !evaluate(operands[0]);
+    }
+    case logical_and:
+    {
+      return evaluate(operands[0]) && evaluate(operands[1]);
+    }
+    case logical_or:
+    {
+      return evaluate(operands[0]) || evaluate(operands[1]);
+    }
+    case add:
+    {
+      return evaluate(operands[0]) + evaluate(operands[1]);
+    }
+    case subtract:
+    {
+      return evaluate(operands[0]) - evaluate(operands[1]);
+    }
+    case multiply:
+    {
+      return evaluate(operands[0]) * evaluate(operands[1]);
+    }
+    case divide:
+    {
+      return evaluate(operands[0]) / evaluate(operands[1]);
+    }
+    case custom:
+    {
+      auto index = std::get<size_t>(operands.front());
+      return _customEvaluators.at(index)(this,operands);
+    }
+    case less_than:
+    {
+      return (evaluate(operands[0]) < evaluate(operands[1]));
+    }
+    case less_or_equal:
+    {
+      return (evaluate(operands[0]) <= evaluate(operands[1]));
+    }
+    case greater_than:
+    {
+      return (evaluate(operands[0]) > evaluate(operands[1]));
+    }
+    case greater_or_equal:
+    {
+      return (evaluate(operands[0]) >= evaluate(operands[1]));
+    }
+    case equal:
+    {
+      return (evaluate(operands[0]) == evaluate(operands[1]));
+    }
+    case not_equal:
+    {
+      return (evaluate(operands[0]) != evaluate(operands[1]));
+    }
+    default:
+    {
+      throw std::logic_error("CP: unexpected operator");
+    }
+  }
+};
+
+
+inline std::string Solution::validate() const {
+  std::string result;
+  for (const auto& constraint : model.getConstraints()) {
+    if ( ! evaluate(constraint) ) {
+      result += "infeasible: " + constraint.stringify() + "\n";        
+    }
+  }
+  auto objective = evaluate( model.getObjective() );
+  if ( !_objective.has_value() ) {
+    result +=  "missing objective, expected: " + std::format("{:.6f}", objective);        
+  }
+  else if ( 
+    _objective.value() < objective - std::numeric_limits<double>::epsilon() ||
+    _objective.value() > objective + std::numeric_limits<double>::epsilon()
+  )
+  {
+    result +=  "wrong objective, expected: " + std::format("{:.6f}", objective);        
+  }
+  else {
+    result +=  "objective: " + std::format("{:.6f}", objective);        
+  }
+  return result;
+};
+
+inline std::string Solution::stringify() const {
+  auto stringifyVariable = [&](const Variable& variable) {
+    std::string result = variable.name + " = ";
+    try {
+      result += std::to_string( evaluate(variable) ) + "\n";
+    }
+    catch (...) {
+      result += "n/a\n";
+    }
+    return result;
+  };
+    
+  std::string result;
+
+  for ( auto& sequence : model.getSequences() ) {
+    for ( auto& variable : sequence.variables ) {
+      result += stringifyVariable(variable);
+    }
+  }
+
+  for ( auto& variable : model.getVariables()) {
+    result += stringifyVariable(variable);
+  }
+
+  for (const auto& indexedVariables : model.getIndexedVariables()) {
+    for ( auto& variable : indexedVariables ) {
+      result += stringifyVariable(variable);
+    }
+  }
+  result += "objective: " + (_objective.has_value() ? std::to_string(_objective.value()) : "n/a");
+  return result;
+}
 
 inline double max(const Solution* solution, const std::vector<Operand>& operands) {
   double value = std::numeric_limits<double>::min();
