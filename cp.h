@@ -906,6 +906,9 @@ public:
     }
     else if (std::holds_alternative<std::reference_wrapper<const CP::Variable>>(term)) {
       auto& variable = std::get<std::reference_wrapper<const CP::Variable>>(term).get();
+      if ( variable.lowerBound == variable.upperBound ) {
+        return variable.lowerBound;
+      }
       if ( variable.deducedFrom ) {
         return evaluate(*variable.deducedFrom);
       }
