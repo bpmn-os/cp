@@ -137,6 +137,7 @@ int main()
   auto& X = solvedModel.addRealVariable("X");
   auto& Y = solvedModel.addRealVariable("Y");
   auto& Z = solvedModel.addRealVariable("Z");
+  [[maybe_unused]] auto& W = solvedModel.addRealVariable("W");
   auto expression = solvedModel.addConstraint( X <= min(Y, Z) );
   CP::Solution solution(solvedModel);
   solution.setVariableValue(X,1);

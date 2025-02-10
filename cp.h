@@ -1007,10 +1007,10 @@ public:
   inline std::string stringify() const {
     auto stringifyVariable = [&](const Variable& variable) {
       std::string result = variable.name + " = ";
-      if (_variableValues.contains(&variable)) {
-        result += std::to_string(_variableValues.at(&variable)) + "\n";
+      try {
+        result += std::to_string( evaluate(variable) ) + "\n";
       }
-      else {
+      catch (...) {
         result += "n/a\n";
       }
       return result;
