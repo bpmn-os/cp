@@ -151,6 +151,7 @@ int main()
   solution.setObjectiveValue(0);
   assert( solution.validate() == "objective: " + std::format("{:.6f}", 0.0));
 
+  std::cout << "Solution: \n" << solution.stringify() << std::endl;
   return 0;
 }
 

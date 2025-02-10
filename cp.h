@@ -9,7 +9,7 @@
 #pragma once
 
 #include <memory>
-#include <list>
+#include <deque>
 #include <vector>
 #include <limits>
 #include <string>
@@ -218,7 +218,7 @@ struct IndexedVariables {
     return result;
   }
 private:
-  std::list<Variable> _variables;
+  std::deque<Variable> _variables;
   reference_vector<Variable> _references;
 };
 
@@ -601,7 +601,7 @@ struct Sequence {
     return result;
   };
 private:
-  std::list<Variable> _variables;
+  std::deque<Variable> _variables;
 };
 
 /*******************************************
@@ -745,10 +745,10 @@ public:
   inline Model(ObjectiveSense objectiveSense = ObjectiveSense::FEASIBLE ) : objectiveSense(objectiveSense) {};
   inline ObjectiveSense getObjectiveSense() const { return objectiveSense; };
   inline const Expression& getObjective() const { return objective; };
-  inline const std::list< Variable >& getVariables() const { return variables; };
-  inline const std::list< IndexedVariables >& getIndexedVariables() const { return indexedVariables; };
-  inline const std::list< Expression >& getConstraints() const { return constraints; };
-  inline const std::list< Sequence >& getSequences() const { return sequences; };
+  inline const std::deque< Variable >& getVariables() const { return variables; };
+  inline const std::deque< IndexedVariables >& getIndexedVariables() const { return indexedVariables; };
+  inline const std::deque< Expression >& getConstraints() const { return constraints; };
+  inline const std::deque< Sequence >& getSequences() const { return sequences; };
 
   inline const Expression& setObjective(Expression objective) { this->objective = std::move(objective); return this->objective; };
 
@@ -816,10 +816,10 @@ public:
 private:  
   ObjectiveSense objectiveSense;
   Expression objective;
-  std::list< Sequence > sequences;
-  std::list< Variable > variables;
-  std::list< IndexedVariables > indexedVariables;
-  std::list< Expression > constraints;
+  std::deque< Sequence > sequences;
+  std::deque< Variable > variables;
+  std::deque< IndexedVariables > indexedVariables;
+  std::deque< Expression > constraints;
 };
 
 /*******************************************
@@ -1004,6 +1004,21 @@ public:
     _customEvaluators[index] = std::move(implementation);
   }
 
+  inline std::string stringify() const {
+    std::string result;
+    auto& variables = model.getVariables();
+    for (unsigned int i = 0; i < variables.size(); i++) {
+      result += variables[i].name + " = ";
+      if ( _variableValues.contains( &variables[i] ) ) {
+        result += std::to_string( _variableValues.at( &variables[i] ) ) + "\n";
+      }
+      else {
+        result += "n/a\n";
+      }
+    }
+    result += "objective: " + (_objective.has_value() ? std::to_string(_objective.value()) : "n/a");
+    return result;
+  }
 private:
   std::optional<double> _objective;
   std::unordered_map< const Sequence*, std::vector<double> > _sequenceValues;
