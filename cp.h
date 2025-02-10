@@ -827,11 +827,11 @@ private:
  ******************************************/
 class Solution;
 
-double max(const Solution* solution, const std::vector<Operand>& operands);
-double min(const Solution* solution, const std::vector<Operand>& operands);
-double n_ary_if(const Solution* solution, const std::vector<Operand>& operands);
-double sum(const Solution* solution, const std::vector<Operand>& operands);
-double avg(const Solution* solution, const std::vector<Operand>& operands);
+inline double max(const Solution* solution, const std::vector<Operand>& operands);
+inline double min(const Solution* solution, const std::vector<Operand>& operands);
+inline double n_ary_if(const Solution* solution, const std::vector<Operand>& operands);
+inline double sum(const Solution* solution, const std::vector<Operand>& operands);
+inline double avg(const Solution* solution, const std::vector<Operand>& operands);
 
 /**
  * @brief Represents a solution of a constraint programming model.
@@ -1012,7 +1012,7 @@ private:
   std::vector< std::function< double(const Solution*, const std::vector<Operand>&) > > _customEvaluators;
 };
 
-double max(const Solution* solution, const std::vector<Operand>& operands) {
+inline double max(const Solution* solution, const std::vector<Operand>& operands) {
   double value = std::numeric_limits<double>::min();
   for (auto& operand : operands | std::views::drop(1)) {
     auto other = solution->evaluate(operand);
@@ -1023,7 +1023,7 @@ double max(const Solution* solution, const std::vector<Operand>& operands) {
   return value;
 }
 
-double min(const Solution* solution, const std::vector<Operand>& operands) {
+inline double min(const Solution* solution, const std::vector<Operand>& operands) {
   double value = std::numeric_limits<double>::max();
   for (auto& operand : operands | std::views::drop(1)) {
     auto other = solution->evaluate(operand);
@@ -1034,7 +1034,7 @@ double min(const Solution* solution, const std::vector<Operand>& operands) {
   return value;
 }
 
-double n_ary_if(const Solution* solution, const std::vector<Operand>& operands) {
+inline double n_ary_if(const Solution* solution, const std::vector<Operand>& operands) {
   for (size_t index = 1; index < operands.size()-1; index += 2) {
     if ( solution->evaluate(operands[index]) ) {
       return solution->evaluate(operands[index+1]);
@@ -1043,7 +1043,7 @@ double n_ary_if(const Solution* solution, const std::vector<Operand>& operands) 
   return solution->evaluate(operands.back());
 }
 
-double sum(const Solution* solution, const std::vector<Operand>& operands) {
+inline double sum(const Solution* solution, const std::vector<Operand>& operands) {
   double value = 0.0;
   for (auto& operand : operands | std::views::drop(1)) {
     value += solution->evaluate(operand);
@@ -1051,7 +1051,7 @@ double sum(const Solution* solution, const std::vector<Operand>& operands) {
   return value;
 }
 
-double avg(const Solution* solution, const std::vector<Operand>& operands) {
+inline double avg(const Solution* solution, const std::vector<Operand>& operands) {
   double value = 0.0;
   for (auto& operand : operands | std::views::drop(1)) {
     value += solution->evaluate(operand);
