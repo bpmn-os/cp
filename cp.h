@@ -777,9 +777,9 @@ public:
     return variables.back();
   };
 
-  inline const reference_vector<const Variable> addSequence(std::string name, size_t n) {
+  inline const Sequence& addSequence(std::string name, size_t n) {
     sequences.emplace_back(name,n);
-    return sequences.back().variables;
+    return sequences.back();
   }
 
   inline const Variable& addVariable( Variable::Type type, std::string name, Expression expression ) {
