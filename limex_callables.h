@@ -53,7 +53,7 @@ void LIMEX::Callables<CP::Expression>::initialize() {
     [](const std::vector<CP::Expression>& args)
     {
       if (args.size() != 1) throw std::runtime_error("LIMEX: sqrt() requires exactly one argument");
-      return CP::Expression( CP::Expression::Operator::custom, { CP::Expression::getCustomIndex("sqrt"), args[0] });
+      return CP::Expression( CP::Expression::Operator::custom, { CP::Expression::getCustomIndex("pow"), args[0], 1.0/2 });
     }
   );
 
@@ -62,7 +62,7 @@ void LIMEX::Callables<CP::Expression>::initialize() {
     [](const std::vector<CP::Expression>& args)
     {
       if (args.size() != 1) throw std::runtime_error("LIMEX: cbrt() requires exactly one argument");
-      return CP::Expression( CP::Expression::Operator::custom, { CP::Expression::getCustomIndex("cbrt"), args[0] });
+      return CP::Expression( CP::Expression::Operator::custom, { CP::Expression::getCustomIndex("pow"), args[0], 1.0/3 });
     }
   );
 

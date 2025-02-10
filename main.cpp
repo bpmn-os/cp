@@ -132,6 +132,25 @@ int main()
   assert( e3.stringify() == "n_ary_if( v == 1.00, x, v == 2.00, y, 0.00 )" );
 #endif 
 
+
+  CP::Model solvedModel;
+  auto& X = solvedModel.addRealVariable("X");
+  auto& Y = solvedModel.addRealVariable("Y");
+  auto& Z = solvedModel.addRealVariable("Z");
+  auto expression = solvedModel.addConstraint( X <= min(Y, Z) );
+  CP::Solution solution(solvedModel);
+  solution.setVariableValue(X,1);
+  solution.setVariableValue(Y,3);
+  solution.setVariableValue(Z,2);
+  assert( solution.validate() == "missing objective, expected: " + std::format("{:.6f}", 0.0));
+  solution.setVariableValue(X,4);
+  solution.setObjectiveValue(1);
+  assert( solution.validate() == "infeasible: X <= min( Y, Z )\nwrong objective, expected: " + std::format("{:.6f}", 0.0));
+  solution.setVariableValue(Y,4);
+  solution.setVariableValue(Z,5);
+  solution.setObjectiveValue(0);
+  assert( solution.validate() == "objective: " + std::format("{:.6f}", 0.0));
+
   return 0;
 }
 
