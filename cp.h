@@ -862,7 +862,7 @@ private:
   std::vector< std::function< double(const Solution*, const std::vector<Operand>&) > > _customEvaluators;
 };
 
-Solution::Solution(const Model& model) : model(model) {
+inline Solution::Solution(const Model& model) : model(model) {
   addEvaluator("max", static_cast<double(*)(const Solution*, const std::vector<Operand>&)>(max));
   addEvaluator("min", static_cast<double(*)(const Solution*, const std::vector<Operand>&)>(min));
   addEvaluator("if_then_else", [](const Solution* solution, const std::vector<Operand>& operands) { 
