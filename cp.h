@@ -1005,15 +1005,32 @@ public:
   }
 
   inline std::string stringify() const {
-    std::string result;
-    auto& variables = model.getVariables();
-    for (unsigned int i = 0; i < variables.size(); i++) {
-      result += variables[i].name + " = ";
-      if ( _variableValues.contains( &variables[i] ) ) {
-        result += std::to_string( _variableValues.at( &variables[i] ) ) + "\n";
+    auto stringifyVariable = [&](const Variable& variable) {
+      std::string result = variable.name + " = ";
+      if (_variableValues.contains(&variable)) {
+        result += std::to_string(_variableValues.at(&variable)) + "\n";
       }
       else {
         result += "n/a\n";
+      }
+      return result;
+    };
+    
+    std::string result;
+
+    for ( auto& sequence : model.getSequences() ) {
+      for ( auto& variable : sequence.variables ) {
+        result += stringifyVariable(variable);
+      }
+    }
+
+    for ( auto& variable : model.getVariables()) {
+      result += stringifyVariable(variable);
+    }
+
+    for (const auto& indexedVariables : model.getIndexedVariables()) {
+      for ( auto& variable : indexedVariables ) {
+        result += stringifyVariable(variable);
       }
     }
     result += "objective: " + (_objective.has_value() ? std::to_string(_objective.value()) : "n/a");
