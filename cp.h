@@ -855,6 +855,7 @@ public:
 
   inline std::string validate() const;
   inline std::string stringify() const;
+  inline std::string stringify(const Variable& variable) const;
 private:
   std::optional<double> _objective;
   std::unordered_map< const Sequence*, std::vector<double> > _sequenceValues;
@@ -1034,33 +1035,34 @@ inline std::string Solution::validate() const {
   return result;
 };
 
-inline std::string Solution::stringify() const {
-  auto stringifyVariable = [&](const Variable& variable) {
-    std::string result = variable.name + " = ";
-    try {
-      result += std::to_string( evaluate(variable) ) + "\n";
-    }
-    catch (...) {
-      result += "n/a\n";
-    }
-    return result;
-  };
-    
+inline std::string Solution::stringify(const Variable& variable) const {
+  std::string result = variable.name + " = ";
+  try {
+    result += std::to_string( evaluate(variable) ) + "\n";
+  }
+  catch (...) {
+    result += "n/a\n";
+  }
+  return result;
+};
+
+
+inline std::string Solution::stringify() const { 
   std::string result;
 
   for ( auto& sequence : model.getSequences() ) {
     for ( auto& variable : sequence.variables ) {
-      result += stringifyVariable(variable);
+      result += stringify(variable);
     }
   }
 
   for ( auto& variable : model.getVariables()) {
-    result += stringifyVariable(variable);
+    result += stringify(variable);
   }
 
   for (const auto& indexedVariables : model.getIndexedVariables()) {
     for ( auto& variable : indexedVariables ) {
-      result += stringifyVariable(variable);
+      result += stringify(variable);
     }
   }
   result += "objective: " + (_objective.has_value() ? std::to_string(_objective.value()) : "n/a");
