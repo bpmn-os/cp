@@ -20,6 +20,7 @@
 #include <unordered_map>
 #include <functional>
 #include <cmath>
+#include <expected>
 
 namespace CP {
 
@@ -581,7 +582,7 @@ inline Expression operator!=(double constant, const Expression& expression) {  r
  * @brief Represents a collection of integer variables with the property that the variable values are a permutation of {1, ..., n}.
  */
 struct Sequence {
-  inline Sequence(std::string name, size_t n) {
+  inline Sequence(std::string name, size_t n) : name(name) {
     for ( size_t i = 0; i < n; i++ ) {
       _variables.emplace_back(Variable::Type::INTEGER, name + '[' + std::to_string(i) + ']', 1, n );
       variables.push_back( _variables.back() );
@@ -589,6 +590,7 @@ struct Sequence {
   };
   Sequence(const Sequence&) = delete; // Disable copy constructor
   Sequence& operator=(const Sequence&) = delete; // Disable copy assignment
+  const std::string name;
   reference_vector<const Variable> variables;
 
   inline std::string stringify() const {
@@ -827,11 +829,13 @@ private:
  ******************************************/
 class Solution;
 
-inline double max(const Solution* solution, const std::vector<Operand>& operands);
-inline double min(const Solution* solution, const std::vector<Operand>& operands);
-inline double n_ary_if(const Solution* solution, const std::vector<Operand>& operands);
-inline double sum(const Solution* solution, const std::vector<Operand>& operands);
-inline double avg(const Solution* solution, const std::vector<Operand>& operands);
+inline std::expected<double, std::string> max(const std::vector<double>& operands);
+inline std::expected<double, std::string> min(const std::vector<double>& operands);
+inline std::expected<double, std::string> if_then_else(const std::vector<double>& operands);
+inline std::expected<double, std::string> n_ary_if(const std::vector<double>& operands);
+inline std::expected<double, std::string> sum(const std::vector<double>& operands);
+inline std::expected<double, std::string> avg(const std::vector<double>& operands);
+inline std::expected<double, std::string> pow(const std::vector<double>& operands);
 
 /**
  * @brief Represents a solution of a constraint programming model.
@@ -844,14 +848,15 @@ public:
   inline std::optional<double> getObjectiveValue() const { return _objective; };
   inline void setSequenceValues(const Sequence& sequence, std::vector<double> values);
 
-  inline const std::vector<double>& getSequenceValues(const Sequence& sequence) const;
+  inline std::expected< std::vector<double>, std::string> getSequenceValues(const Sequence& sequence) const;
   inline void setVariableValue(const Variable& variable, double value);
-  inline double getVariableValue(const Variable& variable) const;
+  inline std::expected< double, std::string> getVariableValue(const Variable& variable) const;
 
-  inline void addEvaluator( const std::string& name, std::function< double(const Solution*, const std::vector<Operand>&) > implementation );
+  inline void addEvaluator( const std::string& name, std::function< std::expected<double, std::string>(const std::vector<double>&) > implementation );
 
-  inline double evaluate(const Operand& term) const;
-  inline double evaluate(const Expression& expression) const;
+  inline std::expected< std::vector<double>, std::string> evaluate( const std::ranges::range auto& operands ) const;
+  inline std::expected<double, std::string> evaluate(const Operand& term) const;
+  inline std::expected<double, std::string> evaluate(const Expression& expression) const;
 
   inline std::string validate() const;
   inline std::string stringify() const;
@@ -860,24 +865,20 @@ private:
   std::optional<double> _objective;
   std::unordered_map< const Sequence*, std::vector<double> > _sequenceValues;
   std::unordered_map< const Variable*, double > _variableValues;
-  std::vector< std::function< double(const Solution*, const std::vector<Operand>&) > > _customEvaluators;
+  std::vector< std::function< std::expected<double, std::string>(const std::vector<double>&) > > _customEvaluators;
 };
 
 inline Solution::Solution(const Model& model) : model(model) {
-  addEvaluator("max", static_cast<double(*)(const Solution*, const std::vector<Operand>&)>(max));
-  addEvaluator("min", static_cast<double(*)(const Solution*, const std::vector<Operand>&)>(min));
-  addEvaluator("if_then_else", [](const Solution* solution, const std::vector<Operand>& operands) { 
-    return solution->evaluate(operands[1]) ? solution->evaluate(operands[2]) : solution->evaluate(operands[3]);
+  addEvaluator("max", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(max));
+  addEvaluator("min", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(min));
+  addEvaluator("if_then_else", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(if_then_else));
+  addEvaluator("n_ary_if", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(n_ary_if));
+  addEvaluator("sum", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(sum));
+  addEvaluator("avg", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(avg));
+  addEvaluator("count", [](const std::vector<double>& operands) -> double { 
+    return operands.size();
   });
-  addEvaluator("n_ary_if", static_cast<double(*)(const Solution*, const std::vector<Operand>&)>(n_ary_if));
-  addEvaluator("sum", static_cast<double(*)(const Solution*, const std::vector<Operand>&)>(sum));
-  addEvaluator("avg", static_cast<double(*)(const Solution*, const std::vector<Operand>&)>(avg));
-  addEvaluator("count", []([[maybe_unused]]const Solution* solution, const std::vector<Operand>& operands) { 
-    return operands.size()-1;
-  });
-  addEvaluator("pow", [](const Solution* solution, const std::vector<Operand>& operands) { 
-    return std::pow(solution->evaluate(operands[1]), solution->evaluate(operands[2]));
-  });
+  addEvaluator("pow", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(pow));
 };
 
 inline void Solution::setSequenceValues(const Sequence& sequence, std::vector<double> values) {
@@ -890,20 +891,28 @@ inline void Solution::setSequenceValues(const Sequence& sequence, std::vector<do
   _sequenceValues[&sequence] = std::move(values);
 };
 
-inline const std::vector<double>& Solution::getSequenceValues(const Sequence& sequence) const {
-  return _sequenceValues.at(&sequence);
+inline std::expected< std::vector<double>, std::string> Solution::getSequenceValues(const Sequence& sequence) const {
+  auto it = _sequenceValues.find(&sequence);
+  if ( it == _sequenceValues.end() ) {
+    return std::unexpected("No known values for sequence '" + sequence.name + "'");
+  }
+  return it->second;
 };
 
 inline void Solution::setVariableValue(const Variable& variable, double value) {
   _variableValues[&variable] = value;
 };
 
-inline double Solution::getVariableValue(const Variable& variable) const {
-  return _variableValues.at(&variable);
+inline std::expected< double, std::string> Solution::getVariableValue(const Variable& variable) const {
+  auto it = _variableValues.find(&variable);
+  if ( it == _variableValues.end() ) {
+    return std::unexpected("No known value for variable '" + variable.name + "'");
+  }
+  return it->second;
 };
 
 
-inline void Solution::addEvaluator( const std::string& name, std::function< double(const Solution*, const std::vector<Operand>&) > implementation ) {
+inline void Solution::addEvaluator( const std::string& name, std::function< std::expected<double, std::string>(const std::vector<double>&) > implementation ) {
   auto index = Expression::getCustomIndex(name);
   if ( index >= _customEvaluators.size() ) {
     _customEvaluators.resize(index+1);
@@ -911,7 +920,19 @@ inline void Solution::addEvaluator( const std::string& name, std::function< doub
   _customEvaluators[index] = std::move(implementation);
 }
 
-inline double Solution::evaluate(const Operand& term) const {
+inline std::expected< std::vector<double>, std::string> Solution::evaluate( const std::ranges::range auto& operands ) const {
+  std::vector< double > evaluations;
+  for ( auto& operand : operands ) {
+    auto evaluation = evaluate(operand);
+    if ( !evaluation ) {
+      return std::unexpected( evaluation.error() );
+    }
+    evaluations.push_back( evaluation.value() );
+  }
+  return evaluations;
+}
+
+inline std::expected<double, std::string> Solution::evaluate(const Operand& term) const {
   if (std::holds_alternative<double>(term)) {
     return std::get<double>(term);
   }
@@ -934,74 +955,86 @@ inline double Solution::evaluate(const Operand& term) const {
   }
 };
 
-inline double Solution::evaluate(const Expression& expression) const {
+inline std::expected<double, std::string> Solution::evaluate(const Expression& expression) const {
   auto& operands = expression.operands;
   using enum Expression::Operator;
+
+  if ( expression._operator == custom ) {
+    auto index = std::get<size_t>(operands.front());
+    auto evaluations = evaluate(operands | std::views::drop(1));
+    if ( !evaluations ) {
+      return std::unexpected( evaluations.error() );
+    }
+    return _customEvaluators.at(index)(evaluations.value());
+  }
+
+  auto evaluations = evaluate(operands);
+  if ( !evaluations ) return std::unexpected( evaluations.error() );
+  
+  auto& values = evaluations.value();
   switch (expression._operator) {
     case none:
     {
-      return evaluate(operands[0]);
+      return values[0];
     }
     case negate:
     {
-      return -evaluate(operands[0]);
+      return -values[0];
     }
     case logical_not:
     {
-      return !evaluate(operands[0]);
+      return !values[0];
     }
     case logical_and:
     {
-      return evaluate(operands[0]) && evaluate(operands[1]);
+      return values[0] && values[1];
     }
     case logical_or:
     {
-      return evaluate(operands[0]) || evaluate(operands[1]);
+      return values[0] || values[1];
     }
     case add:
     {
-      return evaluate(operands[0]) + evaluate(operands[1]);
+      return values[0] + values[1];
     }
     case subtract:
     {
-      return evaluate(operands[0]) - evaluate(operands[1]);
+      return values[0] - values[1];
     }
     case multiply:
     {
-      return evaluate(operands[0]) * evaluate(operands[1]);
+      return values[0] * values[1];
     }
     case divide:
     {
-      return evaluate(operands[0]) / evaluate(operands[1]);
-    }
-    case custom:
-    {
-      auto index = std::get<size_t>(operands.front());
-      return _customEvaluators.at(index)(this,operands);
+      if ( values[1] == 0.0 ) {
+        return std::unexpected("Division by zero");
+      }
+      return values[0] / values[1];
     }
     case less_than:
     {
-      return (evaluate(operands[0]) < evaluate(operands[1]));
+      return (values[0] < values[1]);
     }
     case less_or_equal:
     {
-      return (evaluate(operands[0]) <= evaluate(operands[1]));
+      return (values[0] <= values[1]);
     }
     case greater_than:
     {
-      return (evaluate(operands[0]) > evaluate(operands[1]));
+      return (values[0] > values[1]);
     }
     case greater_or_equal:
     {
-      return (evaluate(operands[0]) >= evaluate(operands[1]));
+      return (values[0] >= values[1]);
     }
     case equal:
     {
-      return (evaluate(operands[0]) == evaluate(operands[1]));
+      return (values[0] == values[1]);
     }
     case not_equal:
     {
-      return (evaluate(operands[0]) != evaluate(operands[1]));
+      return (values[0] != values[1]);
     }
     default:
     {
@@ -1014,34 +1047,44 @@ inline double Solution::evaluate(const Expression& expression) const {
 inline std::string Solution::validate() const {
   std::string result;
   for (const auto& constraint : model.getConstraints()) {
-    if ( ! evaluate(constraint) ) {
+    auto evaluation = evaluate(constraint);
+    if ( !evaluation ) {
+      result += evaluation.error() + ": " + constraint.stringify() + "\n";        
+    }
+    else if ( !evaluation.value() ) {
       result += "infeasible: " + constraint.stringify() + "\n";        
     }
   }
   auto objective = evaluate( model.getObjective() );
-  if ( !_objective.has_value() ) {
-    result +=  "missing objective, expected: " + std::format("{:.6f}", objective);        
-  }
-  else if ( 
-    _objective.value() < objective - std::numeric_limits<double>::epsilon() ||
-    _objective.value() > objective + std::numeric_limits<double>::epsilon()
-  )
-  {
-    result +=  "wrong objective, expected: " + std::format("{:.6f}", objective);        
+  if ( !objective ) {
+    result += "unkown objective: " + objective.error() + "\n";        
   }
   else {
-    result +=  "objective: " + std::format("{:.6f}", objective);        
+    if ( !_objective.has_value() ) {
+      result +=  "missing objective, expected: " + std::format("{:.6f}", objective.value());        
+    }
+    else if ( 
+      _objective.value() < objective.value() - std::numeric_limits<double>::epsilon() ||
+      _objective.value() > objective.value() + std::numeric_limits<double>::epsilon()
+    )
+    {
+      result +=  "wrong objective, expected: " + std::format("{:.6f}", objective.value());        
+    }
+    else {
+      result +=  "objective: " + std::format("{:.6f}", objective.value());        
+    }
   }
   return result;
 };
 
 inline std::string Solution::stringify(const Variable& variable) const {
   std::string result = variable.name + " = ";
-  try {
-    result += std::to_string( evaluate(variable) ) + "\n";
-  }
-  catch (...) {
+  auto evaluation = evaluate(variable);
+  if ( !evaluation ) {
     result += "n/a\n";
+  }
+  else {
+    result += std::to_string( evaluation.value() ) + "\n";
   }
   return result;
 };
@@ -1069,51 +1112,75 @@ inline std::string Solution::stringify() const {
   return result;
 }
 
-inline double max(const Solution* solution, const std::vector<Operand>& operands) {
-  double value = std::numeric_limits<double>::min();
-  for (auto& operand : operands | std::views::drop(1)) {
-    auto other = solution->evaluate(operand);
-    if ( other > value ) {
-      value = other;
+inline std::expected<double, std::string> max(const std::vector<double>& operands) {
+  if ( operands.empty() ) {
+    return std::unexpected("max() requires at least one argument");
+  }
+  double value = std::numeric_limits<double>::lowest();
+  for ( auto operand : operands ) {
+    if ( operand > value ) {
+      value = operand;
     }
   }
   return value;
 }
 
-inline double min(const Solution* solution, const std::vector<Operand>& operands) {
+inline std::expected<double, std::string> min(const std::vector<double>& operands) {
+  if ( operands.empty() ) {
+    return std::unexpected("min() requires at least one argument");
+  }
   double value = std::numeric_limits<double>::max();
-  for (auto& operand : operands | std::views::drop(1)) {
-    auto other = solution->evaluate(operand);
-    if ( other < value ) {
-      value = other;
+  for ( auto operand : operands ) {
+    if ( operand < value ) {
+      value = operand;
     }
   }
   return value;
 }
 
-inline double n_ary_if(const Solution* solution, const std::vector<Operand>& operands) {
-  for (size_t index = 1; index < operands.size()-1; index += 2) {
-    if ( solution->evaluate(operands[index]) ) {
-      return solution->evaluate(operands[index+1]);
+inline std::expected<double, std::string> if_then_else(const std::vector<double>& operands) {
+  if ( operands.size() != 3 ) {
+    return std::unexpected("if_then_else() requires exactly three arguments");
+  }
+  return operands[0] ? operands[1] : operands[2];
+};
+
+inline std::expected<double, std::string> n_ary_if(const std::vector<double>& operands) {
+  if ( operands.size() % 2 != 1  ) {
+    return std::unexpected("n_ary_if() requires an uneven number of arguments");
+  }
+  for (size_t index = 0; index < operands.size()-2; index += 2) {
+    if ( operands[index] ) {
+      return operands[index+1];
     }
   }
-  return solution->evaluate(operands.back());
+  return operands.back();
 }
 
-inline double sum(const Solution* solution, const std::vector<Operand>& operands) {
+inline std::expected<double, std::string> sum(const std::vector<double>& operands) {
   double value = 0.0;
-  for (auto& operand : operands | std::views::drop(1)) {
-    value += solution->evaluate(operand);
+  for ( auto& operand : operands ) {
+    value += operand;
   }
   return value;
 }
 
-inline double avg(const Solution* solution, const std::vector<Operand>& operands) {
-  double value = 0.0;
-  for (auto& operand : operands | std::views::drop(1)) {
-    value += solution->evaluate(operand);
+inline std::expected<double, std::string> avg(const std::vector<double>& operands) {
+  if ( operands.empty() ) {
+    return std::unexpected("avg() requires at least one argument");
   }
-  return value / (operands.size()-1);
+  double value = 0.0;
+  for ( auto& operand : operands ) {
+    value += operand;
+  }
+  return value / operands.size();
 }
+
+inline std::expected<double, std::string> pow(const std::vector<double>& operands) {
+  if ( operands.size() != 2 ) {
+    return std::unexpected("pow() requires exactly two arguments");
+  }
+  return std::pow(operands[0], operands[1]);
+};
 
 } // end namespace CP
