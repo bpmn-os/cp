@@ -886,7 +886,7 @@ inline void Solution::setSequenceValues(const Sequence& sequence, std::vector<do
     throw std::invalid_argument("CP: illegal number of sequence values");
   }
   for (unsigned int i = 0; i < values.size(); i++) {
-    _variableValues[&sequence.variables[i]] = values[i];
+    _variableValues[&sequence.variables[i]] = (double)(int)values[i];
   }
   _sequenceValues[&sequence] = std::move(values);
 };
@@ -900,6 +900,12 @@ inline std::expected< std::vector<double>, std::string> Solution::getSequenceVal
 };
 
 inline void Solution::setVariableValue(const Variable& variable, double value) {
+  if ( variable.type == Variable::Type::BOOLEAN ) {
+    value = (double)(bool)value;
+  }
+  else if ( variable.type == Variable::Type::INTEGER ) {
+    value = (double)(int)value;
+  }
   _variableValues[&variable] = value;
 };
 
@@ -938,11 +944,36 @@ inline std::expected<double, std::string> Solution::evaluate(const Operand& term
   }
   else if (std::holds_alternative<std::reference_wrapper<const CP::Variable>>(term)) {
     auto& variable = std::get<std::reference_wrapper<const CP::Variable>>(term).get();
-    if ( variable.deducedFrom ) {
-      return evaluate(*variable.deducedFrom);
-    }
-    else if ( variable.lowerBound == variable.upperBound ) {
-      return variable.lowerBound;
+    using enum Variable::Type;
+    switch ( variable.type ) {
+      case BOOLEAN:
+        if ( variable.deducedFrom ) {
+          auto evaluation = evaluate(*variable.deducedFrom);
+          if ( !evaluation ) return std::unexpected(evaluation.error());
+          return (double)(bool)evaluation.value();
+        }
+        else if ( (bool)variable.lowerBound == (bool)variable.upperBound ) {
+          return (double)(bool)variable.lowerBound;
+        }
+      break;
+      case INTEGER:
+        if ( variable.deducedFrom ) {
+          auto evaluation = evaluate(*variable.deducedFrom);
+          if ( !evaluation ) return std::unexpected(evaluation.error());
+          return (double)(int)evaluation.value();
+        }
+        else if ( std::ceil(variable.lowerBound) == std::floor(variable.upperBound) ) {
+          return (double)std::ceil(variable.lowerBound);
+        }
+      break;
+      case REAL:
+        if ( variable.deducedFrom ) {
+          return evaluate(*variable.deducedFrom);
+        }
+        else if ( variable.lowerBound == variable.upperBound ) {
+          return variable.lowerBound;
+        }
+      break;
     }
     return getVariableValue(variable);
   }
@@ -1084,7 +1115,15 @@ inline std::string Solution::stringify(const Variable& variable) const {
     result += "n/a\n";
   }
   else {
-    result += std::to_string( evaluation.value() ) + "\n";
+    if ( variable.type == Variable::Type::BOOLEAN ) {
+      result += ( (bool)evaluation.value() ? "true\n" : "false\n" );
+    }
+    else if ( variable.type == Variable::Type::INTEGER ) {
+      result += std::to_string( (int)evaluation.value() ) + "\n";
+    }
+    else {
+      result += std::to_string( evaluation.value() ) + "\n";
+    }
   }
   return result;
 };

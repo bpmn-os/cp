@@ -135,9 +135,10 @@ int main()
 
   CP::Model solvedModel;
   auto& X = solvedModel.addRealVariable("X");
-  auto& Y = solvedModel.addRealVariable("Y");
+  auto& Y = solvedModel.addIntegerVariable("Y");
   auto& Z = solvedModel.addRealVariable("Z");
   [[maybe_unused]] auto& W = solvedModel.addRealVariable("W");
+  [[maybe_unused]] auto& V = solvedModel.addBinaryVariable("V");
   auto expression = solvedModel.addConstraint( X <= min(Y, Z) );
   CP::Solution solution(solvedModel);
   solution.setVariableValue(X,1);
@@ -149,6 +150,7 @@ int main()
   assert( solution.validate() == "infeasible: X <= min( Y, Z )\nwrong objective, expected: " + std::format("{:.6f}", 0.0));
   solution.setVariableValue(Y,4);
   solution.setVariableValue(Z,5);
+  solution.setVariableValue(V,2);
   solution.setObjectiveValue(0);
   assert( solution.validate() == "objective: " + std::format("{:.6f}", 0.0));
 
