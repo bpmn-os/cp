@@ -69,7 +69,7 @@ int main()
   assert( s.variables[1].name == "s[1]");
   assert( s.variables[2].name == "s[2]");
   assert( s.stringify() == "( s[0], s[1], s[2] ) is permutation of { 1, ..., 3 }");
-
+ 
   auto& a = model.addIndexedVariables(CP::Variable::Type::INTEGER, "a");
   a.emplace_back(0,5);
   a.emplace_back( w + 4 );

@@ -846,7 +846,9 @@ public:
   const Model& model;
   inline void setObjectiveValue(std::optional<double> value) { _objective = value; };
   inline std::optional<double> getObjectiveValue() const { return _objective; };
-  inline void setSequenceValues(const Sequence& sequence, std::vector<double> values);
+  template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool>* = nullptr >
+  inline void setSequenceValues(const Sequence& sequence, std::vector<T> values);
+//  inline void setSequenceValues(const Sequence& sequence, std::vector<double> values);
 
   inline std::expected< std::vector<double>, std::string> getSequenceValues(const Sequence& sequence) const;
   inline void setVariableValue(const Variable& variable, double value);
@@ -881,15 +883,16 @@ inline Solution::Solution(const Model& model) : model(model) {
   addEvaluator("pow", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(pow));
 };
 
-inline void Solution::setSequenceValues(const Sequence& sequence, std::vector<double> values) {
-  if ( sequence.variables.size() != values.size() ) {
+template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool>* >
+inline void Solution::setSequenceValues(const Sequence& sequence, std::vector<T> values) {
+  if (sequence.variables.size() != values.size()) {
     throw std::invalid_argument("CP: illegal number of sequence values");
   }
-  for (unsigned int i = 0; i < values.size(); i++) {
-    _variableValues[&sequence.variables[i]] = (double)(int)values[i];
+  for (size_t i = 0; i < values.size(); i++) {
+    _variableValues[&sequence.variables[i]] = (double)(int)(values[i]);
   }
-  _sequenceValues[&sequence] = std::move(values);
-};
+  _sequenceValues[&sequence] = {values.begin(), values.end()};
+}
 
 inline std::expected< std::vector<double>, std::string> Solution::getSequenceValues(const Sequence& sequence) const {
   auto it = _sequenceValues.find(&sequence);
