@@ -868,7 +868,7 @@ public:
   inline std::expected<double, std::string> evaluate(const Operand& term) const;
   inline std::expected<double, std::string> evaluate(const Expression& expression) const;
 
-  inline std::string validate() const;
+  inline std::string errors() const;
   inline std::string stringify() const;
   inline std::string stringify(const Variable& variable) const;
 private:
@@ -1093,7 +1093,7 @@ inline std::expected<double, std::string> Solution::evaluate(const Expression& e
 };
 
 
-inline std::string Solution::validate() const {
+inline std::string Solution::errors() const {
   std::string result;
   for (const auto& constraint : model.getConstraints()) {
     auto evaluation = evaluate(constraint);
