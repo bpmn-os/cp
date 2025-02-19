@@ -144,14 +144,13 @@ int main()
   solution.setVariableValue(X,1);
   solution.setVariableValue(Y,3);
   solution.setVariableValue(Z,2);
-  assert( solution.validate() == "");
+  assert( solution.validate().empty() );
   solution.setVariableValue(X,4);
   assert( solution.validate() == "infeasible: X <= min( Y, Z )");
   solution.setVariableValue(Y,4);
   solution.setVariableValue(Z,5);
   solution.setVariableValue(V,2);
-  solution.setObjectiveValue(0);
-  assert( solution.validate() == "");
+  assert( solution.validate().empty() );
 
   std::cout << "Solution: \n" << solution.stringify() << std::endl;
   return 0;

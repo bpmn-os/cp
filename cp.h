@@ -853,8 +853,7 @@ class Solution {
 public:
   Solution(const Model& model);
   const Model& model;
-  inline void setObjectiveValue(std::optional<double> value) { _objective = value; };
-  inline std::optional<double> getObjectiveValue() const { return _objective; };
+  inline std::optional<double> getObjectiveValue() const;
   template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool>* = nullptr >
   inline void setSequenceValues(const Sequence& sequence, std::vector<T> values);
 //  inline void setSequenceValues(const Sequence& sequence, std::vector<double> values);
@@ -873,7 +872,6 @@ public:
   inline std::string stringify() const;
   inline std::string stringify(const Variable& variable) const;
 private:
-  std::optional<double> _objective;
   std::unordered_map< const Sequence*, std::vector<double> > _sequenceValues;
   std::unordered_map< const Variable*, double > _variableValues;
   std::vector< std::function< std::expected<double, std::string>(const std::vector<double>&) > > _customEvaluators;
@@ -890,6 +888,14 @@ inline Solution::Solution(const Model& model) : model(model) {
     return operands.size();
   });
   addEvaluator("pow", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(pow));
+};
+
+inline std::optional<double> Solution::getObjectiveValue() const { 
+  auto objective = evaluate( model.getObjective() );
+  if ( !objective ) {
+    return std::nullopt;
+  }
+  return objective.value(); 
 };
 
 template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool>* >
@@ -1104,21 +1110,7 @@ inline std::string Solution::validate() const {
     auto objective = evaluate( model.getObjective() );
     if ( !objective ) {
       if ( !result.empty() ) result += "\n";
-      result += "unkown objective: " + objective.error();        
-    }
-    else {
-      if ( !_objective.has_value() ) {
-        if ( !result.empty() ) result += "\n";
-        result +=  "missing objective, expected: " + std::format("{:.6f}", objective.value());        
-      }
-      else if ( 
-        _objective.value() < objective.value() - std::numeric_limits<double>::epsilon() ||
-        _objective.value() > objective.value() + std::numeric_limits<double>::epsilon()
-      )
-      {
-        if ( !result.empty() ) result += "\n";
-        result +=  "wrong objective, expected: " + std::format("{:.6f}", objective.value());        
-      }
+      result += "objective: " + objective.error();        
     }
   }
   return result;
@@ -1168,7 +1160,8 @@ inline std::string Solution::stringify() const {
   }
   if ( model.getObjectiveSense() != Model::ObjectiveSense::FEASIBLE ) {
     if ( !result.empty() ) result += "\n";
-    result += "objective: " + (_objective.has_value() ? std::to_string(_objective.value()) : "n/a");
+    auto objective = getObjectiveValue();
+    result += "objective: " + (objective.has_value() ? std::to_string(objective.value()) : "n/a");
   }
   return result;
 }
