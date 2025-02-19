@@ -812,6 +812,15 @@ public:
     for (const auto& constraint : getConstraints()) {
       result += constraint.stringify() + "\n";
     }
+    if ( getObjectiveSense() ==  ObjectiveSense::MAXIMIZE ) {
+      result += "Objective:\nmaximize " + objective.stringify() +"\n";
+    }
+    else if ( getObjectiveSense() ==  ObjectiveSense::MINIMIZE ) {
+      result += "Objective:\nminimize " + objective.stringify() +"\n";
+    }
+    else {
+      result += "Objective:\nfind feasible solution";
+    }
     return result;
   }
 
@@ -1083,29 +1092,33 @@ inline std::string Solution::validate() const {
   for (const auto& constraint : model.getConstraints()) {
     auto evaluation = evaluate(constraint);
     if ( !evaluation ) {
-      result += evaluation.error() + ": " + constraint.stringify() + "\n";        
+      if ( !result.empty() ) result += "\n";
+      result += evaluation.error() + ": " + constraint.stringify();        
     }
     else if ( !evaluation.value() ) {
-      result += "infeasible: " + constraint.stringify() + "\n";        
+      if ( !result.empty() ) result += "\n";
+      result += "infeasible: " + constraint.stringify();        
     }
   }
-  auto objective = evaluate( model.getObjective() );
-  if ( !objective ) {
-    result += "unkown objective: " + objective.error() + "\n";        
-  }
-  else {
-    if ( !_objective.has_value() ) {
-      result +=  "missing objective, expected: " + std::format("{:.6f}", objective.value());        
-    }
-    else if ( 
-      _objective.value() < objective.value() - std::numeric_limits<double>::epsilon() ||
-      _objective.value() > objective.value() + std::numeric_limits<double>::epsilon()
-    )
-    {
-      result +=  "wrong objective, expected: " + std::format("{:.6f}", objective.value());        
+  if ( model.getObjectiveSense() != Model::ObjectiveSense::FEASIBLE ) {
+    auto objective = evaluate( model.getObjective() );
+    if ( !objective ) {
+      if ( !result.empty() ) result += "\n";
+      result += "unkown objective: " + objective.error();        
     }
     else {
-      result +=  "objective: " + std::format("{:.6f}", objective.value());        
+      if ( !_objective.has_value() ) {
+        if ( !result.empty() ) result += "\n";
+        result +=  "missing objective, expected: " + std::format("{:.6f}", objective.value());        
+      }
+      else if ( 
+        _objective.value() < objective.value() - std::numeric_limits<double>::epsilon() ||
+        _objective.value() > objective.value() + std::numeric_limits<double>::epsilon()
+      )
+      {
+        if ( !result.empty() ) result += "\n";
+        result +=  "wrong objective, expected: " + std::format("{:.6f}", objective.value());        
+      }
     }
   }
   return result;
@@ -1115,17 +1128,17 @@ inline std::string Solution::stringify(const Variable& variable) const {
   std::string result = variable.name + " = ";
   auto evaluation = evaluate(variable);
   if ( !evaluation ) {
-    result += "n/a\n";
+    result += "n/a";
   }
   else {
     if ( variable.type == Variable::Type::BOOLEAN ) {
-      result += ( (bool)evaluation.value() ? "true\n" : "false\n" );
+      result += ( (bool)evaluation.value() ? "true" : "false" );
     }
     else if ( variable.type == Variable::Type::INTEGER ) {
-      result += std::to_string( (int)evaluation.value() ) + "\n";
+      result += std::to_string( (int)evaluation.value() );
     }
     else {
-      result += std::to_string( evaluation.value() ) + "\n";
+      result += std::to_string( evaluation.value() );
     }
   }
   return result;
@@ -1137,20 +1150,26 @@ inline std::string Solution::stringify() const {
 
   for ( auto& sequence : model.getSequences() ) {
     for ( auto& variable : sequence.variables ) {
+      if ( !result.empty() ) result += "\n";
       result += stringify(variable);
     }
   }
 
   for ( auto& variable : model.getVariables()) {
+    if ( !result.empty() ) result += "\n";
     result += stringify(variable);
   }
 
   for (const auto& indexedVariables : model.getIndexedVariables()) {
     for ( auto& variable : indexedVariables ) {
+      if ( !result.empty() ) result += "\n";
       result += stringify(variable);
     }
   }
-  result += "objective: " + (_objective.has_value() ? std::to_string(_objective.value()) : "n/a");
+  if ( model.getObjectiveSense() != Model::ObjectiveSense::FEASIBLE ) {
+    if ( !result.empty() ) result += "\n";
+    result += "objective: " + (_objective.has_value() ? std::to_string(_objective.value()) : "n/a");
+  }
   return result;
 }
 
