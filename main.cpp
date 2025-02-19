@@ -31,6 +31,7 @@ int main()
   auto& z = model.addIntegerVariable("z");
   assert( z.stringify() == "z ∈ { -infinity, ..., infinity }");
 
+//std::cout << (x * 3 + z * 5).stringify() << std::endl;  
   assert( (x * 3 + z * 5).stringify() == "( x * 3.00 ) + ( z * 5.00 )");
   assert( (3 * x + 5 * z - 4).stringify() == "( ( 3.00 * x ) + ( 5.00 * z ) ) - 4.00");
   assert( (4 + 3 * x + z / 5).stringify() == "( 4.00 + ( 3.00 * x ) ) + ( z / 5.00 )");
@@ -77,6 +78,10 @@ int main()
   assert( model.getIndexedVariables().back().stringify() == "a := { a[0] ∈ { 0, ..., 5 }, a[1] := w + 4.00, a[2] := a[1] + 5.00 }" );
   assert( a[1].stringify() == "a[1] := w + 4.00" );
   assert( a[z].stringify() == "a[z]" );
+  assert( ( a[z] == 0.0).stringify() == "a[z] == 0.00" );
+  assert( ( a[z] + 0.0).stringify() == "a[z] + 0.00" );
+  assert( ( 1 * a[z] ).stringify() == "1.00 * a[z]" );
+  assert( ( 0 < a[z] ).stringify() == "0.00 < a[z]" );
 
   auto c1 = model.addConstraint( x >= 0 );
   assert( c1.stringify() == "x >= 0.00");
@@ -115,12 +120,12 @@ int main()
 //std::cout << "LIMEX: " << l1.stringify() << std::endl;
   auto e1 = l1.evaluate({z, x, y});
 //std::cout << "CP: " << e1.stringify() << std::endl;
-  assert( e1.stringify() == "n_ary_if( z == 3.00, 0.00, z == if_then_else( x >= 0.00, x, -( x ) ), 0.00, z == ( y ) + ( 5.00 ), 0.00, 1.00 )" );
+  assert( e1.stringify() == "n_ary_if( z == 3.00, 0.00, z == if_then_else( x >= 0.00, x, -x ), 0.00, z == y + 5.00, 0.00, 1.00 )" );
 
   auto l2 = LIMEX::Expression<CP::Expression>("min{3, x, y + 5}", callables);
   auto e2 = l2.evaluate( {x, y} );
 //std::cout << "CP: " << e2.stringify() << std::endl;
-  assert( e2.stringify() == "min( 3.00, x, ( y ) + ( 5.00 ) )" );
+  assert( e2.stringify() == "min( 3.00, x, y + 5.00 )" );
 
   auto l3 = LIMEX::Expression<CP::Expression>("w := z[v]", callables);
 //std::cout << "LIMEX: " << l3.stringify() << std::endl;
