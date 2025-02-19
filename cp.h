@@ -186,13 +186,9 @@ struct IndexedVariables {
   IndexedVariables(const IndexedVariables&) = delete; // Disable copy constructor
   IndexedVariables& operator=(const IndexedVariables&) = delete; // Disable copy assignment
 
-  inline const Variable& operator[](std::size_t index) const {
-    return _references.at(index);
-  }
+  inline const Variable& operator[](std::size_t index) const { return _references.at(index); }
 
-  inline IndexedVariable operator[](const Variable& index) const {
-     return IndexedVariable(*this,index);
-  }
+  inline IndexedVariable operator[](const Variable& index) const { return IndexedVariable(*this,index); }
 
   template <typename... Args>
   inline void emplace_back(Args&&... args) {
@@ -207,21 +203,23 @@ struct IndexedVariables {
   inline auto end() { return _variables.end(); }
   inline auto end() const { return _variables.cend(); }
     
-  inline std::string stringify() const {
-    std::string result = name + " := {";
-    for ( const Variable& variable : _variables ) {
-      result += " " + variable.stringify() + ",";
-    }
-    if (!empty()) {
-      result.back() = ' ';
-    }
-    result += "}";
-    return result;
-  }
+  inline std::string stringify() const;
 private:
   std::deque<Variable> _variables;
   reference_vector<Variable> _references;
 };
+
+inline std::string IndexedVariables::stringify() const {
+  std::string result = name + " := {";
+  for ( const Variable& variable : _variables ) {
+    result += " " + variable.stringify() + ",";
+  }
+  if (!empty()) {
+    result.back() = ' ';
+  }
+  result += "}";
+  return result;
+}
 
 inline std::string IndexedVariable::stringify() const { return container.name + "[" + index.name + "]"; }
 
@@ -301,136 +299,143 @@ struct Expression {
 
   inline Expression implies(const Expression& expression) const { return !(*this) || expression; };
 
-  inline static std::string stringify(const Operand& term, bool parenthesize = true) {
-    std::string result;
-    if (std::holds_alternative<double>(term)) {
-      auto constant = std::get<double>(term);
-      result += std::format("{:.2f}", constant);
-    }
-    else if (std::holds_alternative<std::reference_wrapper<const CP::Variable>>(term)) {
-      auto& variable = std::get<std::reference_wrapper<const CP::Variable>>(term).get();
-      result += variable.name;
-    }
-    else if ( std::holds_alternative<Expression>(term) ) {
-      auto& expression = std::get<Expression>(term);
-      if ( expression._operator != Operator::custom && parenthesize ) {
-        result += "( " + expression.stringify() + " )";
-      }
-      else {
-        result += expression.stringify();
-      }
-    }
-    else {
-      throw std::logic_error("CP: unexpected operand");
-    }
-    return result;
-  }
-  
-  inline static std::string stringify(const std::string& op, const Operand& term) {
-    return op + stringify(term);
-  }
-
-
-  inline static std::string stringify(const Operand& lhs, const std::string& op, const Operand& rhs) {
-    bool parenthesize = ( op != "<" && op != ">" && op != "<=" && op != ">=" && op != "==" && op != "!="); 
-    return stringify(lhs, parenthesize) + " " + op + " " + stringify(rhs, parenthesize);
-  };
-
-  inline std::string stringify() const {
-    using enum Operator;
-    switch (_operator) {
-      case none:
-      {
-        return stringify(operands[0]);
-      }
-      case negate:
-      {
-        return stringify("-", operands[0]);
-      }
-      case logical_not:
-      {
-        return stringify("!", operands[0]);
-      }
-      case logical_and:
-      {
-        return stringify(operands[0], "&&", operands[1]);
-      }
-      case logical_or:
-      {
-        return stringify(operands[0], "||", operands[1]);
-      }
-      case add:
-      {
-        return stringify(operands[0], "+", operands[1]);
-      }
-      case subtract:
-      {
-        return stringify(operands[0], "-", operands[1]);
-      }
-      case multiply:
-      {
-        return stringify(operands[0], "*", operands[1]);
-      }
-      case divide:
-      {
-        return stringify(operands[0], "/", operands[1]);
-      }
-      case custom:
-      {
-        auto index = std::get<size_t>(operands.front());
-        std::string result = customOperators[index] + "( ";
-        for ( size_t i = 1; i < operands.size(); i++) {
-          result += stringify(operands[i],false) + ", ";
-        }
-        result.pop_back();
-        result.back() = ' ';
-        result += ")";
-        return result;
-      }
-      case less_than:
-      {
-        return stringify(operands[0], "<", operands[1]);
-      }
-      case less_or_equal:
-      {
-        return stringify(operands[0], "<=", operands[1]);
-      }
-      case greater_than:
-      {
-        return stringify(operands[0], ">", operands[1]);
-      }
-      case greater_or_equal:
-      {
-        return stringify(operands[0], ">=", operands[1]);
-      }
-      case equal:
-      {
-        return stringify(operands[0], "==", operands[1]);
-      }
-      case not_equal:
-      {
-        return stringify(operands[0], "!=", operands[1]);
-      }
-      default:
-      {
-        throw std::logic_error("CP: unexpected operator");
-      }
-    }
-  };
+  inline static std::string stringify(const Operand& term, bool parenthesize = true);
+  inline static std::string stringify(const std::string& op, const Operand& term);
+  inline static std::string stringify(const Operand& lhs, const std::string& op, const Operand& rhs);
+  inline std::string stringify() const;
   
   Operator _operator;
   std::vector< Operand > operands;
   inline static std::vector<std::string> customOperators = {};
-  inline static size_t getCustomIndex(std::string name) {
-    for ( size_t i = 0; i < customOperators.size(); i++) {
-      if ( customOperators[i] == name ) {
-        return i;
-      }
-    }
-    customOperators.push_back(name);
-    return customOperators.size()-1;
-  } 
+  inline static size_t getCustomIndex(std::string name);
 };
+
+inline std::string Expression::stringify(const Operand& term, bool parenthesize) {
+  std::string result;
+  if (std::holds_alternative<double>(term)) {
+    auto constant = std::get<double>(term);
+    result += std::format("{:.2f}", constant);
+  }
+  else if (std::holds_alternative<std::reference_wrapper<const CP::Variable>>(term)) {
+    auto& variable = std::get<std::reference_wrapper<const CP::Variable>>(term).get();
+    result += variable.name;
+  }
+  else if ( std::holds_alternative<Expression>(term) ) {
+    auto& expression = std::get<Expression>(term);
+    if ( expression._operator != Operator::custom && parenthesize ) {
+      result += "( " + expression.stringify() + " )";
+    }
+    else {
+      result += expression.stringify();
+    }
+  }
+  else {
+    throw std::logic_error("CP: unexpected operand");
+  }
+  return result;
+}
+
+inline std::string Expression::stringify(const std::string& op, const Operand& term) {
+  return op + stringify(term);
+}
+
+inline std::string Expression::stringify(const Operand& lhs, const std::string& op, const Operand& rhs) {
+  bool parenthesize = ( op != "<" && op != ">" && op != "<=" && op != ">=" && op != "==" && op != "!="); 
+  return stringify(lhs, parenthesize) + " " + op + " " + stringify(rhs, parenthesize);
+};
+
+inline std::string Expression::stringify() const {
+  using enum Operator;
+  switch (_operator) {
+    case none:
+    {
+      return stringify(operands[0]);
+    }
+    case negate:
+    {
+      return stringify("-", operands[0]);
+    }
+    case logical_not:
+    {
+      return stringify("!", operands[0]);
+    }
+    case logical_and:
+    {
+      return stringify(operands[0], "&&", operands[1]);
+    }
+    case logical_or:
+    {
+      return stringify(operands[0], "||", operands[1]);
+    }
+    case add:
+    {
+      return stringify(operands[0], "+", operands[1]);
+    }
+    case subtract:
+    {
+      return stringify(operands[0], "-", operands[1]);
+    }
+    case multiply:
+    {
+      return stringify(operands[0], "*", operands[1]);
+    }
+    case divide:
+    {
+      return stringify(operands[0], "/", operands[1]);
+    }
+    case custom:
+    {
+      auto index = std::get<size_t>(operands.front());
+      std::string result = customOperators[index] + "( ";
+      for ( size_t i = 1; i < operands.size(); i++) {
+        result += stringify(operands[i],false) + ", ";
+      }
+      result.pop_back();
+      result.back() = ' ';
+      result += ")";
+      return result;
+    }
+    case less_than:
+    {
+      return stringify(operands[0], "<", operands[1]);
+    }
+    case less_or_equal:
+    {
+      return stringify(operands[0], "<=", operands[1]);
+    }
+    case greater_than:
+    {
+      return stringify(operands[0], ">", operands[1]);
+    }
+    case greater_or_equal:
+    {
+      return stringify(operands[0], ">=", operands[1]);
+    }
+    case equal:
+    {
+      return stringify(operands[0], "==", operands[1]);
+    }
+    case not_equal:
+    {
+      return stringify(operands[0], "!=", operands[1]);
+    }
+    default:
+    {
+      throw std::logic_error("CP: unexpected operator");
+    }
+  }
+}
+
+inline size_t Expression::getCustomIndex(std::string name) {
+  for ( size_t i = 0; i < customOperators.size(); i++) {
+    if ( customOperators[i] == name ) {
+      return i;
+    }
+  }
+  customOperators.push_back(name);
+  return customOperators.size()-1;
+} 
+
 
 inline std::optional<std::pair<Expression, Expression>> isImplication( const Expression& expression ) {
   if (
