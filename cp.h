@@ -614,7 +614,7 @@ Expression customOperator(const std::string& name, Terms&&... terms) {
     std::is_same_v<std::decay_t<Terms>, Variable> ||
     std::is_same_v<std::decay_t<Terms>, IndexedVariable> ||
     std::is_same_v<std::decay_t<Terms>, Expression>) && ...),
-    "CP: All terms must be a number, variable, or expression"
+    "CP: All terms must be a number, variable, indexed variable, or expression"
   );
 
   std::vector< Operand > operands;
@@ -765,7 +765,7 @@ public:
   };
 
   inline const Variable& addBinaryVariable(std::string name) {
-    variables.emplace_back(Variable::Type::BOOLEAN, std::move(name), 0, 1);
+    variables.emplace_back(Variable::Type::BOOLEAN, std::move(name), false, true);
     return variables.back();
   };
 

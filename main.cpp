@@ -123,8 +123,9 @@ int main()
   assert( e1.stringify() == "n_ary_if( z == 3.00, 0.00, z == if_then_else( x >= 0.00, x, -x ), 0.00, z == y + 5.00, 0.00, 1.00 )" );
 
   auto l2 = LIMEX::Expression<CP::Expression>("min{3, x, y + 5}", callables);
-  auto e2 = l2.evaluate( {x, y} );
-//std::cout << "CP: " << e2.stringify() << std::endl;
+  std::vector<CP::Expression> variables = {x, y};
+  std::vector< std::vector<CP::Expression> > indexedVariables = {};
+  auto e2 = l2.evaluate( variables, indexedVariables );
   assert( e2.stringify() == "min( 3.00, x, y + 5.00 )" );
 
   auto l3 = LIMEX::Expression<CP::Expression>("w := z[v]", callables);
