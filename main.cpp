@@ -114,18 +114,18 @@ int main()
 
 #ifdef USE_LIMEX
 
-  LIMEX::Callables<CP::Expression,CP::IndexedVariables> callables;
-  auto l1 = LIMEX::Expression<CP::Expression,CP::IndexedVariables>("z not in {3, abs(x), y + 5}", callables);
+  LIMEX::Callables<CP::Expression,const CP::IndexedVariables> callables;
+  auto l1 = LIMEX::Expression<CP::Expression,const CP::IndexedVariables>("z not in {3, abs(x), y + 5}", callables);
   auto e1 = l1.evaluate({z, x, y});
   assert( e1.stringify() == "n_ary_if( z == 3.00, 0.00, z == if_then_else( x >= 0.00, x, -x ), 0.00, z == y + 5.00, 0.00, 1.00 )" );
 
-  auto l2 = LIMEX::Expression<CP::Expression,CP::IndexedVariables>("min{3, x, y + 5}", callables);
+  auto l2 = LIMEX::Expression<CP::Expression,const CP::IndexedVariables>("min{3, x, y + 5}", callables);
   std::vector<CP::Expression> variables = {x, y};
-  std::vector< std::reference_wrapper<CP::IndexedVariables> > indexedVariables = {};
+  std::vector< std::reference_wrapper<const CP::IndexedVariables> > indexedVariables = {};
   auto e2 = l2.evaluate( variables, indexedVariables );
   assert( e2.stringify() == "min( 3.00, x, y + 5.00 )" );
 
-  auto l3 = LIMEX::Expression<CP::Expression,CP::IndexedVariables>("w := a[v]", callables);
+  auto l3 = LIMEX::Expression<CP::Expression,const CP::IndexedVariables>("w := a[v]", callables);
 //std::cerr << l3.stringify() << std::endl;
 //for ( auto variable : l3.getVariables() ) std::cerr << variable << std::endl; 
   assert( !l3.getVariables().empty() && l3.getVariables().front() == "v" );

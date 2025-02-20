@@ -9,7 +9,7 @@
 
 // Define built-in functions
 template <>
-void LIMEX::Callables<CP::Expression,CP::IndexedVariables>::initialize() {
+void LIMEX::Callables<CP::Expression,const CP::IndexedVariables>::initialize() {
   add(
     std::string("if_then_else"), 
     [](const std::vector<CP::Expression>& args)
