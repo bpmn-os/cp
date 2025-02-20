@@ -126,10 +126,10 @@ public:
 struct IndexedVariables;
 
 struct IndexedVariable {
-  inline IndexedVariable(const IndexedVariables& container, const Variable& index) : container(container), index(index) {}
-  const IndexedVariables& container;
-  const Variable& index;
-
+  inline IndexedVariable(const IndexedVariables& container, const Variable& index) : container(std::ref(container)), index(std::ref(index)) {}
+  std::reference_wrapper<const IndexedVariables> container;
+  std::reference_wrapper<const Variable> index;
+    
   inline Expression operator-() const;
   inline Expression operator!() const;
 
@@ -157,10 +157,12 @@ struct IndexedVariables {
   inline IndexedVariables(Variable::Type type, std::string name) : type(type), name(std::move(name)) {} 
   IndexedVariables(const IndexedVariables&) = delete; // Disable copy constructor
   IndexedVariables& operator=(const IndexedVariables&) = delete; // Disable copy assignment
+  inline operator std::vector<CP::Expression>() const; // Implicit cast
 
   inline const Variable& operator[](std::size_t index) const { return _references.at(index); }
 
   inline IndexedVariable operator[](const Variable& index) const { return IndexedVariable(*this,index); }
+  inline IndexedVariable operator[](const Expression& expression) const;
 
   template <typename... Args>
   inline void emplace_back(Args&&... args) {
@@ -196,7 +198,7 @@ inline std::string IndexedVariables::stringify() const {
 /*******************************************
  * Expression
  ******************************************/
-using Operand = std::variant< size_t, double, std::reference_wrapper<const IndexedVariable>, std::reference_wrapper<const Variable>, Expression>;
+using Operand = std::variant< size_t, double, IndexedVariable, std::reference_wrapper<const Variable>, Expression>;
 
 /**
  * @brief Represents an expression.
@@ -223,7 +225,7 @@ struct Expression {
   inline Expression() : Expression(Operator::none,{0.0}) {};
   inline Expression(double constant) : _operator(Operator::none), operands({constant}) {};
   inline Expression(const Variable& variable) : _operator(Operator::none), operands({std::ref(variable)}) {};
-  inline Expression(const IndexedVariable& indexedVariable) : _operator(Operator::none), operands({std::ref(indexedVariable)}) {};
+  inline Expression(const IndexedVariable& indexedVariable) : _operator(Operator::none), operands({indexedVariable}) {};
   inline Expression(Operator _operator, const std::vector< Operand >& operands) : _operator(_operator), operands(operands) {};
 
   inline Expression operator-() const { return Expression(Operator::negate, {*this}); };
@@ -265,8 +267,8 @@ inline std::string Expression::stringify(const Operand& term, bool parenthesize)
     auto& variable = std::get<std::reference_wrapper<const CP::Variable>>(term).get();
     result += variable.name;
   }
-  else if (std::holds_alternative<std::reference_wrapper<const CP::IndexedVariable>>(term)) {
-    auto& indexedVariable = std::get<std::reference_wrapper<const CP::IndexedVariable>>(term).get();
+  else if (std::holds_alternative<CP::IndexedVariable>(term)) {
+    auto& indexedVariable = std::get<CP::IndexedVariable>(term);
     result += indexedVariable.stringify();
   }
   else if ( std::holds_alternative<Expression>(term) ) {
@@ -402,8 +404,8 @@ inline std::optional<std::pair<Expression, Expression>> isImplication( const Exp
     auto condition = 
       std::holds_alternative<std::reference_wrapper<const CP::Variable>>(negated_condition.operands.front()) ? 
       Expression(std::get<std::reference_wrapper<const CP::Variable>>(negated_condition.operands.front()).get()) :
-      std::holds_alternative<std::reference_wrapper<const CP::IndexedVariable>>(negated_condition.operands.front()) ? 
-      Expression(std::get<std::reference_wrapper<const CP::IndexedVariable>>(negated_condition.operands.front()).get()) : 
+      std::holds_alternative<CP::IndexedVariable>(negated_condition.operands.front()) ? 
+      Expression(std::get<CP::IndexedVariable>(negated_condition.operands.front())) : 
       std::get<Expression>(negated_condition.operands.front())
     ;
 
@@ -499,25 +501,44 @@ inline std::string Variable::stringify() const {
  * IndexedVariable (implementation)
  ******************************************/
 
-inline Expression IndexedVariable::operator-() const { return Expression(Expression::Operator::negate, {std::ref(*this)});}
-inline Expression IndexedVariable::operator!() const { return Expression(Expression::Operator::logical_not, {std::ref(*this)});}
+inline Expression IndexedVariable::operator-() const { return Expression(Expression::Operator::negate, {*this});}
+inline Expression IndexedVariable::operator!() const { return Expression(Expression::Operator::logical_not, {*this});}
 
-inline Expression IndexedVariable::operator&&(const Expression& expression) const { return Expression(Expression::Operator::logical_and, {std::ref(*this),expression});}
-inline Expression IndexedVariable::operator||(const Expression& expression) const { return Expression(Expression::Operator::logical_or, {std::ref(*this),expression});}
-inline Expression IndexedVariable::operator+(const Expression& expression) const { return Expression(Expression::Operator::add, {std::ref(*this),expression});}
-inline Expression IndexedVariable::operator-(const Expression& expression) const { return Expression(Expression::Operator::subtract, {std::ref(*this),expression});}
-inline Expression IndexedVariable::operator*(const Expression& expression) const { return Expression(Expression::Operator::multiply, {std::ref(*this),expression});}
-inline Expression IndexedVariable::operator/(const Expression& expression) const { return Expression(Expression::Operator::divide, {std::ref(*this),expression});}
-inline Expression IndexedVariable::operator<(const Expression& expression) const { return Expression(Expression::Operator::less_than, {std::ref(*this),expression});}
-inline Expression IndexedVariable::operator>(const Expression& expression) const { return Expression(Expression::Operator::greater_than, {std::ref(*this),expression});}
-inline Expression IndexedVariable::operator<=(const Expression& expression) const { return Expression(Expression::Operator::less_or_equal, {std::ref(*this),expression});}
-inline Expression IndexedVariable::operator>=(const Expression& expression) const { return Expression(Expression::Operator::greater_or_equal, {std::ref(*this),expression});}
-inline Expression IndexedVariable::operator==(const Expression& expression) const { return Expression(Expression::Operator::equal, {std::ref(*this),expression});}
-inline Expression IndexedVariable::operator!=(const Expression& expression) const { return Expression(Expression::Operator::not_equal, {std::ref(*this),expression});}
+inline Expression IndexedVariable::operator&&(const Expression& expression) const { return Expression(Expression::Operator::logical_and, {*this,expression});}
+inline Expression IndexedVariable::operator||(const Expression& expression) const { return Expression(Expression::Operator::logical_or, {*this,expression});}
+inline Expression IndexedVariable::operator+(const Expression& expression) const { return Expression(Expression::Operator::add, {*this,expression});}
+inline Expression IndexedVariable::operator-(const Expression& expression) const { return Expression(Expression::Operator::subtract, {*this,expression});}
+inline Expression IndexedVariable::operator*(const Expression& expression) const { return Expression(Expression::Operator::multiply, {*this,expression});}
+inline Expression IndexedVariable::operator/(const Expression& expression) const { return Expression(Expression::Operator::divide, {*this,expression});}
+inline Expression IndexedVariable::operator<(const Expression& expression) const { return Expression(Expression::Operator::less_than, {*this,expression});}
+inline Expression IndexedVariable::operator>(const Expression& expression) const { return Expression(Expression::Operator::greater_than, {*this,expression});}
+inline Expression IndexedVariable::operator<=(const Expression& expression) const { return Expression(Expression::Operator::less_or_equal, {*this,expression});}
+inline Expression IndexedVariable::operator>=(const Expression& expression) const { return Expression(Expression::Operator::greater_or_equal, {*this,expression});}
+inline Expression IndexedVariable::operator==(const Expression& expression) const { return Expression(Expression::Operator::equal, {*this,expression});}
+inline Expression IndexedVariable::operator!=(const Expression& expression) const { return Expression(Expression::Operator::not_equal, {*this,expression});}
 
 inline Expression IndexedVariable::implies(const Expression& expression) const { return !(*this) || expression; };
 
-inline std::string IndexedVariable::stringify() const { return container.name + "[" + index.name + "]"; }
+inline std::string IndexedVariable::stringify() const { return container.get().name + "[" + index.get().name + "]"; }
+
+
+inline IndexedVariable IndexedVariables::operator[](const Expression& expression) const {
+  if ( expression.operands.size() != 1 || !std::holds_alternative<std::reference_wrapper<const Variable>>(expression.operands.front()) ) {
+    throw std::runtime_error("CP: cannot determine index");
+  }
+std::cerr << stringify() << std::endl;
+  const Variable& index = std::get<std::reference_wrapper<const Variable>>(expression.operands.front()).get();
+std::cerr << index.stringify() << std::endl;
+  return IndexedVariable(*this,index);
+}
+
+inline IndexedVariables::operator std::vector<CP::Expression>() const {
+  std::vector<CP::Expression> result;
+  for (auto& indexedVariable : _variables) {
+    result.push_back(indexedVariable);
+  }
+  return result;
+}
 
 /*******************************************
  * Left side operators
@@ -530,12 +551,12 @@ inline Expression operator-(double constant, const Variable& variable) { return 
 inline Expression operator*(double constant, const Variable& variable) { return Expression(Expression::Operator::multiply, {constant,std::ref(variable)}); };
 inline Expression operator/(double constant, const Variable& variable) { return Expression(Expression::Operator::divide, {constant,std::ref(variable)}); };
 
-inline Expression operator&&(bool constant, const IndexedVariable& indexedVariable) { return Expression(Expression::Operator::logical_and, {(double)constant,std::ref(indexedVariable)}); };
-inline Expression operator||(bool constant, const IndexedVariable& indexedVariable) { return Expression(Expression::Operator::logical_or, {(double)constant,std::ref(indexedVariable)}); };
-inline Expression operator+(double constant, const IndexedVariable& indexedVariable) { return Expression(Expression::Operator::add, {constant,std::ref(indexedVariable)}); };
-inline Expression operator-(double constant, const IndexedVariable& indexedVariable) { return Expression(Expression::Operator::subtract, {constant,std::ref(indexedVariable)}); };
-inline Expression operator*(double constant, const IndexedVariable& indexedVariable) { return Expression(Expression::Operator::multiply, {constant,std::ref(indexedVariable)}); };
-inline Expression operator/(double constant, const IndexedVariable& indexedVariable) { return Expression(Expression::Operator::divide, {constant,std::ref(indexedVariable)}); };
+inline Expression operator&&(bool constant, const IndexedVariable& indexedVariable) { return Expression(Expression::Operator::logical_and, {(double)constant,indexedVariable}); };
+inline Expression operator||(bool constant, const IndexedVariable& indexedVariable) { return Expression(Expression::Operator::logical_or, {(double)constant,indexedVariable}); };
+inline Expression operator+(double constant, const IndexedVariable& indexedVariable) { return Expression(Expression::Operator::add, {constant,indexedVariable}); };
+inline Expression operator-(double constant, const IndexedVariable& indexedVariable) { return Expression(Expression::Operator::subtract, {constant,indexedVariable}); };
+inline Expression operator*(double constant, const IndexedVariable& indexedVariable) { return Expression(Expression::Operator::multiply, {constant,indexedVariable}); };
+inline Expression operator/(double constant, const IndexedVariable& indexedVariable) { return Expression(Expression::Operator::divide, {constant,indexedVariable}); };
 
 inline Expression operator&&(bool constant, const Expression& expression) { return Expression(Expression::Operator::logical_and, {(double)constant,expression}); };
 inline Expression operator||(bool constant, const Expression& expression) { return Expression(Expression::Operator::logical_or, {(double)constant,expression}); };
@@ -556,12 +577,12 @@ inline Expression operator>=(double constant, const Variable& variable) {  retur
 inline Expression operator==(double constant, const Variable& variable) {  return Expression(Expression::Operator::equal, {constant,std::ref(variable)}); };
 inline Expression operator!=(double constant, const Variable& variable) {  return Expression(Expression::Operator::not_equal, {constant,std::ref(variable)}); };
 
-inline Expression operator<(double constant, const IndexedVariable& indexedVariable) {  return Expression(Expression::Operator::less_than, {constant,std::ref(indexedVariable)}); };
-inline Expression operator>(double constant, const IndexedVariable& indexedVariable) {  return Expression(Expression::Operator::greater_than, {constant,std::ref(indexedVariable)}); };
-inline Expression operator<=(double constant, const IndexedVariable& indexedVariable) {  return Expression(Expression::Operator::less_or_equal, {constant,std::ref(indexedVariable)}); };
-inline Expression operator>=(double constant, const IndexedVariable& indexedVariable) {  return Expression(Expression::Operator::greater_or_equal, {constant,std::ref(indexedVariable)}); };
-inline Expression operator==(double constant, const IndexedVariable& indexedVariable) {  return Expression(Expression::Operator::equal, {constant,std::ref(indexedVariable)}); };
-inline Expression operator!=(double constant, const IndexedVariable& indexedVariable) {  return Expression(Expression::Operator::not_equal, {constant,std::ref(indexedVariable)}); };
+inline Expression operator<(double constant, const IndexedVariable& indexedVariable) {  return Expression(Expression::Operator::less_than, {constant,indexedVariable}); };
+inline Expression operator>(double constant, const IndexedVariable& indexedVariable) {  return Expression(Expression::Operator::greater_than, {constant,indexedVariable}); };
+inline Expression operator<=(double constant, const IndexedVariable& indexedVariable) {  return Expression(Expression::Operator::less_or_equal, {constant,indexedVariable}); };
+inline Expression operator>=(double constant, const IndexedVariable& indexedVariable) {  return Expression(Expression::Operator::greater_or_equal, {constant,indexedVariable}); };
+inline Expression operator==(double constant, const IndexedVariable& indexedVariable) {  return Expression(Expression::Operator::equal, {constant,indexedVariable}); };
+inline Expression operator!=(double constant, const IndexedVariable& indexedVariable) {  return Expression(Expression::Operator::not_equal, {constant,indexedVariable}); };
 
 inline Expression operator<(double constant, const Expression& expression) {  return Expression(Expression::Operator::less_than, {constant,expression}); };
 inline Expression operator>(double constant, const Expression& expression) {  return Expression(Expression::Operator::greater_than, {constant,expression}); };
@@ -626,11 +647,11 @@ Expression customOperator(const std::string& name, Terms&&... terms) {
     if constexpr (std::is_arithmetic_v<std::decay_t<decltype(term)>>) {
       operands.push_back((double)term);
     }
-    else if constexpr (std::is_same_v<std::decay_t<decltype(term)>, CP::Variable>) {
+    else if constexpr (std::is_same_v<std::decay_t<decltype(term)>, Variable>) {
       operands.push_back(std::ref(term));
     }
-    else if constexpr (std::is_same_v<std::decay_t<decltype(term)>, CP::IndexedVariable>) {
-      operands.push_back(std::ref(term));
+    else if constexpr (std::is_same_v<std::decay_t<decltype(term)>, IndexedVariable>) {
+      operands.push_back(term);
     }
     else if constexpr (std::is_same_v<std::decay_t<decltype(term)>, Expression>) {
       operands.push_back(std::move(term));
@@ -960,12 +981,12 @@ inline std::expected<double, std::string> Solution::evaluate(const Operand& term
   if (std::holds_alternative<double>(term)) {
     return std::get<double>(term);
   }
-  else if (std::holds_alternative<std::reference_wrapper<const CP::IndexedVariable>>(term)) {
-    auto& indexedVariable = std::get<std::reference_wrapper<const CP::IndexedVariable>>(term).get();
+  else if (std::holds_alternative<CP::IndexedVariable>(term)) {
+    auto& indexedVariable = std::get<CP::IndexedVariable>(term);
     auto evaluation = evaluate(indexedVariable.index);
     if ( !evaluation ) return std::unexpected(evaluation.error());
     auto index = (size_t)evaluation.value();
-    evaluation = evaluate(indexedVariable.container[index]);
+    evaluation = evaluate(indexedVariable.container.get()[index]);
     if ( !evaluation ) return std::unexpected(evaluation.error());
     return evaluation.value();
   }

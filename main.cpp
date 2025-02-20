@@ -112,30 +112,29 @@ int main()
   }
   std::cout << model.stringify() << std::endl;
 
-
 #ifdef USE_LIMEX
 
-  LIMEX::Callables<CP::Expression> callables;
-  auto l1 = LIMEX::Expression<CP::Expression>("z not in {3, abs(x), y + 5}", callables);
-//std::cout << "LIMEX: " << l1.stringify() << std::endl;
+  LIMEX::Callables<CP::Expression,CP::IndexedVariables> callables;
+  auto l1 = LIMEX::Expression<CP::Expression,CP::IndexedVariables>("z not in {3, abs(x), y + 5}", callables);
   auto e1 = l1.evaluate({z, x, y});
-//std::cout << "CP: " << e1.stringify() << std::endl;
   assert( e1.stringify() == "n_ary_if( z == 3.00, 0.00, z == if_then_else( x >= 0.00, x, -x ), 0.00, z == y + 5.00, 0.00, 1.00 )" );
 
-  auto l2 = LIMEX::Expression<CP::Expression>("min{3, x, y + 5}", callables);
+  auto l2 = LIMEX::Expression<CP::Expression,CP::IndexedVariables>("min{3, x, y + 5}", callables);
   std::vector<CP::Expression> variables = {x, y};
-  std::vector< std::vector<CP::Expression> > indexedVariables = {};
+  std::vector< std::reference_wrapper<CP::IndexedVariables> > indexedVariables = {};
   auto e2 = l2.evaluate( variables, indexedVariables );
   assert( e2.stringify() == "min( 3.00, x, y + 5.00 )" );
 
-  auto l3 = LIMEX::Expression<CP::Expression>("w := z[v]", callables);
-//std::cout << "LIMEX: " << l3.stringify() << std::endl;
+  auto l3 = LIMEX::Expression<CP::Expression,CP::IndexedVariables>("w := a[v]", callables);
+//std::cerr << l3.stringify() << std::endl;
 //for ( auto variable : l3.getVariables() ) std::cerr << variable << std::endl; 
   assert( !l3.getVariables().empty() && l3.getVariables().front() == "v" );
+  assert( !l3.getCollections().empty() && l3.getCollections().front() == "a" );
   assert( l3.getTarget() && l3.getTarget().value() == "w" );
-  auto e3 = l3.evaluate({v},{ {x, y} });
-//std::cout << "CP: " << e3.stringify() << std::endl;
-  assert( e3.stringify() == "n_ary_if( v == 1.00, x, v == 2.00, y, 0.00 )" );
+  
+  auto e3 = l3.evaluate({v},{a});
+//std::cout << "e3: " << e3.stringify() << "!" << std::endl;
+  assert( e3.stringify() == "a[v]" );
 #endif 
 
 
