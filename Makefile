@@ -4,6 +4,11 @@ CXX = g++
 # Compiler flags
 CXXFLAGS = -std=c++23 -Wall -Wextra -Werror  -fmax-errors=1
 
+# Conditionally add LIMEX path and define if it is set
+ifneq ($(LIMEX_PATH),)
+    CXXFLAGS += -DUSE_LIMEX -I$(LIMEX_PATH)
+endif
+
 # Source files
 SRCS = main.cpp
 

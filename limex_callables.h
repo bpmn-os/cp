@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../limex/limex.h"
+#include <limex.h>
 #include "cp.h"
 
 /*******************************

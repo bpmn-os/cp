@@ -3,7 +3,6 @@
 
 #include "cp.h"
 
-#define USE_LIMEX
 #ifdef USE_LIMEX
   #include "limex_callables.h"
 #endif 
@@ -113,7 +112,6 @@ int main()
   std::cout << model.stringify() << std::endl;
 
 #ifdef USE_LIMEX
-
   LIMEX::Callables<CP::Expression,const CP::IndexedVariables> callables;
   auto l1 = LIMEX::Expression<CP::Expression,const CP::IndexedVariables>("z not in {3, abs(x), y + 5}", callables);
   auto e1 = l1.evaluate({z, x, y});
