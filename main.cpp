@@ -140,8 +140,8 @@ int main()
   auto& X = solvedModel.addRealVariable("X");
   auto& Y = solvedModel.addIntegerVariable("Y");
   auto& Z = solvedModel.addRealVariable("Z");
-  [[maybe_unused]] auto& W = solvedModel.addRealVariable("W");
-  [[maybe_unused]] auto& V = solvedModel.addBinaryVariable("V");
+  auto& W = solvedModel.addRealVariable("W");
+  auto& V = solvedModel.addBinaryVariable("V");
   auto expression = solvedModel.addConstraint( X <= min(Y, Z) );
   CP::Solution solution(solvedModel);
   solution.setVariableValue(X,1);
@@ -153,9 +153,14 @@ int main()
   solution.setVariableValue(Y,4);
   solution.setVariableValue(Z,5);
   solution.setVariableValue(V,2);
-  assert( solution.errors().empty() );
-
+  assert( !solution.complete() ); // Variable W does not yet have a value
+  
   std::cout << "Solution: \n" << solution.stringify() << std::endl;
+
+  solution.setVariableValue(W,0);
+  assert( solution.complete() );
+
+  assert( solution.errors().empty() );
   return 0;
 }
 

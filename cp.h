@@ -253,8 +253,8 @@ struct Expression {
   
   Operator _operator;
   std::vector< Operand > operands;
-  inline static std::vector<std::string> customOperators = {};
-  inline static size_t getCustomIndex(std::string name);
+  inline static std::vector<std::string> customOperators = {}; // TODO: can we move this to model?
+  inline static size_t getCustomIndex(std::string name); // TODO: can we move this to model?
 };
 
 inline std::string Expression::stringify(const Operand& term, bool parenthesize) {
@@ -885,6 +885,7 @@ public:
 
   inline void addEvaluator( const std::string& name, std::function< std::expected<double, std::string>(const std::vector<double>&) > implementation );
 
+  inline bool complete() const; /// Returns true if all variables have a value
   inline std::expected< std::vector<double>, std::string> evaluate( const std::ranges::range auto& operands ) const;
   inline std::expected<double, std::string> evaluate(const Operand& term) const;
   inline std::expected<double, std::string> evaluate(const Expression& expression) const;
@@ -963,6 +964,33 @@ inline void Solution::addEvaluator( const std::string& name, std::function< std:
     _customEvaluators.resize(index+1);
   }
   _customEvaluators[index] = std::move(implementation);
+}
+
+inline bool Solution::complete() const {
+  for ( auto& sequence : model.getSequences() ) {
+    for ( auto& variable : sequence.variables ) {
+      auto evaluation = evaluate(variable);
+      if ( !evaluation ) {
+        return false;
+      }
+    }
+  }
+  for ( auto& variable : model.getVariables()) {
+    auto evaluation = evaluate(variable);
+    if ( !evaluation ) {
+      return false;
+    }
+  }
+  for (const auto& indexedVariables : model.getIndexedVariables()) {
+    for ( auto& variable : indexedVariables ) {
+      auto evaluation = evaluate(variable);
+      if ( !evaluation ) {
+        return false;
+      }
+    }
+  }
+
+  return true;
 }
 
 inline std::expected< std::vector<double>, std::string> Solution::evaluate( const std::ranges::range auto& operands ) const {
@@ -1187,11 +1215,13 @@ inline std::string Solution::stringify() const {
       result += stringify(variable);
     }
   }
+
   if ( model.getObjectiveSense() != Model::ObjectiveSense::FEASIBLE ) {
     if ( !result.empty() ) result += "\n";
     auto objective = getObjectiveValue();
     result += "objective: " + (objective.has_value() ? std::to_string(objective.value()) : "n/a");
   }
+
   return result;
 }
 
