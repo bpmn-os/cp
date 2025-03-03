@@ -157,7 +157,7 @@ struct IndexedVariables {
   inline IndexedVariables(Variable::Type type, std::string name) : type(type), name(std::move(name)) {} 
   IndexedVariables(const IndexedVariables&) = delete; // Disable copy constructor
   IndexedVariables& operator=(const IndexedVariables&) = delete; // Disable copy assignment
-  inline operator std::vector<CP::Expression>() const; // Implicit cast
+  inline operator std::vector<Expression>() const; // Implicit cast
 
   inline const Variable& operator[](std::size_t index) const { return _references.at(index); }
 
@@ -263,12 +263,12 @@ inline std::string Expression::stringify(const Operand& term, bool parenthesize)
     auto constant = std::get<double>(term);
     result += std::format("{:.2f}", constant);
   }
-  else if (std::holds_alternative<std::reference_wrapper<const CP::Variable>>(term)) {
-    auto& variable = std::get<std::reference_wrapper<const CP::Variable>>(term).get();
+  else if (std::holds_alternative<std::reference_wrapper<const Variable>>(term)) {
+    auto& variable = std::get<std::reference_wrapper<const Variable>>(term).get();
     result += variable.name;
   }
-  else if (std::holds_alternative<CP::IndexedVariable>(term)) {
-    auto& indexedVariable = std::get<CP::IndexedVariable>(term);
+  else if (std::holds_alternative<IndexedVariable>(term)) {
+    auto& indexedVariable = std::get<IndexedVariable>(term);
     result += indexedVariable.stringify();
   }
   else if ( std::holds_alternative<Expression>(term) ) {
@@ -402,10 +402,10 @@ inline std::optional<std::pair<Expression, Expression>> isImplication( const Exp
     }
 
     auto condition = 
-      std::holds_alternative<std::reference_wrapper<const CP::Variable>>(negated_condition.operands.front()) ? 
-      Expression(std::get<std::reference_wrapper<const CP::Variable>>(negated_condition.operands.front()).get()) :
-      std::holds_alternative<CP::IndexedVariable>(negated_condition.operands.front()) ? 
-      Expression(std::get<CP::IndexedVariable>(negated_condition.operands.front())) : 
+      std::holds_alternative<std::reference_wrapper<const Variable>>(negated_condition.operands.front()) ? 
+      Expression(std::get<std::reference_wrapper<const Variable>>(negated_condition.operands.front()).get()) :
+      std::holds_alternative<IndexedVariable>(negated_condition.operands.front()) ? 
+      Expression(std::get<IndexedVariable>(negated_condition.operands.front())) : 
       std::get<Expression>(negated_condition.operands.front())
     ;
 
@@ -532,8 +532,8 @@ std::cerr << index.stringify() << std::endl;
   return IndexedVariable(*this,index);
 }
 
-inline IndexedVariables::operator std::vector<CP::Expression>() const {
-  std::vector<CP::Expression> result;
+inline IndexedVariables::operator std::vector<Expression>() const {
+  std::vector<Expression> result;
   for (auto& indexedVariable : _variables) {
     result.push_back(indexedVariable);
   }
@@ -1009,8 +1009,8 @@ inline std::expected<double, std::string> Solution::evaluate(const Operand& term
   if (std::holds_alternative<double>(term)) {
     return std::get<double>(term);
   }
-  else if (std::holds_alternative<CP::IndexedVariable>(term)) {
-    auto& indexedVariable = std::get<CP::IndexedVariable>(term);
+  else if (std::holds_alternative<IndexedVariable>(term)) {
+    auto& indexedVariable = std::get<IndexedVariable>(term);
     auto evaluation = evaluate(indexedVariable.index);
     if ( !evaluation ) return std::unexpected(evaluation.error());
     auto index = (size_t)evaluation.value();
@@ -1018,8 +1018,8 @@ inline std::expected<double, std::string> Solution::evaluate(const Operand& term
     if ( !evaluation ) return std::unexpected(evaluation.error());
     return evaluation.value();
   }
-  else if (std::holds_alternative<std::reference_wrapper<const CP::Variable>>(term)) {
-    auto& variable = std::get<std::reference_wrapper<const CP::Variable>>(term).get();
+  else if (std::holds_alternative<std::reference_wrapper<const Variable>>(term)) {
+    auto& variable = std::get<std::reference_wrapper<const Variable>>(term).get();
     using enum Variable::Type;
     switch ( variable.type ) {
       case BOOLEAN:
