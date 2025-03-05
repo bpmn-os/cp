@@ -214,6 +214,8 @@ struct Expression {
     subtract,
     multiply,
     divide,
+    at,
+    collection,
     custom,
     less_than,
     less_or_equal,
@@ -333,6 +335,16 @@ inline std::string Expression::stringify() const {
     case divide:
     {
       return stringify(operands[0], "/", operands[1]);
+    }
+    case at:
+    {
+      auto collection = std::get<Expression>(operands.front());
+      return collection.stringify() + "[" + stringify(operands.back(),false) +  "]";
+    }
+    case collection:
+    {
+      auto collection = std::get<Expression>(operands.front());
+      return "collection(" + collection.stringify() + ")";
     }
     case custom:
     {
@@ -884,6 +896,7 @@ public:
   inline std::expected< double, std::string> getVariableValue(const Variable& variable) const;
 
   inline void addEvaluator( const std::string& name, std::function< std::expected<double, std::string>(const std::vector<double>&) > implementation );
+  inline void setCollectionEvaluator( std::function< std::expected<std::vector<double>, std::string>(double) > implementation );
 
   inline bool complete() const; /// Returns true if all variables have a value
   inline std::expected< std::vector<double>, std::string> evaluate( const std::ranges::range auto& operands ) const;
@@ -894,9 +907,11 @@ public:
   inline std::string stringify() const;
   inline std::string stringify(const Variable& variable) const;
 private:
+  inline std::expected<std::vector<double>, std::string> getCollection(const Operand& operand) const;
   std::unordered_map< const Sequence*, std::vector<double> > _sequenceValues;
   std::unordered_map< const Variable*, double > _variableValues;
   std::vector< std::function< std::expected<double, std::string>(const std::vector<double>&) > > _customEvaluators;
+  std::function< std::expected<std::vector<double>, std::string>(double) > _collectionEvaluator;
 };
 
 inline Solution::Solution(const Model& model) : model(model) {
@@ -964,6 +979,10 @@ inline void Solution::addEvaluator( const std::string& name, std::function< std:
     _customEvaluators.resize(index+1);
   }
   _customEvaluators[index] = std::move(implementation);
+}
+
+inline void Solution::setCollectionEvaluator( std::function< std::expected<std::vector<double>, std::string>(double) > implementation ) {
+  _collectionEvaluator = std::move(implementation);
 }
 
 inline bool Solution::complete() const {
@@ -1062,17 +1081,67 @@ inline std::expected<double, std::string> Solution::evaluate(const Operand& term
   }
 };
 
+inline std::expected<std::vector<double>, std::string> Solution::getCollection(const Operand& operand) const {
+  // aggregate function of collection represented by variable
+  const Variable& variable = std::get<std::reference_wrapper<const Variable>> ( std::get<Expression>( std::get<Expression>(operand).operands[0] ).operands.front() );
+
+  // determine variable value
+  auto evaluation = evaluate(variable);
+  if ( !evaluation ) {
+    return std::unexpected( evaluation.error() );
+  }
+
+  // determine collection for variable value
+  return _collectionEvaluator(evaluation.value());
+}
+
 inline std::expected<double, std::string> Solution::evaluate(const Expression& expression) const {
   auto& operands = expression.operands;
   using enum Expression::Operator;
 
-  if ( expression._operator == custom ) {
-    auto index = std::get<size_t>(operands.front());
-    auto evaluations = evaluate(operands | std::views::drop(1));
-    if ( !evaluations ) {
-      return std::unexpected( evaluations.error() );
+  if ( expression._operator == at ) {
+    if ( operands.size() != 2 ) {
+      throw std::logic_error("CP: at operator must have exactly two operands");  
     }
-    return _customEvaluators.at(index)(evaluations.value());
+    // determine collection for variable value
+    if (
+      !std::holds_alternative<Expression>(operands[0]) ||
+      std::get<Expression>(operands[0])._operator != collection
+    ) {
+      throw std::logic_error("CP: first operand of at operator must be a collection");  
+    }
+
+    auto collection = getCollection(operands[0]);
+
+    auto indexEvaluation = evaluate( std::get<Expression>(operands[1]) );
+    if ( !indexEvaluation) {
+      return std::unexpected( indexEvaluation.error() );
+    }
+    if ( indexEvaluation.value() > collection.value().size() ) {
+      return std::unexpected( "illegal index" );
+    }
+    return collection.value().at(indexEvaluation.value()-1);
+  }
+  else if ( expression._operator == custom ) {
+    if ( operands.size() < 2 ) {
+      throw std::logic_error("CP: custom operator must have at least two operands");  
+    }
+    auto index = std::get<size_t>(operands.front());
+
+    if (
+      std::holds_alternative<Expression>(operands[1]) &&
+      std::get<Expression>(operands[1])._operator == collection
+    ) {
+      auto collection = getCollection(operands[1]);
+      return _customEvaluators.at(index)(collection.value());
+    }
+    else {   
+      auto evaluations = evaluate(operands | std::views::drop(1));
+      if ( !evaluations ) {
+        return std::unexpected( evaluations.error() );
+      }
+      return _customEvaluators.at(index)(evaluations.value());
+    }
   }
 
   auto evaluations = evaluate(operands);
