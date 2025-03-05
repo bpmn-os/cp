@@ -213,7 +213,7 @@ int main()
     std::vector<double> collection2{ 0, 8, 15 };
        
     solution.setCollectionEvaluator( 
-      [&collection1,&collection2](double value) -> std::reference_wrapper<const std::vector<double>> {
+      [&collection1,&collection2](double value) -> std::expected< std::reference_wrapper<const std::vector<double> > {
         return ( value == 42 ? collection1 : collection2 );
       }
     );
