@@ -142,6 +142,7 @@ int main()
 
     assert( solution.errors().empty() );
   }
+  std::cout << "Basic tests passed." << std::endl;
 
 #ifdef USE_LIMEX
   LIMEX::Handle<CP::Expression,CP::Expression> handle;
@@ -213,7 +214,7 @@ int main()
     std::vector<double> collection2{ 0, 8, 15 };
        
     solution.setCollectionEvaluator( 
-      [&collection1,&collection2](double value) -> std::expected< std::reference_wrapper<const std::vector<double> > {
+      [&collection1,&collection2](double value) -> std::expected< std::reference_wrapper<const std::vector<double> >, std::string > {
         return ( value == 42 ? collection1 : collection2 );
       }
     );
@@ -229,9 +230,8 @@ int main()
     assert( solution.evaluate(constraint1).value() );
     assert( !solution.evaluate(constraint2).value() );
   }
+  std::cout << "LIMEX tests passed." << std::endl;
 #endif 
-
-  std::cout << "All tests passed." << std::endl;
   return 0;
 }
 
