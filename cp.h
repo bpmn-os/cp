@@ -896,7 +896,7 @@ public:
   inline std::expected< double, std::string> getVariableValue(const Variable& variable) const;
 
   inline void addEvaluator( const std::string& name, std::function< std::expected<double, std::string>(const std::vector<double>&) > implementation );
-  inline void setCollectionEvaluator( std::function< std::expected<std::vector<double>, std::string>(double) > implementation );
+  inline void setCollectionEvaluator( std::function< std::expected< std::reference_wrapper<const std::vector<double> >, std::string>(double) > implementation );
 
   inline bool complete() const; /// Returns true if all variables have a value
   inline std::expected< std::vector<double>, std::string> evaluate( const std::ranges::range auto& operands ) const;
@@ -981,7 +981,7 @@ inline void Solution::addEvaluator( const std::string& name, std::function< std:
   _customEvaluators[index] = std::move(implementation);
 }
 
-inline void Solution::setCollectionEvaluator( std::function< std::expected<std::vector<double>, std::string>(double) > implementation ) {
+inline void Solution::setCollectionEvaluator( std::function< std::expected< std::reference_wrapper<const std::vector<double> >, std::string>(double) > implementation ) {
   _collectionEvaluator = std::move(implementation);
 }
 

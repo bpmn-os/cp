@@ -209,10 +209,12 @@ int main()
 //std::cout << "Model: " << model.stringify() << std::endl;
     CP::Solution solution(model);
   
+    std::vector<double> collection1{ 4, 3, 2, 1 };
+    std::vector<double> collection2{ 0, 8, 15 };
+       
     solution.setCollectionEvaluator( 
-      [](double value) -> std::vector<double> {
-        std::vector<double> collection =( value == 42 ? std::vector<double>{ 4, 3, 2, 1 } : std::vector<double>{ 0, 8, 15 });   
-        return collection;
+      [&collection1,&collection2](double value) -> std::reference_wrapper<const std::vector<double>> {
+        return ( value == 42 ? collection1 : collection2 );
       }
     );
 
