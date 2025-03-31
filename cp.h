@@ -1144,6 +1144,9 @@ inline std::expected<double, std::string> Solution::evaluate(const Expression& e
     }
   }
   else if ( expression._operator == logical_and ) {
+    if ( operands.size() != 2 ) {
+      throw std::logic_error("CP: && operator must have exactly two operands");  
+    }
     auto evaluation = evaluate(operands[0]);
     if ( !evaluation ) return std::unexpected( evaluation.error() );
     if ( !evaluation.value() ) {
@@ -1154,6 +1157,9 @@ inline std::expected<double, std::string> Solution::evaluate(const Expression& e
     return evaluation.value();
   }
   else if ( expression._operator == logical_or ) {
+    if ( operands.size() != 2 ) {
+      throw std::logic_error("CP: || operator must have exactly two operands");  
+    }
     auto evaluation = evaluate(operands[0]);
     if ( !evaluation ) return std::unexpected( evaluation.error() );
     if ( evaluation.value() ) {
