@@ -1143,6 +1143,26 @@ inline std::expected<double, std::string> Solution::evaluate(const Expression& e
       return _customEvaluators.at(index)(evaluations.value());
     }
   }
+  else if ( expression._operator == logical_and ) {
+    auto evaluation = evaluate(operands[0]);
+    if ( !evaluation ) return std::unexpected( evaluation.error() );
+    if ( !evaluation.value() ) {
+      return false;
+    }
+    evaluation = evaluate(operands[1]);
+    if ( !evaluation ) return std::unexpected( evaluation.error() );
+    return evaluation.value();
+  }
+  else if ( expression._operator == logical_or ) {
+    auto evaluation = evaluate(operands[0]);
+    if ( !evaluation ) return std::unexpected( evaluation.error() );
+    if ( evaluation.value() ) {
+      return true;
+    }
+    evaluation = evaluate(operands[1]);
+    if ( !evaluation ) return std::unexpected( evaluation.error() );
+    return evaluation.value();
+  }
 
   auto evaluations = evaluate(operands);
   if ( !evaluations ) return std::unexpected( evaluations.error() );
@@ -1160,14 +1180,6 @@ inline std::expected<double, std::string> Solution::evaluate(const Expression& e
     case logical_not:
     {
       return !values[0];
-    }
-    case logical_and:
-    {
-      return values[0] && values[1];
-    }
-    case logical_or:
-    {
-      return values[0] || values[1];
     }
     case add:
     {
