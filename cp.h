@@ -1169,6 +1169,19 @@ inline std::expected<double, std::string> Solution::evaluate(const Expression& e
     if ( !evaluation ) return std::unexpected( evaluation.error() );
     return evaluation.value();
   }
+  else if ( expression._operator == multiply ) {
+    if ( operands.size() != 2 ) {
+      throw std::logic_error("CP: * operator must have exactly two operands");  
+    }
+    auto first = evaluate(operands[0]);
+    if ( !first ) return std::unexpected( first.error() );
+    if ( first.value() == 0 ) {
+      return 0;
+    }
+    auto second = evaluate(operands[1]);
+    if ( !second ) return std::unexpected( second.error() );
+    return first.value() * second.value();
+  }
 
   auto evaluations = evaluate(operands);
   if ( !evaluations ) return std::unexpected( evaluations.error() );
@@ -1194,10 +1207,6 @@ inline std::expected<double, std::string> Solution::evaluate(const Expression& e
     case subtract:
     {
       return values[0] - values[1];
-    }
-    case multiply:
-    {
-      return values[0] * values[1];
     }
     case divide:
     {
