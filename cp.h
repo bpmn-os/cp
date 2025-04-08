@@ -889,7 +889,6 @@ public:
   inline std::optional<double> getObjectiveValue() const;
   template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool>* = nullptr >
   inline void setSequenceValues(const Sequence& sequence, std::vector<T> values);
-//  inline void setSequenceValues(const Sequence& sequence, std::vector<double> values);
 
   inline std::expected< std::vector<double>, std::string> getSequenceValues(const Sequence& sequence) const;
   inline void setVariableValue(const Variable& variable, double value);
@@ -908,7 +907,6 @@ public:
   inline std::string stringify(const Variable& variable) const;
 private:
   inline std::expected<std::vector<double>, std::string> getCollection(const Operand& operand) const;
-  std::unordered_map< const Sequence*, std::vector<double> > _sequenceValues;
   std::unordered_map< const Variable*, double > _variableValues;
   std::vector< std::function< std::expected<double, std::string>(const std::vector<double>&) > > _customEvaluators;
   std::function< std::expected<std::vector<double>, std::string>(double) > _collectionEvaluator;
@@ -943,15 +941,20 @@ inline void Solution::setSequenceValues(const Sequence& sequence, std::vector<T>
   for (size_t i = 0; i < values.size(); i++) {
     _variableValues[&sequence.variables[i]] = (double)(int)(values[i]);
   }
-  _sequenceValues[&sequence] = {values.begin(), values.end()};
 }
 
 inline std::expected< std::vector<double>, std::string> Solution::getSequenceValues(const Sequence& sequence) const {
-  auto it = _sequenceValues.find(&sequence);
-  if ( it == _sequenceValues.end() ) {
-    return std::unexpected("No known values for sequence '" + sequence.name + "'");
+  std::vector<double> results;
+  results.reserve(sequence.variables.size());
+  for (size_t i = 0; i < sequence.variables.size(); i++) {
+    auto variableValue = getVariableValue(sequence.variables[i]);
+    if ( !variableValue ) {
+      return std::unexpected("Incomplete values for sequence '" + sequence.name + "'");
+    }
+    results.push_back( variableValue.value() );
   }
-  return it->second;
+  
+  return results;
 };
 
 inline void Solution::setVariableValue(const Variable& variable, double value) {
