@@ -1120,7 +1120,7 @@ inline std::expected<double, std::string> Solution::evaluate(const Expression& e
     if ( !indexEvaluation) {
       return std::unexpected( indexEvaluation.error() );
     }
-    if ( indexEvaluation.value() > collection.value().size() ) {
+    if ( indexEvaluation.value() < 1 || indexEvaluation.value() > collection.value().size() ) {
       return std::unexpected( "illegal index" );
     }
     return collection.value().at(indexEvaluation.value()-1);
