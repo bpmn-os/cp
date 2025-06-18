@@ -4,7 +4,7 @@ This header-only library defines a C++ interface for modeling constraint program
 
 ## Features
 
-- Boolean, Integer, and Real Variables
+- Boolean, integer, and real Variables
 - Indexed variables for array-like structures
 - Permutation sequences
 - Expressions combining variables and constants using arithmetic, logical, and relational operators
@@ -27,9 +27,9 @@ CP::Model model;
 Unconstrained variables can be added to a model using dedicated methods.
 
 ```cpp
-inline const Variable& addRealVariable(std::string name)
-inline const Variable& addIntegerVariable(std::string name)
-inline const Variable& addBinaryVariable(std::string name)
+inline const Variable& addRealVariable(std::string name);
+inline const Variable& addIntegerVariable(std::string name);
+inline const Variable& addBinaryVariable(std::string name);
 ```
 
 Examples:
