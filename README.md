@@ -4,7 +4,7 @@ This header-only library defines a C++ interface for modeling constraint program
 
 ## Features
 
-- Boolean, integer, and real Variables
+- Boolean, integer, and real variables
 - Indexed variables for array-like structures
 - Permutation sequences
 - Expressions combining variables and constants using arithmetic, logical, and relational operators
