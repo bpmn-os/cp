@@ -77,7 +77,8 @@ Expressions can be intuitively written using the variable references previously 
 
 - Arithmetic expressions, e.g. `x + 3 * y?
 - Logical expression, e.g. `x && ( y || !z )`
-- Comparisons, e.g. `x < y`
+- Indexing, e.g. `a[i]`
+- Comparisons, e.g. `x < a[i]`
 - Implications, e.g. `x.implies(y < 5)`
 - Min/max expressions, e.g `CP::min( 0, x, 3 * z )`, `CP::max( 0.0, x, 3 * z )`
 - If-then-else expressions, e.g. `CP::if_then_else( y, x, 3 * z )`, `CP::n_ary_if( {{y, x}, {!y, 5}}, 3 * z )`
