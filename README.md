@@ -35,8 +35,8 @@ inline const Variable& addBinaryVariable(std::string name);
 Examples:
 ```cpp
 auto& x = model.addRealVariable("x");     // x ∈ [ -infinity, infinity ]
-auto& z = model.addIntegerVariable("y");  // y ∈ { -infinity, ..., infinity }
-auto& y = model.addBinaryVariable("z");   // z ∈ { false, true }
+auto& y = model.addIntegerVariable("y");  // y ∈ { -infinity, ..., infinity }
+auto& z = model.addBinaryVariable("z");   // z ∈ { false, true }
 ```
 
 Variables can be added to a model by specifying the type (`CP::Variable::Type::REAL`,`CP::Variable::Type::INTEGER`,`CP::Variable::Type::BOOLEAN`) and lower and upper bounds.
@@ -103,7 +103,7 @@ The objective can be specified by providing the objective sense `CP::Model::Obje
 ```cpp
 CP::Model model(CP::Model::ObjectiveSense::MINIMIZE);
 auto& x = model.addRealVariable("x");     // x ∈ [ -infinity, infinity ]
-auto& z = model.addIntegerVariable("y");  // y ∈ { -infinity, ..., infinity }
+auto& y = model.addIntegerVariable("y");  // y ∈ { -infinity, ..., infinity }
 model.setObjective(3 * x + 5 * y);
 ```
 
