@@ -35,8 +35,8 @@ inline const Variable& addBinaryVariable(std::string name);
 Examples:
 ```cpp
 auto& x = model.addRealVariable("x");     // x ∈ [ -infinity, infinity ]
-auto& z = model.addIntegerVariable("z");  // z ∈ { -infinity, ..., infinity }
-auto& y = model.addBinaryVariable("y");   // y ∈ { false, true }
+auto& z = model.addIntegerVariable("y");  // y ∈ { -infinity, ..., infinity }
+auto& y = model.addBinaryVariable("z");   // z ∈ { false, true }
 ```
 
 Variables can be added to a model by specifying the type (`CP::Variable::Type::REAL`,`CP::Variable::Type::INTEGER`,`CP::Variable::Type::BOOLEAN`) and lower and upper bounds.
@@ -75,14 +75,14 @@ auto& s = model.addSequence("s", 3 ); // ( s[0], s[1], s[2] ) is permutation of 
 
 Expressions can be intuitively written using the variable references previously added to a model.
 
-- Arithmetic expressions, e.g. `x + 3 * y?
-- Logical expression, e.g. `x && ( y || !z )`
-- Indexing, e.g. `a[i]`
-- Comparisons, e.g. `x < a[i]`
+- Arithmetic expressions using operators `+`, `-`, `*`, `/`, e.g. `x + 3 * y`
+- Logical expression using operators `&&`, `||`, `!`, e.g. `x && ( y || !z )`
+- Indexing using `[` and `]`, e.g. `a[i]`
+- Comparisons using operators `<`, `>`, `<=`, `>=`, `==`, `!=`, e.g. `x < a[i]`
 - Implications, e.g. `x.implies(y < 5)`
 - Min/max expressions, e.g `CP::min( 0, x, 3 * z )`, `CP::max( 0.0, x, 3 * z )`
 - If-then-else expressions, e.g. `CP::if_then_else( y, x, 3 * z )`, `CP::n_ary_if( {{y, x}, {!y, 5}}, 3 * z )`
-- Custom expressions
+- Custom expressions, e.g. those provided by LIMEX (see below)
 
 ```cpp
 CP::Expression objective(3 * x + 5 * y);
@@ -98,23 +98,29 @@ model.addConstraint(x + y <= 10);
 
 ### Objective
 
-The objective can be specified by providing the objective sense and an expression for the objective function.
+The objective can be specified by providing the objective sense `CP::Model::ObjectiveSense::FEASIBLE` (default), `CP::Model::ObjectiveSense::MAXIMIZE`, or `CP::Model::ObjectiveSense::MINIMIZE` and an expression for the objective function.
 
 ```cpp
 CP::Model model(CP::Model::ObjectiveSense::MINIMIZE);
+auto& x = model.addRealVariable("x");     // x ∈ [ -infinity, infinity ]
+auto& z = model.addIntegerVariable("y");  // y ∈ { -infinity, ..., infinity }
 model.setObjective(3 * x + 5 * y);
 ```
 
 ### Solution
 
-Stores a concrete assignment to variables for a given model and allows evaluation of expressions.
+Stores a concrete assignment to variables for a given model and allows evaluation of expressions and constraints.
 
 ```cpp
 CP::Solution solution(model);
 solution.setVariableValue(x, 3);
 solutionsolution.setVariableValue(y, 4);
-auto result = solution.evaluate(3 * x + 5 * y); // should return 29
+auto result = solution.evaluate(3 * x + 5 * y == 29); // evaluates to 1 (true)
 ```
+
+### LIMEX
+
+[LIMEX](https://github.com/bpmn-os/limex) is a C++ library for passing mathematical expressions. The library can be used to add user provided expressions to a constraint program allowing custom operators like `abs`, `pow`, `sqrt`, `cbrt`, `sum`, `avg`, `count`, `∈`, `∉`. More details can be found in the file `limex_handle.cpp` and in the [LIMEX](https://github.com/bpmn-os/limex) repository.
 
 ## Example usage
 
@@ -130,7 +136,7 @@ To build and run tests:
 make clean; make; ./test
 ```
 
-Build and run tests with limex (change path as necessary):
+Build and run tests with LIMEX (change path as necessary):
 
 ```
 make clean; make LIMEX_PATH=../limex; ./test
