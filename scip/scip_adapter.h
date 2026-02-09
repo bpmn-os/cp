@@ -29,8 +29,8 @@ private:
 
   // Helper functions for constraints
   void addSequenceConstraints(const std::string& seqName, const std::vector<SCIP_VAR*>& seqVars);
-  SCIP_EXPR* addElementConstraint(const std::string& name, const std::vector<SCIP_VAR*>& arrayVars,
-                                   SCIP_VAR* indexVar, SCIP_VAR* resultVar);
+  SCIP_EXPR* addElementConstraint(const std::string& name, const std::vector<SCIP_VAR*>& arrayVars, SCIP_VAR* indexVar, SCIP_VAR* resultVar);
+  SCIP_EXPR* createBoolExpr(SCIP_EXPR* expr);
 
   SCIP* scip_ = nullptr;
   std::unordered_map<const Variable*, SCIP_VAR*> varMap_;
