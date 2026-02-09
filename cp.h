@@ -1033,7 +1033,12 @@ inline std::expected<double, std::string> Solution::evaluate(const Operand& term
     auto& indexedVariable = std::get<IndexedVariable>(term);
     auto evaluation = evaluate(indexedVariable.index);
     if ( !evaluation ) return std::unexpected(evaluation.error());
-    auto index = (size_t)std::round(evaluation.value());
+    size_t index = (size_t)std::round(evaluation.value());
+    if (index >= indexedVariable.container.get().size()) {
+      return std::unexpected("Index out of bounds for '" + indexedVariable.container.get().name +
+                            "': " + std::to_string(index) +
+                            " not in [0, " + std::to_string(indexedVariable.container.get().size()) + ")");
+    }
     evaluation = evaluate(indexedVariable.container.get()[index]);
     if ( !evaluation ) return std::unexpected(evaluation.error());
     return evaluation.value();
