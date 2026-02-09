@@ -7,6 +7,9 @@
 #include <scip/expr_var.h>
 #include <scip/expr_product.h>
 #include <scip/expr_sum.h>
+#include <limits>
+#include <iostream>
+#include <cstring>
 
 namespace CP {
 
@@ -50,8 +53,14 @@ void SCIPSolver::addVariables(const Model& model) {
         break;
     }
 
+    // Convert C++ limits to SCIP infinity
+    double lowerBound = (var.lowerBound == std::numeric_limits<double>::lowest())
+                        ? -SCIPinfinity(scip_) : var.lowerBound;
+    double upperBound = (var.upperBound == std::numeric_limits<double>::max())
+                        ? SCIPinfinity(scip_) : var.upperBound;
+
     SCIP_VAR* scipVar;
-    SCIPcreateVarBasic(scip_, &scipVar, var.name.c_str(), var.lowerBound, var.upperBound, 0.0, vartype);
+    SCIPcreateVarBasic(scip_, &scipVar, var.name.c_str(), lowerBound, upperBound, 0.0, vartype);
     SCIPaddVar(scip_, scipVar);
     varMap_[&var] = scipVar;
   }
@@ -74,8 +83,14 @@ void SCIPSolver::addIndexedVariables(const Model& model) {
           break;
       }
 
+      // Convert C++ limits to SCIP infinity
+      double lowerBound = (var.lowerBound == std::numeric_limits<double>::lowest())
+                          ? -SCIPinfinity(scip_) : var.lowerBound;
+      double upperBound = (var.upperBound == std::numeric_limits<double>::max())
+                          ? SCIPinfinity(scip_) : var.upperBound;
+
       SCIP_VAR* scipVar;
-      SCIPcreateVarBasic(scip_, &scipVar, var.name.c_str(), var.lowerBound, var.upperBound, 0.0, vartype);
+      SCIPcreateVarBasic(scip_, &scipVar, var.name.c_str(), lowerBound, upperBound, 0.0, vartype);
       SCIPaddVar(scip_, scipVar);
       varMap_[&var] = scipVar;
     }
@@ -88,8 +103,15 @@ void SCIPSolver::addSequences(const Model& model) {
     std::vector<SCIP_VAR*> seqVars;
     for (const auto& varRef : seq.variables) {
       const Variable& var = varRef.get();
+
+      // Convert C++ limits to SCIP infinity (sequences shouldn't be unbounded, but handle it for consistency)
+      double lowerBound = (var.lowerBound == std::numeric_limits<double>::lowest())
+                          ? -SCIPinfinity(scip_) : var.lowerBound;
+      double upperBound = (var.upperBound == std::numeric_limits<double>::max())
+                          ? SCIPinfinity(scip_) : var.upperBound;
+
       SCIP_VAR* scipVar;
-      SCIPcreateVarBasic(scip_, &scipVar, var.name.c_str(), var.lowerBound, var.upperBound, 0.0, SCIP_VARTYPE_INTEGER);
+      SCIPcreateVarBasic(scip_, &scipVar, var.name.c_str(), lowerBound, upperBound, 0.0, SCIP_VARTYPE_INTEGER);
       SCIPaddVar(scip_, scipVar);
       varMap_[&var] = scipVar;
       seqVars.push_back(scipVar);
@@ -741,7 +763,9 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& oper
 }
 
 void SCIPSolver::addConstraints(const Model& model) {
-  for (const auto& constraint : model.getConstraints()) {
+  const auto& constraints = model.getConstraints();
+  for (size_t i = 0; i < constraints.size(); i++) {
+    const auto& constraint = constraints[i];
     using enum Expression::Operator;
 
     // Handle comparison operators: <=, >=, ==, <, >, !=
@@ -776,6 +800,8 @@ void SCIPSolver::addConstraints(const Model& model) {
       double lhs = -SCIPinfinity(scip_);
       double rhs = SCIPinfinity(scip_);
 
+      std::string consName = "cons_" + std::to_string(i);
+
       if (constraint._operator == less_or_equal) {
         // expr <= 0
         rhs = 0.0;
@@ -803,7 +829,7 @@ void SCIPSolver::addConstraints(const Model& model) {
         SCIPcreateExprAbs(scip_, &absExpr, diffExpr, nullptr, nullptr);
 
         SCIP_CONS* absGeCons;
-        SCIPcreateConsBasicNonlinear(scip_, &absGeCons, "neq", absExpr,
+        SCIPcreateConsBasicNonlinear(scip_, &absGeCons, consName.c_str(), absExpr,
                       epsilon_, SCIPinfinity(scip_));
         SCIPaddCons(scip_, absGeCons);
         SCIPreleaseCons(scip_, &absGeCons);
@@ -815,7 +841,7 @@ void SCIPSolver::addConstraints(const Model& model) {
 
       // Create nonlinear constraint
       SCIP_CONS* cons;
-      SCIPcreateConsBasicNonlinear(scip_, &cons, "nonlinear", diffExpr, lhs, rhs);
+      SCIPcreateConsBasicNonlinear(scip_, &cons, consName.c_str(), diffExpr, lhs, rhs);
       SCIPaddCons(scip_, cons);
       SCIPreleaseCons(scip_, &cons);
       SCIPreleaseExpr(scip_, &diffExpr);
@@ -842,6 +868,12 @@ std::expected<Solution, std::string> SCIPSolver::solve(const Model& model) {
   // Extract variable values from SCIP solution
   for (const auto& [cpVar, scipVar] : varMap_) {
     double value = SCIPgetSolVal(scip_, sol, scipVar);
+
+    // Round integer and boolean variables to nearest integer
+    if (cpVar->type == Variable::Type::INTEGER || cpVar->type == Variable::Type::BOOLEAN) {
+      value = std::round(value);
+    }
+
     solution.setVariableValue(*cpVar, value);
   }
 

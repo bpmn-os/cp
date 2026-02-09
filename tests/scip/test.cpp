@@ -3,6 +3,7 @@
 #include <scip/scip.h>
 #include <iostream>
 #include <cassert>
+#include <cmath>
 
 #define GREEN "\033[32m"
 #define RESET "\033[0m"
@@ -1055,6 +1056,192 @@ int main() {
         std::cout << GREEN << "Test 47 PASSED: Greater-than constraint (feasible)" << RESET << std::endl;
     }
 
-    std::cout << "\n" << GREEN << "All SCIP adapter tests PASSED" << RESET << std::endl;
+    // Test 48: Division operator
+    {
+        CP::Model model(CP::Model::ObjectiveSense::MINIMIZE);
+        const auto& x = model.addIntegerVariable("x");
+        const auto& y = model.addIntegerVariable("y");
+
+        // Minimize x/y subject to x >= 12, y >= 1, y <= 3, x <= 20
+        model.setObjective(x / y);
+        model.addConstraint(x >= 12.0);
+        model.addConstraint(x <= 20.0);
+        model.addConstraint(y >= 1.0);
+        model.addConstraint(y <= 3.0);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto xVal = solution.getVariableValue(x);
+        auto yVal = solution.getVariableValue(y);
+        assert(xVal.has_value());
+        assert(yVal.has_value());
+
+        // Optimal: x=12, y=3, x/y = 4 (minimize ratio)
+        assert(xVal.value() == 12.0);
+        assert(yVal.value() == 3.0);
+
+        std::cout << GREEN << "Test 48 PASSED: Division operator" << RESET << std::endl;
+    }
+
+    // Test 49: Logical NOT with non-boolean value (!5 should be 0)
+    {
+        CP::Model model;
+        const auto& x = model.addIntegerVariable("x");
+
+        // !x == 0 when x != 0
+        model.addConstraint(x == 5.0);
+        model.addConstraint((!x) == 0.0);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto xVal = solution.getVariableValue(x);
+        assert(xVal.has_value());
+        assert(xVal.value() == 5.0);
+
+        std::cout << GREEN << "Test 49 PASSED: Logical NOT with non-boolean value" << RESET << std::endl;
+    }
+
+    // Test 50: Logical AND with non-boolean values (3 && 5 should be 1)
+    {
+        CP::Model model;
+        const auto& x = model.addIntegerVariable("x");
+        const auto& y = model.addIntegerVariable("y");
+        const auto& z = model.addIntegerVariable("z");
+
+        // Set x=3, y=5, then (x && y) should equal 1
+        model.addConstraint(x == 3.0);
+        model.addConstraint(y == 5.0);
+        model.addConstraint((x && y) == 1.0);
+        model.addConstraint(z == 7.0);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto xVal = solution.getVariableValue(x);
+        auto yVal = solution.getVariableValue(y);
+        auto zVal = solution.getVariableValue(z);
+        assert(xVal.has_value());
+        assert(yVal.has_value());
+        assert(zVal.has_value());
+        assert(xVal.value() == 3.0);
+        assert(yVal.value() == 5.0);
+        assert(zVal.value() == 7.0);
+
+        std::cout << GREEN << "Test 50 PASSED: Logical AND with non-boolean values" << RESET << std::endl;
+    }
+
+    // Test 51: Logical OR with non-boolean values (0 || 7 should be 1)
+    {
+        CP::Model model;
+        const auto& x = model.addIntegerVariable("x");
+        const auto& y = model.addIntegerVariable("y");
+        const auto& z = model.addIntegerVariable("z");
+
+        // Set x=0, y=7, then (x || y) should equal 1
+        model.addConstraint(x == 0.0);
+        model.addConstraint(y == 7.0);
+        model.addConstraint((x || y) == 1.0);
+        model.addConstraint(z == 2.0);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto xVal = solution.getVariableValue(x);
+        auto yVal = solution.getVariableValue(y);
+        auto zVal = solution.getVariableValue(z);
+        assert(xVal.has_value());
+        assert(yVal.has_value());
+        assert(zVal.has_value());
+        assert(xVal.value() == 0.0);
+        assert(yVal.value() == 7.0);
+        assert(zVal.value() == 2.0);
+
+        std::cout << GREEN << "Test 51 PASSED: Logical OR with non-boolean values" << RESET << std::endl;
+    }
+
+    // Test 52: Complex nested expression
+    {
+        CP::Model model(CP::Model::ObjectiveSense::MINIMIZE);
+        const auto& x = model.addIntegerVariable("x");
+        const auto& y = model.addIntegerVariable("y");
+        const auto& z = model.addIntegerVariable("z");
+        const auto& w = model.addIntegerVariable("w");
+
+        // Minimize (x + y) * (z - 2) / w
+        // Subject to: x + y >= 5, z >= 3, w >= 2, all <= 10
+        model.setObjective((x + y) * (z - 2.0) / w);
+        model.addConstraint(x >= 1.0);
+        model.addConstraint(y >= 1.0);
+        model.addConstraint(x + y >= 5.0);
+        model.addConstraint(x <= 10.0);
+        model.addConstraint(y <= 10.0);
+        model.addConstraint(z >= 3.0);
+        model.addConstraint(z <= 10.0);
+        model.addConstraint(w >= 2.0);
+        model.addConstraint(w <= 10.0);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto xVal = solution.getVariableValue(x);
+        auto yVal = solution.getVariableValue(y);
+        auto zVal = solution.getVariableValue(z);
+        auto wVal = solution.getVariableValue(w);
+        assert(xVal.has_value());
+        assert(yVal.has_value());
+        assert(zVal.has_value());
+        assert(wVal.has_value());
+
+        // Verify optimal objective value
+        auto objValue = solution.getObjectiveValue();
+        assert(objValue.has_value());
+        assert(std::abs(objValue.value() - 0.5) < 1e-5);
+
+        std::cout << GREEN << "Test 52 PASSED: Complex nested expression" << RESET << std::endl;
+    }
+
+    // Test 53: Unbounded variables
+    {
+        CP::Model model(CP::Model::ObjectiveSense::MINIMIZE);
+        const auto& x = model.addIntegerVariable("x");  // Unbounded
+        const auto& y = model.addIntegerVariable("y");  // Unbounded
+
+        // Minimize x + y subject to x + y >= 10, x >= 0, y >= 0
+        model.setObjective(x + y);
+        model.addConstraint(x + y >= 10.0);
+        model.addConstraint(x >= 0.0);
+        model.addConstraint(y >= 0.0);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto xVal = solution.getVariableValue(x);
+        auto yVal = solution.getVariableValue(y);
+        assert(xVal.has_value());
+        assert(yVal.has_value());
+
+        // Optimal: x + y = 10 (any combination where x >= 0, y >= 0, x + y = 10)
+        assert(xVal.value() + yVal.value() == 10.0);
+        assert(xVal.value() >= 0.0);
+        assert(yVal.value() >= 0.0);
+
+        std::cout << GREEN << "Test 53 PASSED: Unbounded variables" << RESET << std::endl;
+    }
+
+    std::cout << "\n" << GREEN << "All 53 SCIP adapter tests PASSED" << RESET << std::endl;
     return 0;
 }
