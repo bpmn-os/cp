@@ -1,6 +1,13 @@
 # Constraint Programming Interface (CP)
 
-This header-only library defines a C++ interface for modeling constraint programming problems. It provides constructs for variables, expressions, sequences, constraints, and solutions, enabling the construction and manipulation of constraint models in an intuitive way.
+A C++ constraint programming library for modeling constraint programming problems. It provides constructs for variables, expressions, sequences, constraints, and solutions, enabling the construction and manipulation of constraint models in an intuitive way.
+
+## Architecture
+
+- **cp.h** - Header-only CP modeling interface (no dependencies)
+- **solver.h** - Abstract solver interface
+- **scip/** - SCIP solver adapter (requires SCIP, see below)
+- **limex_handle.h** - Custom operator support via [LIMEX](https://github.com/bpmn-os/limex)
 
 ## Features
 
@@ -128,18 +135,66 @@ The `main.cpp` file contains a comprehensive collection of examples.
 
 ## Building
 
-This is a header-only library. To use it, simply include the header in your project.
+### Header-only modeling (no solver)
 
-To build and run tests:
+Simply include `cp.h` in your project - no build or linking required.
 
+```cpp
+#include "cp.h"
+
+CP::Model model;
+auto& x = model.addIntegerVariable("x", 0, 10);
+model.addConstraint(x >= 5);
+std::cout << model.stringify() << std::endl;
 ```
-make clean; make; ./test
+
+### With SCIP solver
+
+**Prerequisites:** Install SCIP 10.0.1+ from [scipopt.org](https://scipopt.org)
+
+**Build:**
+```bash
+mkdir build && cd build
+cmake ..
+make
 ```
 
-Build and run tests with LIMEX (change path as necessary):
+This builds:
+- `libcp-scip.a` / `libcp-scip.so` - SCIP adapter library
+- `test_scip` - Test suite (47 tests)
 
+**CMake options:**
+```bash
+cmake .. -DBUILD_TESTS=OFF     # Skip tests
 ```
-make clean; make LIMEX_PATH=../limex; ./test
+
+### Using the SCIP adapter
+
+**Code:**
+```cpp
+#include "cp.h"
+#include "scip/scip_adapter.h"
+
+CP::Model model;
+auto& x = model.addIntegerVariable("x", 0, 10);
+model.addConstraint(x >= 5);
+
+CP::SCIPSolver solver(model);
+auto result = solver.solve(model);
+
+if (result.has_value()) {
+    auto& solution = result.value();
+    std::cout << solution.stringify() << std::endl;
+}
+```
+
+**CMakeLists.txt:**
+```cmake
+find_package(cp REQUIRED)
+find_package(cp-scip REQUIRED)
+
+add_executable(my_app main.cpp)
+target_link_libraries(my_app PRIVATE cp::cp cp::scip)
 ```
 
 

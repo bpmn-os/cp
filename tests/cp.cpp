@@ -142,7 +142,7 @@ int main()
 
     assert( solution.errors().empty() );
   }
-  std::cout << "Basic tests passed." << std::endl;
+  std::cout << "Basic CP tests passed." << std::endl;
 
 #ifdef USE_LIMEX
   LIMEX::Handle<CP::Expression,CP::Expression> handle;

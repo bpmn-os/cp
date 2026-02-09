@@ -538,9 +538,7 @@ inline IndexedVariable IndexedVariables::operator[](const Expression& expression
   if ( expression.operands.size() != 1 || !std::holds_alternative<std::reference_wrapper<const Variable>>(expression.operands.front()) ) {
     throw std::runtime_error("CP: cannot determine index");
   }
-std::cerr << stringify() << std::endl;
   const Variable& index = std::get<std::reference_wrapper<const Variable>>(expression.operands.front()).get();
-std::cerr << index.stringify() << std::endl;
   return IndexedVariable(*this,index);
 }
 
