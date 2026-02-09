@@ -1,6 +1,6 @@
 #pragma once
 
-#include "solver.h"
+#include "../solver.h"
 #include <scip/scip.h>
 #include <unordered_map>
 
