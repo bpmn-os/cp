@@ -15,6 +15,7 @@ endif()
 
 # Options
 option(BUILD_SCIP_ADAPTER "Build SCIP solver adapter" ON)
+option(BUILD_LIMEX_TESTS "Build LIMEX integration tests" ON)
 option(BUILD_EXAMPLES "Build example programs" ON)
 option(BUILD_TESTS "Build test suite" ON)
 
@@ -46,6 +47,18 @@ if(BUILD_SCIP_ADAPTER)
         message(STATUS "SCIP found - using system installation")
     endif()
     add_subdirectory(scip)
+endif()
+
+# LIMEX (for tests)
+if(BUILD_LIMEX_TESTS AND BUILD_TESTS)
+    message(STATUS "Fetching LIMEX for integration tests...")
+    include(FetchContent)
+    FetchContent_Declare(
+        limex
+        GIT_REPOSITORY https://github.com/bpmn-os/limex.git
+        GIT_TAG main
+    )
+    FetchContent_MakeAvailable(limex)
 endif()
 
 # Tests
