@@ -8,8 +8,6 @@ endif()
 # Create the SCIP adapter library
 add_library(cp-scip
     scip_adapter.cpp
-    sequence.cpp
-    indexed_variables.cpp
 )
 
 # Link dependencies
@@ -73,9 +71,7 @@ install(TARGETS cp-scip
 
 # Install headers
 install(FILES
-    scip_interface.h
-    sequence.h
-    indexed_variables.h
+    scip_adapter.h
     DESTINATION include/cp/scip
 )
 
