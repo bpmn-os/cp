@@ -868,12 +868,6 @@ std::expected<Solution, std::string> SCIPSolver::solve(const Model& model) {
   // Extract variable values from SCIP solution
   for (const auto& [cpVar, scipVar] : varMap_) {
     double value = SCIPgetSolVal(scip_, sol, scipVar);
-
-    // Round integer and boolean variables to nearest integer
-    if (cpVar->type == Variable::Type::INTEGER || cpVar->type == Variable::Type::BOOLEAN) {
-      value = std::round(value);
-    }
-
     solution.setVariableValue(*cpVar, value);
   }
 
@@ -942,7 +936,7 @@ void SCIPSolver::addSequenceConstraints(const std::string& seqName, const std::v
     }
 
     std::string consName = seqName + "_link[" + std::to_string(i) + "]";
-    SCIPcreateConsBasicLinear(scip_, &linkCons, consName.c_str(), linkVars.size(), linkVars.data(), linkCoeffs.data(), 0.0, 0.0);
+    SCIPcreateConsBasicLinear(scip_, &linkCons, consName.c_str(), linkVars.size(), linkVars.data(), linkCoeffs.data(), -epsilon_, epsilon_);
     SCIPaddCons(scip_, linkCons);
     SCIPreleaseCons(scip_, &linkCons);
   }
@@ -991,7 +985,7 @@ SCIP_EXPR* SCIPSolver::addElementConstraint(const std::string& name, const std::
   }
 
   std::string indexName = name + "_index";
-  SCIPcreateConsBasicLinear(scip_, &indexCons, indexName.c_str(), indexVars.size(), indexVars.data(), indexCoeffs.data(), 0.0, 0.0);
+  SCIPcreateConsBasicLinear(scip_, &indexCons, indexName.c_str(), indexVars.size(), indexVars.data(), indexCoeffs.data(), -epsilon_, epsilon_);
   SCIPaddCons(scip_, indexCons);
   SCIPreleaseCons(scip_, &indexCons);
 

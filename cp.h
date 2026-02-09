@@ -957,10 +957,10 @@ inline std::expected< std::vector<double>, std::string> Solution::getSequenceVal
 
 inline void Solution::setVariableValue(const Variable& variable, double value) {
   if ( variable.type == Variable::Type::BOOLEAN ) {
-    value = (double)(bool)value;
+    value = (double)(bool)std::round(value);
   }
   else if ( variable.type == Variable::Type::INTEGER ) {
-    value = (double)(int)value;
+    value = std::round(value);
   }
   _variableValues[&variable] = value;
 };
@@ -1033,7 +1033,7 @@ inline std::expected<double, std::string> Solution::evaluate(const Operand& term
     auto& indexedVariable = std::get<IndexedVariable>(term);
     auto evaluation = evaluate(indexedVariable.index);
     if ( !evaluation ) return std::unexpected(evaluation.error());
-    auto index = (size_t)evaluation.value();
+    auto index = (size_t)std::round(evaluation.value());
     evaluation = evaluate(indexedVariable.container.get()[index]);
     if ( !evaluation ) return std::unexpected(evaluation.error());
     return evaluation.value();
@@ -1118,10 +1118,11 @@ inline std::expected<double, std::string> Solution::evaluate(const Expression& e
     if ( !indexEvaluation) {
       return std::unexpected( indexEvaluation.error() );
     }
-    if ( indexEvaluation.value() < 1 || indexEvaluation.value() > collection.value().size() ) {
+    size_t index = (size_t)std::round(indexEvaluation.value());
+    if ( index < 1 || index > collection.value().size() ) {
       return std::unexpected( "illegal index" );
     }
-    return collection.value().at(indexEvaluation.value()-1);
+    return collection.value().at(index - 1);
   }
   else if ( expression._operator == custom ) {
     if ( operands.size() < 2 ) {
