@@ -1505,6 +1505,127 @@ int main() {
         std::cout << GREEN << "Test 63 PASSED: Negation of comparison" << RESET << std::endl;
     }
 
-    std::cout << "\n" << GREEN << "All 63 SCIP adapter tests PASSED" << RESET << std::endl;
+    // Test 64: Simple deduced variable (b := a)
+    {
+        CP::Model model;
+        const auto& a = model.addVariable(CP::Variable::Type::BOOLEAN, "a", 0.0, 1.0);
+        const auto& b = model.addVariable(CP::Variable::Type::BOOLEAN, "b", a);
+
+        model.addConstraint(a == 1.0);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto aVal = solution.getVariableValue(a);
+        auto bVal = solution.getVariableValue(b);
+
+        assert(aVal.has_value());
+        assert(bVal.has_value());
+        assert(std::abs(aVal.value() - 1.0) < 1e-5);
+        assert(std::abs(bVal.value() - 1.0) < 1e-5);
+
+        std::cout << GREEN << "Test 64 PASSED: Simple deduced variable" << RESET << std::endl;
+    }
+
+    // Test 65: Deduced variable with arithmetic expression (c := a + b)
+    {
+        CP::Model model;
+        const auto& a = model.addVariable(CP::Variable::Type::REAL, "a", 0.0, 10.0);
+        const auto& b = model.addVariable(CP::Variable::Type::REAL, "b", 0.0, 10.0);
+        const auto& c = model.addVariable(CP::Variable::Type::REAL, "c", a + b);
+
+        model.addConstraint(a == 3.0);
+        model.addConstraint(b == 5.0);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto aVal = solution.getVariableValue(a);
+        auto bVal = solution.getVariableValue(b);
+        auto cVal = solution.getVariableValue(c);
+
+        assert(aVal.has_value());
+        assert(bVal.has_value());
+        assert(cVal.has_value());
+        assert(std::abs(aVal.value() - 3.0) < 1e-5);
+        assert(std::abs(bVal.value() - 5.0) < 1e-5);
+        assert(std::abs(cVal.value() - 8.0) < 1e-5);
+
+        std::cout << GREEN << "Test 65 PASSED: Deduced variable with arithmetic expression" << RESET << std::endl;
+    }
+
+    // Test 66: Deduced boolean variable in logical constraint
+    {
+        CP::Model model;
+        const auto& visit = model.addVariable(CP::Variable::Type::BOOLEAN, "visit", 0.0, 1.0);
+        const auto& tokenflow = model.addVariable(CP::Variable::Type::BOOLEAN, "tokenflow", visit);
+        const auto& x = model.addVariable(CP::Variable::Type::REAL, "x", 0.0, 10.0);
+        const auto& y = model.addVariable(CP::Variable::Type::REAL, "y", 0.0, 10.0);
+
+        // Constraint: !tokenflow || (x >= y)
+        model.addConstraint(!tokenflow || (x >= y));
+
+        // Set visit = 1, which should make tokenflow = 1
+        model.addConstraint(visit == 1.0);
+
+        // Set x = 5, y = 3, so x >= y is satisfied
+        model.addConstraint(x == 5.0);
+        model.addConstraint(y == 3.0);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto visitVal = solution.getVariableValue(visit);
+        auto tokenflowVal = solution.getVariableValue(tokenflow);
+        auto xVal = solution.getVariableValue(x);
+        auto yVal = solution.getVariableValue(y);
+
+        assert(visitVal.has_value());
+        assert(tokenflowVal.has_value());
+        assert(xVal.has_value());
+        assert(yVal.has_value());
+        assert(std::abs(visitVal.value() - 1.0) < 1e-5);
+        assert(std::abs(tokenflowVal.value() - 1.0) < 1e-5);
+        assert(std::abs(xVal.value() - 5.0) < 1e-5);
+        assert(std::abs(yVal.value() - 3.0) < 1e-5);
+
+        std::cout << GREEN << "Test 66 PASSED: Deduced boolean variable in logical constraint" << RESET << std::endl;
+    }
+
+    // Test 67: Deduced variable should fail when constraint is violated
+    {
+        CP::Model model;
+        const auto& visit = model.addVariable(CP::Variable::Type::BOOLEAN, "visit", 0.0, 1.0);
+        const auto& tokenflow = model.addVariable(CP::Variable::Type::BOOLEAN, "tokenflow", visit);
+        const auto& exit = model.addVariable(CP::Variable::Type::REAL, "exit", 0.0, 10.0);
+        const auto& value1 = model.addVariable(CP::Variable::Type::REAL, "value1", 0.0, 10.0);
+
+        // Constraint: !tokenflow || (exit >= value1)
+        model.addConstraint(!tokenflow || (exit >= value1));
+
+        // Set visit = 1, which should make tokenflow = 1
+        model.addConstraint(visit == 1.0);
+
+        // Set exit = 0, value1 = 1, so exit >= value1 is violated
+        // This should make the constraint fail
+        model.addConstraint(exit == 0.0);
+        model.addConstraint(value1 == 1.0);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        // This problem should be infeasible
+        assert(!result.has_value() || !result.value().errors().empty());
+
+        std::cout << GREEN << "Test 67 PASSED: Deduced variable enforces constraint correctly (infeasible)" << RESET << std::endl;
+    }
+
+    std::cout << "\n" << GREEN << "All 67 SCIP adapter tests PASSED" << RESET << std::endl;
     return 0;
 }

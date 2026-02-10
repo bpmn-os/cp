@@ -154,6 +154,34 @@ void SCIPSolver::addVariables(const Model& model) {
     SCIPcreateVarBasic(scip, &scipVar, variable.name.c_str(), lowerBound, upperBound, 0.0, vartype);
     SCIPaddVar(scip, scipVar);
     variableMap[&variable] = scipVar;
+
+    // If variable is deduced from an expression, add equality constraint
+    if (variable.deducedFrom) {
+      auto expressionResult = buildExpression(*variable.deducedFrom);
+      if (!expressionResult) {
+        std::cerr << "ERROR: Failed to build deducedFrom expression for variable "
+                  << variable.name << ": " << expressionResult.error() << std::endl;
+        continue;
+      }
+
+      // Create var - expression == 0 constraint
+      SCIP_EXPR* varExpr;
+      SCIPcreateExprVar(scip, &varExpr, scipVar, nullptr, nullptr);
+
+      SCIP_EXPR* diffChildren[] = { varExpr, expressionResult.value() };
+      double coeffs[] = { 1.0, -1.0 };
+      SCIP_EXPR* diffExpr;
+      SCIPcreateExprSum(scip, &diffExpr, 2, diffChildren, coeffs, 0.0, nullptr, nullptr);
+
+      std::string consName = "deduced_" + variable.name;
+      SCIP_CONS* cons;
+      SCIPcreateConsBasicNonlinear(scip, &cons, consName.c_str(), diffExpr, 0.0, 0.0);
+      SCIPaddCons(scip, cons);
+      SCIPreleaseCons(scip, &cons);
+      SCIPreleaseExpr(scip, &diffExpr);
+      SCIPreleaseExpr(scip, &varExpr);
+      SCIPreleaseExpr(scip, &expressionResult.value());
+    }
   }
 }
 
@@ -184,6 +212,34 @@ void SCIPSolver::addIndexedVariables(const Model& model) {
       SCIPcreateVarBasic(scip, &scipVar, indexedVariable.name.c_str(), lowerBound, upperBound, 0.0, vartype);
       SCIPaddVar(scip, scipVar);
       variableMap[&indexedVariable] = scipVar;
+
+      // If variable is deduced from an expression, add equality constraint
+      if (indexedVariable.deducedFrom) {
+        auto expressionResult = buildExpression(*indexedVariable.deducedFrom);
+        if (!expressionResult) {
+          std::cerr << "ERROR: Failed to build deducedFrom expression for variable "
+                    << indexedVariable.name << ": " << expressionResult.error() << std::endl;
+          continue;
+        }
+
+        // Create var - expression == 0 constraint
+        SCIP_EXPR* varExpr;
+        SCIPcreateExprVar(scip, &varExpr, scipVar, nullptr, nullptr);
+
+        SCIP_EXPR* diffChildren[] = { varExpr, expressionResult.value() };
+        double coeffs[] = { 1.0, -1.0 };
+        SCIP_EXPR* diffExpr;
+        SCIPcreateExprSum(scip, &diffExpr, 2, diffChildren, coeffs, 0.0, nullptr, nullptr);
+
+        std::string consName = "deduced_" + indexedVariable.name;
+        SCIP_CONS* cons;
+        SCIPcreateConsBasicNonlinear(scip, &cons, consName.c_str(), diffExpr, 0.0, 0.0);
+        SCIPaddCons(scip, cons);
+        SCIPreleaseCons(scip, &cons);
+        SCIPreleaseExpr(scip, &diffExpr);
+        SCIPreleaseExpr(scip, &varExpr);
+        SCIPreleaseExpr(scip, &expressionResult.value());
+      }
     }
   }
 }
