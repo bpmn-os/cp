@@ -30,7 +30,7 @@ private:
   // Helper functions for constraints
   void addSequenceConstraints(const std::string& sequenceName, const std::vector<SCIP_VAR*>& sequenceVariables);
   SCIP_EXPR* addIndexingConstraints(const std::string& name, const std::vector<SCIP_VAR*>& arrayVars, SCIP_VAR* indexVar, SCIP_VAR* resultVar);
-  SCIP_EXPR* boolify(SCIP_EXPR* expr);
+  SCIP_EXPR* boolify(SCIP_EXPR* scipExpr);
 
   SCIP* scip_ = nullptr;
   std::unordered_map<const Variable*, SCIP_VAR*> variableMap_;
