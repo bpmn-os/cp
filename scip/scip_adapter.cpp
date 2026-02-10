@@ -193,7 +193,8 @@ SCIP_EXPR* SCIPSolver::boolify(SCIP_EXPR* expr) {
   // Using epsilon-based algebraic formulation (no big-M)
 
   // Create binary variable b
-  std::string boolName = "bool_aux_" + std::to_string(auxiliaryCounter_++);
+  size_t auxId = auxiliaryCounter_++;
+  std::string boolName = "bool_aux_" + std::to_string(auxId);
   SCIP_VAR* boolVar;
   SCIPcreateVarBasic(scip_, &boolVar, boolName.c_str(), 0.0, 1.0, 0.0, SCIP_VARTYPE_BINARY);
   SCIPaddVar(scip_, boolVar);
@@ -216,8 +217,9 @@ SCIP_EXPR* SCIPSolver::boolify(SCIP_EXPR* expr) {
   double coeffs1[] = { 1.0, -1.0 };
   SCIPcreateExprSum(scip_, &diff1, 2, children1, coeffs1, 0.0, nullptr, nullptr);
 
+  std::string lowerConsName = "bool_lower_" + std::to_string(auxId);
   SCIP_CONS* cons1;
-  SCIPcreateConsBasicNonlinear(scip_, &cons1, "bool_lower", diff1, 0.0, SCIPinfinity(scip_));
+  SCIPcreateConsBasicNonlinear(scip_, &cons1, lowerConsName.c_str(), diff1, 0.0, SCIPinfinity(scip_));
   SCIPaddCons(scip_, cons1);
   SCIPreleaseCons(scip_, &cons1);
   SCIPreleaseExpr(scip_, &diff1);
@@ -248,8 +250,9 @@ SCIP_EXPR* SCIPSolver::boolify(SCIP_EXPR* expr) {
   SCIPcreateExprProduct(scip_, &product, 2, prodChildren, 1.0, nullptr, nullptr);
 
   // (1-b) * (abs(expr) - epsilon) <= 0
+  std::string upperConsName = "bool_upper_" + std::to_string(auxId);
   SCIP_CONS* cons2;
-  SCIPcreateConsBasicNonlinear(scip_, &cons2, "bool_upper", product, -SCIPinfinity(scip_), 0.0);
+  SCIPcreateConsBasicNonlinear(scip_, &cons2, upperConsName.c_str(), product, -SCIPinfinity(scip_), 0.0);
   SCIPaddCons(scip_, cons2);
   SCIPreleaseCons(scip_, &cons2);
   SCIPreleaseExpr(scip_, &product);
