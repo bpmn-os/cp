@@ -15,8 +15,8 @@ public:
   std::string getName() const override { return "SCIP"; }
 
   // For testing: expose SCIP state
-  SCIP* getScip() const { return scip_; }
-  const std::unordered_map<const Variable*, SCIP_VAR*>& getVariableMap() const { return variableMap_; }
+  SCIP* getScip() const { return scip; }
+  const std::unordered_map<const Variable*, SCIP_VAR*>& getVariableMap() const { return variableMap; }
 
 private:
   void addSequences(const Model& model);
@@ -32,10 +32,10 @@ private:
   SCIP_EXPR* addIndexingConstraints(const std::string& name, const std::vector<SCIP_VAR*>& arrayVars, SCIP_VAR* indexVar, SCIP_VAR* resultVar);
   SCIP_EXPR* boolify(SCIP_EXPR* scipExpr);
 
-  SCIP* scip_ = nullptr;
-  std::unordered_map<const Variable*, SCIP_VAR*> variableMap_;
-  double epsilon_;
-  size_t auxiliaryCounter_ = 0;
+  SCIP* scip = nullptr;
+  std::unordered_map<const Variable*, SCIP_VAR*> variableMap;
+  double epsilon;
+  size_t auxiliaryCounter = 0;
 };
 
 } // namespace CP
