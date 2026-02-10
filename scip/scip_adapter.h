@@ -28,7 +28,7 @@ private:
   std::expected<SCIP_EXPR*, std::string> buildExpr(const Operand& operand);
 
   // Helper functions for constraints
-  void addSequenceConstraints(const std::string& sequenceName, const std::vector<SCIP_VAR*>& seqVars);
+  void addSequenceConstraints(const std::string& sequenceName, const std::vector<SCIP_VAR*>& sequenceVariables);
   SCIP_EXPR* addIndexingConstraints(const std::string& name, const std::vector<SCIP_VAR*>& arrayVars, SCIP_VAR* indexVar, SCIP_VAR* resultVar);
   SCIP_EXPR* createBoolExpr(SCIP_EXPR* expr);
 

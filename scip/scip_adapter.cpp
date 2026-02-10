@@ -40,23 +40,23 @@ SCIPSolver::~SCIPSolver() {
 void SCIPSolver::addSequences(const Model& model) {
   for (const auto& sequence : model.getSequences()) {
     // Create sequence variables and collect SCIP vars
-    std::vector<SCIP_VAR*> seqVars;
+    std::vector<SCIP_VAR*> sequenceVariables;
     for (const Variable& variable : sequence.variables) {
 
       SCIP_VAR* scipVar;
       SCIPcreateVarBasic(scip_, &scipVar, variable.name.c_str(), 1, sequence.variables.size(), 0.0, SCIP_VARTYPE_INTEGER);
       SCIPaddVar(scip_, scipVar);
       variableMap_[&variable] = scipVar;
-      seqVars.push_back(scipVar);
+      sequenceVariables.push_back(scipVar);
     }
 
     // Add sequence constraint (alldifferent permutation of {1, ..., n})
-    addSequenceConstraints(sequence.name, seqVars);
+    addSequenceConstraints(sequence.name, sequenceVariables);
   }
 }
 
-void SCIPSolver::addSequenceConstraints(const std::string& sequenceName, const std::vector<SCIP_VAR*>& seqVars) {
-  size_t n = seqVars.size();
+void SCIPSolver::addSequenceConstraints(const std::string& sequenceName, const std::vector<SCIP_VAR*>& sequenceVariables) {
+  size_t n = sequenceVariables.size();
   int minValue = 1;
   int maxValue = n;
 
@@ -100,7 +100,7 @@ void SCIPSolver::addSequenceConstraints(const std::string& sequenceName, const s
 
   // Link constraints: x[i] = sum_v (v * b[i][v])
   for (size_t i = 0; i < n; i++) {
-    SCIP_VAR* scipVar = seqVars[i];
+    SCIP_VAR* scipVar = sequenceVariables[i];
 
     SCIP_CONS* linkCons;
     std::vector<SCIP_VAR*> linkVars;
