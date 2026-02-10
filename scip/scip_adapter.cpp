@@ -902,10 +902,14 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
 
       // Add epsilon-based constraints to enforce: binaryVar = 1 iff (lhs comp rhs)
       if (expression._operator == greater_or_equal) {
-        // b ⟺ (lhs >= rhs), i.e., (lhs - rhs >= 0)
-        // Constraint 1: b * (lhs - rhs + epsilon) >= 0
+        // b ⟺ (lhs >= rhs)
+        // True when: lhs - rhs >= -0.9 * epsilon
+        // False when: lhs - rhs <= -epsilon
+
+        // Constraint 1: b * (lhs - rhs + 0.9*epsilon) >= 0
         SCIP_EXPR* expr1;
-        SCIPcreateExprSum(scip, &expr1, 1, &diffExpr, nullptr, epsilon, nullptr, nullptr);
+        double offset1 = 0.9 * epsilon;
+        SCIPcreateExprSum(scip, &expr1, 1, &diffExpr, nullptr, offset1, nullptr, nullptr);
         SCIP_EXPR* product1;
         SCIP_EXPR* prod1Children[] = { binaryExpr1, expr1 };
         SCIPcreateExprProduct(scip, &product1, 2, prod1Children, 1.0, nullptr, nullptr);
@@ -918,7 +922,7 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
         SCIPreleaseExpr(scip, &product1);
         SCIPreleaseExpr(scip, &expr1);
 
-        // Constraint 2: (1-b) * (rhs - lhs - epsilon) >= 0, i.e., (1-b) * (-(lhs-rhs) - epsilon) >= 0
+        // Constraint 2: (1-b) * (-epsilon - (lhs - rhs)) >= 0
         SCIP_EXPR* oneMinusB;
         double negOne = -1.0;
         SCIPcreateExprSum(scip, &oneMinusB, 1, &binaryExpr2, &negOne, 1.0, nullptr, nullptr);
@@ -940,11 +944,15 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
         SCIPreleaseExpr(scip, &oneMinusB);
       }
       else if (expression._operator == less_or_equal) {
-        // b ⟺ (lhs <= rhs), i.e., (rhs - lhs >= 0)
-        // Constraint 1: b * (rhs - lhs + epsilon) >= 0, i.e., b * (-(lhs - rhs) + epsilon) >= 0
-        SCIP_EXPR* expr1;
+        // b ⟺ (lhs <= rhs)
+        // True when: rhs - lhs >= -0.9 * epsilon, i.e., lhs - rhs <= 0.9 * epsilon
+        // False when: rhs - lhs <= -epsilon, i.e., lhs - rhs >= epsilon
+
+        // Constraint 1: b * (0.9*epsilon - (lhs - rhs)) >= 0
         double negOne = -1.0;
-        SCIPcreateExprSum(scip, &expr1, 1, &diffExpr, &negOne, epsilon, nullptr, nullptr);
+        SCIP_EXPR* expr1;
+        double offset1 = 0.9 * epsilon;
+        SCIPcreateExprSum(scip, &expr1, 1, &diffExpr, &negOne, offset1, nullptr, nullptr);
         SCIP_EXPR* product1;
         SCIP_EXPR* prod1Children[] = { binaryExpr1, expr1 };
         SCIPcreateExprProduct(scip, &product1, 2, prod1Children, 1.0, nullptr, nullptr);
@@ -978,7 +986,10 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
         SCIPreleaseExpr(scip, &oneMinusB);
       }
       else if (expression._operator == greater_than) {
-        // b ⟺ (lhs > rhs), i.e., (lhs - rhs > 0), use (lhs - rhs >= epsilon)
+        // b ⟺ (lhs > rhs)
+        // True when: lhs - rhs >= epsilon
+        // False when: lhs - rhs <= 0.9 * epsilon
+
         // Constraint 1: b * (lhs - rhs - epsilon) >= 0
         SCIP_EXPR* expr1;
         SCIPcreateExprSum(scip, &expr1, 1, &diffExpr, nullptr, -epsilon, nullptr, nullptr);
@@ -994,13 +1005,14 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
         SCIPreleaseExpr(scip, &product1);
         SCIPreleaseExpr(scip, &expr1);
 
-        // Constraint 2: (1-b) * (rhs - lhs) >= 0
+        // Constraint 2: (1-b) * (0.9*epsilon - (lhs - rhs)) >= 0
         SCIP_EXPR* oneMinusB;
         double negOne = -1.0;
         SCIPcreateExprSum(scip, &oneMinusB, 1, &binaryExpr2, &negOne, 1.0, nullptr, nullptr);
 
         SCIP_EXPR* expr2;
-        SCIPcreateExprSum(scip, &expr2, 1, &diffExpr, &negOne, 0.0, nullptr, nullptr);
+        double offset2 = 0.9 * epsilon;
+        SCIPcreateExprSum(scip, &expr2, 1, &diffExpr, &negOne, offset2, nullptr, nullptr);
 
         SCIP_EXPR* product2;
         SCIP_EXPR* prod2Children[] = { oneMinusB, expr2 };
@@ -1016,10 +1028,13 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
         SCIPreleaseExpr(scip, &oneMinusB);
       }
       else if (expression._operator == less_than) {
-        // b ⟺ (lhs < rhs), i.e., (rhs - lhs > 0), use (rhs - lhs >= epsilon)
-        // Constraint 1: b * (rhs - lhs - epsilon) >= 0, i.e., b * (-(lhs - rhs) - epsilon) >= 0
-        SCIP_EXPR* expr1;
+        // b ⟺ (lhs < rhs)
+        // True when: rhs - lhs >= epsilon, i.e., lhs - rhs <= -epsilon
+        // False when: rhs - lhs <= 0.9 * epsilon, i.e., lhs - rhs >= -0.9 * epsilon
+
+        // Constraint 1: b * (-epsilon - (lhs - rhs)) >= 0
         double negOne = -1.0;
+        SCIP_EXPR* expr1;
         SCIPcreateExprSum(scip, &expr1, 1, &diffExpr, &negOne, -epsilon, nullptr, nullptr);
         SCIP_EXPR* product1;
         SCIP_EXPR* prod1Children[] = { binaryExpr1, expr1 };
@@ -1033,12 +1048,13 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
         SCIPreleaseExpr(scip, &product1);
         SCIPreleaseExpr(scip, &expr1);
 
-        // Constraint 2: (1-b) * (lhs - rhs) >= 0
+        // Constraint 2: (1-b) * (lhs - rhs + 0.9*epsilon) >= 0
         SCIP_EXPR* oneMinusB;
         SCIPcreateExprSum(scip, &oneMinusB, 1, &binaryExpr2, &negOne, 1.0, nullptr, nullptr);
 
         SCIP_EXPR* expr2;
-        SCIPcreateExprSum(scip, &expr2, 1, &diffExpr, nullptr, 0.0, nullptr, nullptr);
+        double offset2 = 0.9 * epsilon;
+        SCIPcreateExprSum(scip, &expr2, 1, &diffExpr, nullptr, offset2, nullptr, nullptr);
 
         SCIP_EXPR* product2;
         SCIP_EXPR* prod2Children[] = { oneMinusB, expr2 };
@@ -1054,10 +1070,14 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
         SCIPreleaseExpr(scip, &oneMinusB);
       }
       else if (expression._operator == equal) {
-        // b ⟺ (lhs == rhs), i.e., |lhs - rhs| <= epsilon
-        // Constraint 1: b * (lhs - rhs + epsilon) >= 0
+        // b ⟺ (lhs == rhs)
+        // True when: |lhs - rhs| <= epsilon
+        // False when: |lhs - rhs| >= 1.1 * epsilon
+
+        // Constraint 1: b * (epsilon - (lhs - rhs)) >= 0
         SCIP_EXPR* expr1;
-        SCIPcreateExprSum(scip, &expr1, 1, &diffExpr, nullptr, epsilon, nullptr, nullptr);
+        double negOne = -1.0;
+        SCIPcreateExprSum(scip, &expr1, 1, &diffExpr, &negOne, epsilon, nullptr, nullptr);
         SCIP_EXPR* product1;
         SCIP_EXPR* prod1Children[] = { binaryExpr1, expr1 };
         SCIPcreateExprProduct(scip, &product1, 2, prod1Children, 1.0, nullptr, nullptr);
@@ -1070,13 +1090,12 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
         SCIPreleaseExpr(scip, &product1);
         SCIPreleaseExpr(scip, &expr1);
 
-        // Constraint 2: b * (rhs - lhs + epsilon) >= 0, i.e., b * (-(lhs - rhs) + epsilon) >= 0
+        // Constraint 2: b * (epsilon + (lhs - rhs)) >= 0
         SCIP_EXPR* binaryExpr3;
         SCIPcreateExprVar(scip, &binaryExpr3, binaryVar, nullptr, nullptr);
 
         SCIP_EXPR* expr2;
-        double negOne = -1.0;
-        SCIPcreateExprSum(scip, &expr2, 1, &diffExpr, &negOne, epsilon, nullptr, nullptr);
+        SCIPcreateExprSum(scip, &expr2, 1, &diffExpr, nullptr, epsilon, nullptr, nullptr);
         SCIP_EXPR* product2;
         SCIP_EXPR* prod2Children[] = { binaryExpr3, expr2 };
         SCIPcreateExprProduct(scip, &product2, 2, prod2Children, 1.0, nullptr, nullptr);
@@ -1090,7 +1109,7 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
         SCIPreleaseExpr(scip, &expr2);
         SCIPreleaseExpr(scip, &binaryExpr3);
 
-        // Constraint 3: (1-b) * (|lhs - rhs| - epsilon) >= 0
+        // Constraint 3: (1-b) * (|lhs - rhs| - 1.1*epsilon) >= 0
         SCIP_EXPR* oneMinusB;
         SCIPcreateExprSum(scip, &oneMinusB, 1, &binaryExpr2, &negOne, 1.0, nullptr, nullptr);
 
@@ -1098,7 +1117,8 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
         SCIPcreateExprAbs(scip, &absExpr, diffExpr, nullptr, nullptr);
 
         SCIP_EXPR* expr3;
-        SCIPcreateExprSum(scip, &expr3, 1, &absExpr, nullptr, -epsilon, nullptr, nullptr);
+        double offset3 = -1.1 * epsilon;
+        SCIPcreateExprSum(scip, &expr3, 1, &absExpr, nullptr, offset3, nullptr, nullptr);
 
         SCIP_EXPR* product3;
         SCIP_EXPR* prod3Children[] = { oneMinusB, expr3 };
@@ -1115,13 +1135,17 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
         SCIPreleaseExpr(scip, &oneMinusB);
       }
       else if (expression._operator == not_equal) {
-        // b ⟺ (lhs != rhs), i.e., |lhs - rhs| >= epsilon
-        // Constraint 1: b * (|lhs - rhs| - epsilon) >= 0
+        // b ⟺ (lhs != rhs)
+        // True when: |lhs - rhs| >= 1.1 * epsilon
+        // False when: |lhs - rhs| <= epsilon
+
+        // Constraint 1: b * (|lhs - rhs| - 1.1*epsilon) >= 0
         SCIP_EXPR* absExpr1;
         SCIPcreateExprAbs(scip, &absExpr1, diffExpr, nullptr, nullptr);
 
         SCIP_EXPR* expr1;
-        SCIPcreateExprSum(scip, &expr1, 1, &absExpr1, nullptr, -epsilon, nullptr, nullptr);
+        double offset1 = -1.1 * epsilon;
+        SCIPcreateExprSum(scip, &expr1, 1, &absExpr1, nullptr, offset1, nullptr, nullptr);
         SCIP_EXPR* product1;
         SCIP_EXPR* prod1Children[] = { binaryExpr1, expr1 };
         SCIPcreateExprProduct(scip, &product1, 2, prod1Children, 1.0, nullptr, nullptr);
