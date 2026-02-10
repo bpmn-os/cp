@@ -16,24 +16,24 @@ public:
 
   // For testing: expose SCIP state
   SCIP* getScip() const { return scip_; }
-  const std::unordered_map<const Variable*, SCIP_VAR*>& getVarMap() const { return varMap_; }
+  const std::unordered_map<const Variable*, SCIP_VAR*>& getVariableMap() const { return variableMap_; }
 
 private:
+  void addSequences(const Model& model);
   void addVariables(const Model& model);
   void addIndexedVariables(const Model& model);
-  void addSequences(const Model& model);
   void addObjective(const Model& model);
   void addConstraints(const Model& model);
 
   std::expected<SCIP_EXPR*, std::string> buildExpr(const Operand& operand);
 
   // Helper functions for constraints
-  void addSequenceConstraints(const std::string& seqName, const std::vector<SCIP_VAR*>& seqVars);
-  SCIP_EXPR* addElementConstraint(const std::string& name, const std::vector<SCIP_VAR*>& arrayVars, SCIP_VAR* indexVar, SCIP_VAR* resultVar);
+  void addSequenceConstraints(const std::string& sequenceName, const std::vector<SCIP_VAR*>& seqVars);
+  SCIP_EXPR* addIndexingConstraints(const std::string& name, const std::vector<SCIP_VAR*>& arrayVars, SCIP_VAR* indexVar, SCIP_VAR* resultVar);
   SCIP_EXPR* createBoolExpr(SCIP_EXPR* expr);
 
   SCIP* scip_ = nullptr;
-  std::unordered_map<const Variable*, SCIP_VAR*> varMap_;
+  std::unordered_map<const Variable*, SCIP_VAR*> variableMap_;
   double epsilon_;
 };
 

@@ -20,9 +20,9 @@ SCIPSolver::SCIPSolver(const Model& model, double epsilon)
   SCIPincludeDefaultPlugins(scip_);
   SCIPcreateProbBasic(scip_, "cp_model");
 
+  addSequences(model);
   addVariables(model);
   addIndexedVariables(model);
-  addSequences(model);
   addObjective(model);
   addConstraints(model);
 }
@@ -30,10 +30,103 @@ SCIPSolver::SCIPSolver(const Model& model, double epsilon)
 SCIPSolver::~SCIPSolver() {
   if (scip_) {
     // Release all variables
-    for (auto& [cpVar, scipVar] : varMap_) {
+    for (auto& [cpVar, scipVar] : variableMap_) {
       SCIPreleaseVar(scip_, &scipVar);
     }
     SCIPfree(&scip_);
+  }
+}
+
+void SCIPSolver::addSequences(const Model& model) {
+  for (const auto& sequence : model.getSequences()) {
+    // Create sequence variables and collect SCIP vars
+    std::vector<SCIP_VAR*> seqVars;
+    for (const Variable& variable : sequence.variables) {
+
+      SCIP_VAR* scipVar;
+      SCIPcreateVarBasic(scip_, &scipVar, variable.name.c_str(), 1, sequence.variables.size(), 0.0, SCIP_VARTYPE_INTEGER);
+      SCIPaddVar(scip_, scipVar);
+      variableMap_[&variable] = scipVar;
+      seqVars.push_back(scipVar);
+    }
+
+    // Add sequence constraint (alldifferent permutation of {1, ..., n})
+    addSequenceConstraints(sequence.name, seqVars);
+  }
+}
+
+void SCIPSolver::addSequenceConstraints(const std::string& sequenceName, const std::vector<SCIP_VAR*>& seqVars) {
+  size_t n = seqVars.size();
+  int minValue = 1;
+  int maxValue = n;
+
+  // Binary matrix formulation for alldifferent
+  // Create n×(maxValue-minValue+1) binary variables b[i][v] for each position i and value v
+  std::vector<std::vector<SCIP_VAR*>> binaries(n);
+  for (size_t i = 0; i < n; i++) {
+    binaries[i].resize(maxValue - minValue + 1);
+    for (int value = minValue; value <= maxValue; value++) {
+      std::string binName = sequenceName + "_b[" + std::to_string(i) + "][" + std::to_string(value) + "]";
+      SCIP_VAR* binVar;
+      SCIPcreateVarBasic(scip_, &binVar, binName.c_str(), 0.0, 1.0, 0.0, SCIP_VARTYPE_BINARY);
+      SCIPaddVar(scip_, binVar);
+      binaries[i][value - minValue] = binVar;
+    }
+  }
+
+  // Row constraints: sum_v b[i][v] = 1 for each position i
+  for (size_t i = 0; i < n; i++) {
+    SCIP_CONS* rowCons;
+    std::vector<double> coeffs(binaries[i].size(), 1.0);
+    std::string consName = sequenceName + "_row[" + std::to_string(i) + "]";
+    SCIPcreateConsBasicLinear(scip_, &rowCons, consName.c_str(), binaries[i].size(), binaries[i].data(), coeffs.data(), 1.0, 1.0);
+    SCIPaddCons(scip_, rowCons);
+    SCIPreleaseCons(scip_, &rowCons);
+  }
+
+  // Column constraints: sum_i b[i][v] = 1 for each value v
+  for (int value = minValue; value <= maxValue; value++) {
+    SCIP_CONS* colCons;
+    std::vector<SCIP_VAR*> colVars(n);
+    std::vector<double> coeffs(n, 1.0);
+    for (size_t i = 0; i < n; i++) {
+      colVars[i] = binaries[i][value - minValue];
+    }
+    std::string consName = sequenceName + "_col[" + std::to_string(value) + "]";
+    SCIPcreateConsBasicLinear(scip_, &colCons, consName.c_str(), n, colVars.data(), coeffs.data(), 1.0, 1.0);
+    SCIPaddCons(scip_, colCons);
+    SCIPreleaseCons(scip_, &colCons);
+  }
+
+  // Link constraints: x[i] = sum_v (v * b[i][v])
+  for (size_t i = 0; i < n; i++) {
+    SCIP_VAR* scipVar = seqVars[i];
+
+    SCIP_CONS* linkCons;
+    std::vector<SCIP_VAR*> linkVars;
+    std::vector<double> linkCoeffs;
+
+    // Add x[i] with coefficient -1
+    linkVars.push_back(scipVar);
+    linkCoeffs.push_back(-1.0);
+
+    // Add b[i][v] with coefficient v
+    for (int value = minValue; value <= maxValue; value++) {
+      linkVars.push_back(binaries[i][value - minValue]);
+      linkCoeffs.push_back(static_cast<double>(value));
+    }
+
+    std::string consName = sequenceName + "_link[" + std::to_string(i) + "]";
+    SCIPcreateConsBasicLinear(scip_, &linkCons, consName.c_str(), linkVars.size(), linkVars.data(), linkCoeffs.data(), -epsilon_, epsilon_);
+    SCIPaddCons(scip_, linkCons);
+    SCIPreleaseCons(scip_, &linkCons);
+  }
+
+  // Release binary variables
+  for (size_t i = 0; i < n; i++) {
+    for (size_t j = 0; j < binaries[i].size(); j++) {
+      SCIPreleaseVar(scip_, &binaries[i][j]);
+    }
   }
 }
 
@@ -62,7 +155,7 @@ void SCIPSolver::addVariables(const Model& model) {
     SCIP_VAR* scipVar;
     SCIPcreateVarBasic(scip_, &scipVar, var.name.c_str(), lowerBound, upperBound, 0.0, vartype);
     SCIPaddVar(scip_, scipVar);
-    varMap_[&var] = scipVar;
+    variableMap_[&var] = scipVar;
   }
 }
 
@@ -92,34 +185,87 @@ void SCIPSolver::addIndexedVariables(const Model& model) {
       SCIP_VAR* scipVar;
       SCIPcreateVarBasic(scip_, &scipVar, var.name.c_str(), lowerBound, upperBound, 0.0, vartype);
       SCIPaddVar(scip_, scipVar);
-      varMap_[&var] = scipVar;
+      variableMap_[&var] = scipVar;
     }
   }
 }
 
-void SCIPSolver::addSequences(const Model& model) {
-  for (const auto& seq : model.getSequences()) {
-    // Create sequence variables and collect SCIP vars
-    std::vector<SCIP_VAR*> seqVars;
-    for (const auto& varRef : seq.variables) {
-      const Variable& var = varRef.get();
+SCIP_EXPR* SCIPSolver::createBoolExpr(SCIP_EXPR* expr) {
+  // Convert expression to boolean: 0 if abs(expr) < epsilon, 1 if abs(expr) >= epsilon
+  // Using epsilon-based algebraic formulation (no big-M)
 
-      // Convert C++ limits to SCIP infinity (sequences shouldn't be unbounded, but handle it for consistency)
-      double lowerBound = (var.lowerBound == std::numeric_limits<double>::lowest())
-                          ? -SCIPinfinity(scip_) : var.lowerBound;
-      double upperBound = (var.upperBound == std::numeric_limits<double>::max())
-                          ? SCIPinfinity(scip_) : var.upperBound;
+  // Create binary variable b
+  SCIP_VAR* boolVar;
+  SCIPcreateVarBasic(scip_, &boolVar, "bool_aux", 0.0, 1.0, 0.0, SCIP_VARTYPE_BINARY);
+  SCIPaddVar(scip_, boolVar);
 
-      SCIP_VAR* scipVar;
-      SCIPcreateVarBasic(scip_, &scipVar, var.name.c_str(), lowerBound, upperBound, 0.0, SCIP_VARTYPE_INTEGER);
-      SCIPaddVar(scip_, scipVar);
-      varMap_[&var] = scipVar;
-      seqVars.push_back(scipVar);
-    }
+  // Create abs(expr)
+  SCIP_EXPR* absExpr;
+  SCIPcreateExprAbs(scip_, &absExpr, expr, nullptr, nullptr);
 
-    // Add sequence constraint (alldifferent permutation of {1, ..., n})
-    addSequenceConstraints(seq.name, seqVars);
-  }
+  // Constraint 1: abs(expr) >= 1.1 * epsilon * b
+  // If b=1, then abs(expr) >= 1.1 * epsilon (strict side with tolerance)
+  SCIP_EXPR* boolVarExpr1;
+  SCIPcreateExprVar(scip_, &boolVarExpr1, boolVar, nullptr, nullptr);
+
+  SCIP_EXPR* epsilonB;
+  double coeff1 = 1.1 * epsilon_;
+  SCIPcreateExprSum(scip_, &epsilonB, 1, &boolVarExpr1, &coeff1, 0.0, nullptr, nullptr);
+
+  SCIP_EXPR* diff1;
+  SCIP_EXPR* children1[] = { absExpr, epsilonB };
+  double coeffs1[] = { 1.0, -1.0 };
+  SCIPcreateExprSum(scip_, &diff1, 2, children1, coeffs1, 0.0, nullptr, nullptr);
+
+  SCIP_CONS* cons1;
+  SCIPcreateConsBasicNonlinear(scip_, &cons1, "bool_lower", diff1, 0.0, SCIPinfinity(scip_));
+  SCIPaddCons(scip_, cons1);
+  SCIPreleaseCons(scip_, &cons1);
+  SCIPreleaseExpr(scip_, &diff1);
+  SCIPreleaseExpr(scip_, &epsilonB);
+  SCIPreleaseExpr(scip_, &boolVarExpr1);
+
+  // Constraint 2: (1-b) * (abs(expr) - epsilon) <= 0
+  // If b=0, then abs(expr) <= epsilon (forces small values when b=0)
+  // If b=1, constraint is 0 <= 0 (always satisfied)
+  SCIP_EXPR* absExpr2;
+  SCIPduplicateExpr(scip_, absExpr, &absExpr2, nullptr, nullptr, nullptr, nullptr);
+
+  SCIP_EXPR* boolVarExpr2;
+  SCIPcreateExprVar(scip_, &boolVarExpr2, boolVar, nullptr, nullptr);
+
+  // (1 - b)
+  SCIP_EXPR* oneMinusB;
+  double coeff2 = -1.0;
+  SCIPcreateExprSum(scip_, &oneMinusB, 1, &boolVarExpr2, &coeff2, 1.0, nullptr, nullptr);
+
+  // (abs(expr) - epsilon)
+  SCIP_EXPR* absMinusEps;
+  SCIPcreateExprSum(scip_, &absMinusEps, 1, &absExpr2, nullptr, -epsilon_, nullptr, nullptr);
+
+  // (1-b) * (abs(expr) - epsilon)
+  SCIP_EXPR* product;
+  SCIP_EXPR* prodChildren[] = { oneMinusB, absMinusEps };
+  SCIPcreateExprProduct(scip_, &product, 2, prodChildren, 1.0, nullptr, nullptr);
+
+  // (1-b) * (abs(expr) - epsilon) <= 0
+  SCIP_CONS* cons2;
+  SCIPcreateConsBasicNonlinear(scip_, &cons2, "bool_upper", product, -SCIPinfinity(scip_), 0.0);
+  SCIPaddCons(scip_, cons2);
+  SCIPreleaseCons(scip_, &cons2);
+  SCIPreleaseExpr(scip_, &product);
+  SCIPreleaseExpr(scip_, &absMinusEps);
+  SCIPreleaseExpr(scip_, &oneMinusB);
+  SCIPreleaseExpr(scip_, &boolVarExpr2);
+  SCIPreleaseExpr(scip_, &absExpr2);
+  SCIPreleaseExpr(scip_, &absExpr);
+
+  // Return expression for boolean variable
+  SCIP_EXPR* resultExpr;
+  SCIPcreateExprVar(scip_, &resultExpr, boolVar, nullptr, nullptr);
+  SCIPreleaseVar(scip_, &boolVar);
+
+  return resultExpr;
 }
 
 void SCIPSolver::addObjective(const Model& model) {
@@ -180,8 +326,8 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& oper
   // Handle variables
   if (std::holds_alternative<std::reference_wrapper<const Variable>>(operand)) {
     const Variable& var = std::get<std::reference_wrapper<const Variable>>(operand).get();
-    auto it = varMap_.find(&var);
-    if (it == varMap_.end()) {
+    auto it = variableMap_.find(&var);
+    if (it == variableMap_.end()) {
       return std::unexpected("Variable not found in varMap");
     }
     SCIP_EXPR* expr;
@@ -196,8 +342,8 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& oper
     const Variable& indexVar = indexedVar.index.get();
 
     // Get index SCIP variable
-    auto indexIt = varMap_.find(&indexVar);
-    if (indexIt == varMap_.end()) {
+    auto indexIt = variableMap_.find(&indexVar);
+    if (indexIt == variableMap_.end()) {
       return std::unexpected("Index variable not found in varMap");
     }
     SCIP_VAR* scipIndexVar = indexIt->second;
@@ -205,8 +351,8 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& oper
     // Get array SCIP variables
     std::vector<SCIP_VAR*> arrayVars;
     for (const auto& var : container) {
-      auto varIt = varMap_.find(&var);
-      if (varIt == varMap_.end()) {
+      auto varIt = variableMap_.find(&var);
+      if (varIt == variableMap_.end()) {
         return std::unexpected("Array variable not found in varMap");
       }
       arrayVars.push_back(varIt->second);
@@ -220,7 +366,7 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& oper
 
     // Add element constraint (0-based indexing)
     std::string elemName = container.name + "[" + indexVar.name + "]";
-    SCIP_EXPR* resultExpr = addElementConstraint(elemName, arrayVars, scipIndexVar, resultVar);
+    SCIP_EXPR* resultExpr = addIndexingConstraints(elemName, arrayVars, scipIndexVar, resultVar);
 
     SCIPreleaseVar(scip_, &resultVar);
     return resultExpr;
@@ -625,7 +771,7 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& oper
 
         // Add element constraint
         std::string elemName = "at_elem_" + std::to_string(reinterpret_cast<uintptr_t>(this));
-        SCIP_EXPR* resultExpr = addElementConstraint(elemName, arrayVars, indexVar, resultVar);
+        SCIP_EXPR* resultExpr = addIndexingConstraints(elemName, arrayVars, indexVar, resultVar);
 
         // Release variables
         SCIPreleaseVar(scip_, &indexVar);
@@ -849,107 +995,7 @@ void SCIPSolver::addConstraints(const Model& model) {
   }
 }
 
-std::expected<Solution, std::string> SCIPSolver::solve(const Model& model) {
-  // Solve the problem
-  SCIP_RETCODE retcode = SCIPsolve(scip_);
-  if (retcode != SCIP_OKAY) {
-    return std::unexpected("SCIP solve failed");
-  }
-
-  // Get the best solution
-  SCIP_SOL* sol = SCIPgetBestSol(scip_);
-  if (!sol) {
-    return std::unexpected("No solution found");
-  }
-
-  // Create CP solution object
-  Solution solution(model);
-
-  // Extract variable values from SCIP solution
-  for (const auto& [cpVar, scipVar] : varMap_) {
-    double value = SCIPgetSolVal(scip_, sol, scipVar);
-    solution.setVariableValue(*cpVar, value);
-  }
-
-  return solution;
-}
-
-void SCIPSolver::addSequenceConstraints(const std::string& seqName, const std::vector<SCIP_VAR*>& seqVars) {
-  size_t n = seqVars.size();
-  int minVal = 1;
-  int maxVal = n;
-
-  // Binary matrix formulation for alldifferent
-  // Create n×(maxVal-minVal+1) binary variables b[i][v] for each position i and value v
-  std::vector<std::vector<SCIP_VAR*>> binaries(n);
-  for (size_t i = 0; i < n; i++) {
-    binaries[i].resize(maxVal - minVal + 1);
-    for (int v = minVal; v <= maxVal; v++) {
-      std::string binName = seqName + "_b[" + std::to_string(i) + "][" + std::to_string(v) + "]";
-      SCIP_VAR* binVar;
-      SCIPcreateVarBasic(scip_, &binVar, binName.c_str(), 0.0, 1.0, 0.0, SCIP_VARTYPE_BINARY);
-      SCIPaddVar(scip_, binVar);
-      binaries[i][v - minVal] = binVar;
-    }
-  }
-
-  // Row constraints: sum_v b[i][v] = 1 for each position i
-  for (size_t i = 0; i < n; i++) {
-    SCIP_CONS* rowCons;
-    std::vector<double> coeffs(binaries[i].size(), 1.0);
-    std::string consName = seqName + "_row[" + std::to_string(i) + "]";
-    SCIPcreateConsBasicLinear(scip_, &rowCons, consName.c_str(), binaries[i].size(), binaries[i].data(), coeffs.data(), 1.0, 1.0);
-    SCIPaddCons(scip_, rowCons);
-    SCIPreleaseCons(scip_, &rowCons);
-  }
-
-  // Column constraints: sum_i b[i][v] = 1 for each value v
-  for (int v = minVal; v <= maxVal; v++) {
-    SCIP_CONS* colCons;
-    std::vector<SCIP_VAR*> colVars(n);
-    std::vector<double> coeffs(n, 1.0);
-    for (size_t i = 0; i < n; i++) {
-      colVars[i] = binaries[i][v - minVal];
-    }
-    std::string consName = seqName + "_col[" + std::to_string(v) + "]";
-    SCIPcreateConsBasicLinear(scip_, &colCons, consName.c_str(), n, colVars.data(), coeffs.data(), 1.0, 1.0);
-    SCIPaddCons(scip_, colCons);
-    SCIPreleaseCons(scip_, &colCons);
-  }
-
-  // Link constraints: x[i] = sum_v (v * b[i][v])
-  for (size_t i = 0; i < n; i++) {
-    SCIP_VAR* scipVar = seqVars[i];
-
-    SCIP_CONS* linkCons;
-    std::vector<SCIP_VAR*> linkVars;
-    std::vector<double> linkCoeffs;
-
-    // Add x[i] with coefficient -1
-    linkVars.push_back(scipVar);
-    linkCoeffs.push_back(-1.0);
-
-    // Add b[i][v] with coefficient v
-    for (int v = minVal; v <= maxVal; v++) {
-      linkVars.push_back(binaries[i][v - minVal]);
-      linkCoeffs.push_back(static_cast<double>(v));
-    }
-
-    std::string consName = seqName + "_link[" + std::to_string(i) + "]";
-    SCIPcreateConsBasicLinear(scip_, &linkCons, consName.c_str(), linkVars.size(), linkVars.data(), linkCoeffs.data(), -epsilon_, epsilon_);
-    SCIPaddCons(scip_, linkCons);
-    SCIPreleaseCons(scip_, &linkCons);
-  }
-
-  // Release binary variables
-  for (size_t i = 0; i < n; i++) {
-    for (size_t j = 0; j < binaries[i].size(); j++) {
-      SCIPreleaseVar(scip_, &binaries[i][j]);
-    }
-  }
-}
-
-SCIP_EXPR* SCIPSolver::addElementConstraint(const std::string& name, const std::vector<SCIP_VAR*>& arrayVars, SCIP_VAR* indexVar, SCIP_VAR* resultVar) {
+SCIP_EXPR* SCIPSolver::addIndexingConstraints(const std::string& name, const std::vector<SCIP_VAR*>& arrayVars, SCIP_VAR* indexVar, SCIP_VAR* resultVar) {
   size_t n = arrayVars.size();
   int indexOffset = 0;
 
@@ -1052,82 +1098,29 @@ SCIP_EXPR* SCIPSolver::addElementConstraint(const std::string& name, const std::
   return resultExpr;
 }
 
-SCIP_EXPR* SCIPSolver::createBoolExpr(SCIP_EXPR* expr) {
-  // Convert expression to boolean: 0 if abs(expr) < epsilon, 1 if abs(expr) >= epsilon
-  // Using epsilon-based algebraic formulation (no big-M)
+std::expected<Solution, std::string> SCIPSolver::solve(const Model& model) {
+  // Solve the problem
+  SCIP_RETCODE retcode = SCIPsolve(scip_);
+  if (retcode != SCIP_OKAY) {
+    return std::unexpected("SCIP solve failed");
+  }
 
-  // Create binary variable b
-  SCIP_VAR* boolVar;
-  SCIPcreateVarBasic(scip_, &boolVar, "bool_aux", 0.0, 1.0, 0.0, SCIP_VARTYPE_BINARY);
-  SCIPaddVar(scip_, boolVar);
+  // Get the best solution
+  SCIP_SOL* sol = SCIPgetBestSol(scip_);
+  if (!sol) {
+    return std::unexpected("No solution found");
+  }
 
-  // Create abs(expr)
-  SCIP_EXPR* absExpr;
-  SCIPcreateExprAbs(scip_, &absExpr, expr, nullptr, nullptr);
+  // Create CP solution object
+  Solution solution(model);
 
-  // Constraint 1: abs(expr) >= 1.1 * epsilon * b
-  // If b=1, then abs(expr) >= 1.1 * epsilon (strict side with tolerance)
-  SCIP_EXPR* boolVarExpr1;
-  SCIPcreateExprVar(scip_, &boolVarExpr1, boolVar, nullptr, nullptr);
+  // Extract variable values from SCIP solution
+  for (const auto& [cpVar, scipVar] : variableMap_) {
+    double value = SCIPgetSolVal(scip_, sol, scipVar);
+    solution.setVariableValue(*cpVar, value);
+  }
 
-  SCIP_EXPR* epsilonB;
-  double coeff1 = 1.1 * epsilon_;
-  SCIPcreateExprSum(scip_, &epsilonB, 1, &boolVarExpr1, &coeff1, 0.0, nullptr, nullptr);
-
-  SCIP_EXPR* diff1;
-  SCIP_EXPR* children1[] = { absExpr, epsilonB };
-  double coeffs1[] = { 1.0, -1.0 };
-  SCIPcreateExprSum(scip_, &diff1, 2, children1, coeffs1, 0.0, nullptr, nullptr);
-
-  SCIP_CONS* cons1;
-  SCIPcreateConsBasicNonlinear(scip_, &cons1, "bool_lower", diff1, 0.0, SCIPinfinity(scip_));
-  SCIPaddCons(scip_, cons1);
-  SCIPreleaseCons(scip_, &cons1);
-  SCIPreleaseExpr(scip_, &diff1);
-  SCIPreleaseExpr(scip_, &epsilonB);
-  SCIPreleaseExpr(scip_, &boolVarExpr1);
-
-  // Constraint 2: (1-b) * (abs(expr) - epsilon) <= 0
-  // If b=0, then abs(expr) <= epsilon (forces small values when b=0)
-  // If b=1, constraint is 0 <= 0 (always satisfied)
-  SCIP_EXPR* absExpr2;
-  SCIPduplicateExpr(scip_, absExpr, &absExpr2, nullptr, nullptr, nullptr, nullptr);
-
-  SCIP_EXPR* boolVarExpr2;
-  SCIPcreateExprVar(scip_, &boolVarExpr2, boolVar, nullptr, nullptr);
-
-  // (1 - b)
-  SCIP_EXPR* oneMinusB;
-  double coeff2 = -1.0;
-  SCIPcreateExprSum(scip_, &oneMinusB, 1, &boolVarExpr2, &coeff2, 1.0, nullptr, nullptr);
-
-  // (abs(expr) - epsilon)
-  SCIP_EXPR* absMinusEps;
-  SCIPcreateExprSum(scip_, &absMinusEps, 1, &absExpr2, nullptr, -epsilon_, nullptr, nullptr);
-
-  // (1-b) * (abs(expr) - epsilon)
-  SCIP_EXPR* product;
-  SCIP_EXPR* prodChildren[] = { oneMinusB, absMinusEps };
-  SCIPcreateExprProduct(scip_, &product, 2, prodChildren, 1.0, nullptr, nullptr);
-
-  // (1-b) * (abs(expr) - epsilon) <= 0
-  SCIP_CONS* cons2;
-  SCIPcreateConsBasicNonlinear(scip_, &cons2, "bool_upper", product, -SCIPinfinity(scip_), 0.0);
-  SCIPaddCons(scip_, cons2);
-  SCIPreleaseCons(scip_, &cons2);
-  SCIPreleaseExpr(scip_, &product);
-  SCIPreleaseExpr(scip_, &absMinusEps);
-  SCIPreleaseExpr(scip_, &oneMinusB);
-  SCIPreleaseExpr(scip_, &boolVarExpr2);
-  SCIPreleaseExpr(scip_, &absExpr2);
-  SCIPreleaseExpr(scip_, &absExpr);
-
-  // Return expression for boolean variable
-  SCIP_EXPR* resultExpr;
-  SCIPcreateExprVar(scip_, &resultExpr, boolVar, nullptr, nullptr);
-  SCIPreleaseVar(scip_, &boolVar);
-
-  return resultExpr;
+  return solution;
 }
 
 } // namespace CP

@@ -16,7 +16,7 @@ int main() {
 
         CP::SCIPSolver solver(model);
         SCIP* scip = solver.getScip();
-        const auto& varMap = solver.getVarMap();
+        const auto& varMap = solver.getVariableMap();
 
         assert(SCIPgetNVars(scip) == 1);
         assert(solver.getName() == "SCIP");
@@ -37,7 +37,7 @@ int main() {
 
         CP::SCIPSolver solver(model);
         SCIP* scip = solver.getScip();
-        const auto& varMap = solver.getVarMap();
+        const auto& varMap = solver.getVariableMap();
 
         assert(SCIPgetNVars(scip) == 3);
         assert(varMap.size() == 3);
@@ -66,7 +66,7 @@ int main() {
 
         CP::SCIPSolver solver(model);
         SCIP* scip = solver.getScip();
-        const auto& varMap = solver.getVarMap();
+        const auto& varMap = solver.getVariableMap();
 
         assert(SCIPgetNVars(scip) == 3);
 
