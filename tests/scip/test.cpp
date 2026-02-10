@@ -1242,6 +1242,269 @@ int main() {
         std::cout << GREEN << "Test 53 PASSED: Unbounded variables" << RESET << std::endl;
     }
 
-    std::cout << "\n" << GREEN << "All 53 SCIP adapter tests PASSED" << RESET << std::endl;
+    // Test 54: Logical OR constraint (!a || b)
+    {
+        CP::Model model;
+        const auto& a = model.addBinaryVariable("a");
+        const auto& b = model.addBinaryVariable("b");
+        const auto& x = model.addVariable(CP::Variable::Type::INTEGER, "x", 0, 10);
+        const auto& y = model.addVariable(CP::Variable::Type::INTEGER, "y", 0, 10);
+
+        // Constraint: !a || (x >= y)
+        // Meaning: if a is true, then x must be >= y
+        model.addConstraint(!a || (x >= y));
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+
+        auto aVal = solution.getVariableValue(a);
+        auto bVal = solution.getVariableValue(b);
+        auto xVal = solution.getVariableValue(x);
+        auto yVal = solution.getVariableValue(y);
+
+        assert(aVal.has_value());
+        assert(xVal.has_value());
+        assert(yVal.has_value());
+
+        // Verify the constraint: if a=1, then x >= y
+        if (aVal.value() > 0.5) {  // a is true
+            assert(xVal.value() >= yVal.value() - 1e-6);
+        }
+
+        std::cout << GREEN << "Test 54 PASSED: Logical OR constraint (!a || b)" << RESET << std::endl;
+    }
+
+    // Test 55: Logical OR constraint with comparison (!visit || (exit >= entry))
+    {
+        CP::Model model;
+        const auto& visit = model.addBinaryVariable("visit");
+        const auto& entry = model.addVariable(CP::Variable::Type::REAL, "entry", 0.0, 100.0);
+        const auto& exit = model.addVariable(CP::Variable::Type::REAL, "exit", 0.0, 100.0);
+
+        // Set entry to a specific value
+        model.addConstraint(entry == 5.0);
+
+        // Constraint: !visit || (exit >= entry)
+        // Meaning: if visit is true, then exit must be >= entry
+        model.addConstraint(!visit || (exit >= entry));
+
+        // Force visit to be true to test the implication
+        model.addConstraint(visit == 1.0);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+
+        auto visitVal = solution.getVariableValue(visit);
+        auto entryVal = solution.getVariableValue(entry);
+        auto exitVal = solution.getVariableValue(exit);
+
+        assert(visitVal.has_value());
+        assert(entryVal.has_value());
+        assert(exitVal.has_value());
+
+        std::cerr << "visit=" << visitVal.value() << ", entry=" << entryVal.value() << ", exit=" << exitVal.value() << std::endl;
+
+        // Since visit=1 and entry=5, exit must be >= 5
+        assert(visitVal.value() > 0.5);  // visit is true
+        assert(std::abs(entryVal.value() - 5.0) < 1e-5);  // entry is 5
+        assert(exitVal.value() >= 5.0 - 1e-5);  // exit >= entry
+
+        std::cout << GREEN << "Test 55 PASSED: Logical OR constraint with comparison (!visit || (exit >= entry))" << RESET << std::endl;
+    }
+
+    // Test 56: Logical OR with <= comparison
+    {
+        CP::Model model;
+        const auto& flag = model.addBinaryVariable("flag");
+        const auto& x = model.addVariable(CP::Variable::Type::REAL, "x", 0.0, 100.0);
+        const auto& y = model.addVariable(CP::Variable::Type::REAL, "y", 0.0, 100.0);
+
+        model.addConstraint(y == 10.0);
+        model.addConstraint(!flag || (x <= y));
+        model.addConstraint(flag == 1.0);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto xVal = solution.getVariableValue(x);
+        auto yVal = solution.getVariableValue(y);
+
+        assert(xVal.has_value() && yVal.has_value());
+        assert(xVal.value() <= yVal.value() + 1e-5);
+
+        std::cout << GREEN << "Test 56 PASSED: Logical OR with <= comparison" << RESET << std::endl;
+    }
+
+    // Test 57: Logical OR with == comparison
+    {
+        CP::Model model;
+        const auto& flag = model.addBinaryVariable("flag");
+        const auto& x = model.addVariable(CP::Variable::Type::REAL, "x", 0.0, 100.0);
+
+        model.addConstraint(!flag || (x == 42.0));
+        model.addConstraint(flag == 1.0);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto xVal = solution.getVariableValue(x);
+
+        assert(xVal.has_value());
+        assert(std::abs(xVal.value() - 42.0) < 1e-5);
+
+        std::cout << GREEN << "Test 57 PASSED: Logical OR with == comparison" << RESET << std::endl;
+    }
+
+    // Test 58: Logical OR with > comparison
+    {
+        CP::Model model;
+        const auto& flag = model.addBinaryVariable("flag");
+        const auto& x = model.addVariable(CP::Variable::Type::REAL, "x", 0.0, 100.0);
+        const auto& y = model.addVariable(CP::Variable::Type::REAL, "y", 0.0, 100.0);
+
+        model.addConstraint(y == 10.0);
+        model.addConstraint(!flag || (x > y));
+        model.addConstraint(flag == 1.0);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto xVal = solution.getVariableValue(x);
+        auto yVal = solution.getVariableValue(y);
+
+        assert(xVal.has_value() && yVal.has_value());
+        assert(xVal.value() > yVal.value() - 1e-5);
+
+        std::cout << GREEN << "Test 58 PASSED: Logical OR with > comparison" << RESET << std::endl;
+    }
+
+    // Test 59: Logical OR with < comparison
+    {
+        CP::Model model;
+        const auto& flag = model.addBinaryVariable("flag");
+        const auto& x = model.addVariable(CP::Variable::Type::REAL, "x", 0.0, 100.0);
+        const auto& y = model.addVariable(CP::Variable::Type::REAL, "y", 0.0, 100.0);
+
+        model.addConstraint(y == 10.0);
+        model.addConstraint(!flag || (x < y));
+        model.addConstraint(flag == 1.0);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto xVal = solution.getVariableValue(x);
+        auto yVal = solution.getVariableValue(y);
+
+        assert(xVal.has_value() && yVal.has_value());
+        assert(xVal.value() < yVal.value() + 1e-5);
+
+        std::cout << GREEN << "Test 59 PASSED: Logical OR with < comparison" << RESET << std::endl;
+    }
+
+    // Test 60: Logical OR with != comparison
+    {
+        CP::Model model;
+        const auto& flag = model.addBinaryVariable("flag");
+        const auto& x = model.addVariable(CP::Variable::Type::REAL, "x", 0.0, 100.0);
+
+        model.addConstraint(!flag || (x != 50.0));
+        model.addConstraint(flag == 1.0);
+        model.addConstraint(x >= 49.0);
+        model.addConstraint(x <= 51.0);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto xVal = solution.getVariableValue(x);
+
+        assert(xVal.has_value());
+        assert(std::abs(xVal.value() - 50.0) > 1e-6);
+
+        std::cout << GREEN << "Test 60 PASSED: Logical OR with != comparison" << RESET << std::endl;
+    }
+
+    // Test 61: AND of two comparisons
+    {
+        CP::Model model;
+        const auto& x = model.addVariable(CP::Variable::Type::REAL, "x", 0.0, 100.0);
+        const auto& y = model.addVariable(CP::Variable::Type::REAL, "y", 0.0, 100.0);
+
+        model.addConstraint((x >= 10.0) && (y <= 20.0));
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto xVal = solution.getVariableValue(x);
+        auto yVal = solution.getVariableValue(y);
+
+        assert(xVal.has_value() && yVal.has_value());
+        assert(xVal.value() >= 10.0 - 1e-5);
+        assert(yVal.value() <= 20.0 + 1e-5);
+
+        std::cout << GREEN << "Test 61 PASSED: AND of two comparisons" << RESET << std::endl;
+    }
+
+    // Test 62: OR of two comparisons
+    {
+        CP::Model model;
+        const auto& x = model.addVariable(CP::Variable::Type::REAL, "x", 0.0, 100.0);
+
+        model.addConstraint((x <= 10.0) || (x >= 90.0));
+        model.addConstraint(x >= 5.0);
+        model.addConstraint(x <= 95.0);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto xVal = solution.getVariableValue(x);
+
+        assert(xVal.has_value());
+        // x should be either <= 10 or >= 90
+        assert(xVal.value() <= 10.0 + 1e-5 || xVal.value() >= 90.0 - 1e-5);
+
+        std::cout << GREEN << "Test 62 PASSED: OR of two comparisons" << RESET << std::endl;
+    }
+
+    // Test 63: Negation of comparison
+    {
+        CP::Model model;
+        const auto& x = model.addVariable(CP::Variable::Type::REAL, "x", 0.0, 100.0);
+
+        model.addConstraint(!(x >= 50.0));
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto xVal = solution.getVariableValue(x);
+
+        assert(xVal.has_value());
+        assert(xVal.value() < 50.0 + 1e-5);
+
+        std::cout << GREEN << "Test 63 PASSED: Negation of comparison" << RESET << std::endl;
+    }
+
+    std::cout << "\n" << GREEN << "All 63 SCIP adapter tests PASSED" << RESET << std::endl;
     return 0;
 }
