@@ -340,11 +340,11 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
 
     // Negate: -scipExpr
     if (expression._operator == negate && expression.operands.size() == 1) {
-      auto subExpr = buildExpression(expression.operands[0]);
-      if (!subExpr) return subExpr;
+      auto subExpression = buildExpression(expression.operands[0]);
+      if (!subExpression) return subExpression;
 
       SCIP_EXPR* scipExpr;
-      SCIP_EXPR* children[] = { subExpr.value() };
+      SCIP_EXPR* children[] = { subExpression.value() };
       double coeffs[] = { -1.0 };
       SCIPcreateExprSum(scip_, &scipExpr, 1, children, coeffs, 0.0, nullptr, nullptr);
       SCIPreleaseExpr(scip_, &children[0]);
@@ -421,12 +421,12 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
 
     // Logical NOT: !a  => 1 - bool(a)
     if (expression._operator == logical_not && expression.operands.size() == 1) {
-      auto subExpr = buildExpression(expression.operands[0]);
-      if (!subExpr) return subExpr;
+      auto subExpression = buildExpression(expression.operands[0]);
+      if (!subExpression) return subExpression;
 
       // Convert to boolean first
-      SCIP_EXPR* boolExpr = boolify(subExpr.value());
-      SCIPreleaseExpr(scip_, &subExpr.value());
+      SCIP_EXPR* boolExpr = boolify(subExpression.value());
+      SCIPreleaseExpr(scip_, &subExpression.value());
 
       // NOT: 1 - bool(a)
       SCIP_EXPR* scipExpr;
