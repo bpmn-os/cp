@@ -35,6 +35,7 @@ private:
   SCIP* scip_ = nullptr;
   std::unordered_map<const Variable*, SCIP_VAR*> variableMap_;
   double epsilon_;
+  size_t auxiliaryCounter_ = 0;
 };
 
 } // namespace CP

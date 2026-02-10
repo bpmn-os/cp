@@ -193,8 +193,9 @@ SCIP_EXPR* SCIPSolver::boolify(SCIP_EXPR* expr) {
   // Using epsilon-based algebraic formulation (no big-M)
 
   // Create binary variable b
+  std::string boolName = "bool_aux_" + std::to_string(auxiliaryCounter_++);
   SCIP_VAR* boolVar;
-  SCIPcreateVarBasic(scip_, &boolVar, "bool_aux", 0.0, 1.0, 0.0, SCIP_VARTYPE_BINARY);
+  SCIPcreateVarBasic(scip_, &boolVar, boolName.c_str(), 0.0, 1.0, 0.0, SCIP_VARTYPE_BINARY);
   SCIPaddVar(scip_, boolVar);
 
   // Create abs(expr)
@@ -574,8 +575,9 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& oper
       if (opName == "min" || opName == "max") {
         // min/max(a, b, ...) - use auxiliary variable with constraints
         // Create auxiliary variable for result
+        std::string auxName = opName + "_aux_" + std::to_string(auxiliaryCounter_++);
         SCIP_VAR* auxVar;
-        SCIPcreateVarBasic(scip_, &auxVar, (opName + "_aux").c_str(), -SCIPinfinity(scip_), SCIPinfinity(scip_), 0.0, SCIP_VARTYPE_CONTINUOUS);
+        SCIPcreateVarBasic(scip_, &auxVar, auxName.c_str(), -SCIPinfinity(scip_), SCIPinfinity(scip_), 0.0, SCIP_VARTYPE_CONTINUOUS);
         SCIPaddVar(scip_, auxVar);
 
         // For each child, add constraint: auxVar <= child (for min) or auxVar >= child (for max)
