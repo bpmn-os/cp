@@ -188,7 +188,7 @@ void SCIPSolver::addIndexedVariables(const Model& model) {
   }
 }
 
-SCIP_EXPR* SCIPSolver::createBoolExpr(SCIP_EXPR* expr) {
+SCIP_EXPR* SCIPSolver::boolify(SCIP_EXPR* expr) {
   // Convert expression to boolean: 0 if abs(expr) < epsilon, 1 if abs(expr) >= epsilon
   // Using epsilon-based algebraic formulation (no big-M)
 
@@ -467,7 +467,7 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& oper
       if (!subExpr) return subExpr;
 
       // Convert to boolean first
-      SCIP_EXPR* boolExpr = createBoolExpr(subExpr.value());
+      SCIP_EXPR* boolExpr = boolify(subExpr.value());
       SCIPreleaseExpr(scip_, &subExpr.value());
 
       // NOT: 1 - bool(a)
@@ -487,8 +487,8 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& oper
       if (!right) return right;
 
       // Convert to booleans first
-      SCIP_EXPR* boolLeft = createBoolExpr(left.value());
-      SCIP_EXPR* boolRight = createBoolExpr(right.value());
+      SCIP_EXPR* boolLeft = boolify(left.value());
+      SCIP_EXPR* boolRight = boolify(right.value());
       SCIPreleaseExpr(scip_, &left.value());
       SCIPreleaseExpr(scip_, &right.value());
 
@@ -509,8 +509,8 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& oper
       if (!right) return right;
 
       // Convert to booleans first
-      SCIP_EXPR* boolLeft = createBoolExpr(left.value());
-      SCIP_EXPR* boolRight = createBoolExpr(right.value());
+      SCIP_EXPR* boolLeft = boolify(left.value());
+      SCIP_EXPR* boolRight = boolify(right.value());
       SCIPreleaseExpr(scip_, &left.value());
       SCIPreleaseExpr(scip_, &right.value());
 
@@ -524,7 +524,7 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& oper
       SCIPreleaseExpr(scip_, &boolRight);
 
       // Convert sum back to boolean
-      SCIP_EXPR* expr = createBoolExpr(sumExpr);
+      SCIP_EXPR* expr = boolify(sumExpr);
       SCIPreleaseExpr(scip_, &sumExpr);
       return expr;
     }
