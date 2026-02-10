@@ -36,6 +36,7 @@ private:
   SCIP* scip = nullptr;
   std::unordered_map<const Variable*, SCIP_VAR*> variableMap;
   double epsilon;
+  double roundingFactor;
   size_t auxiliaryCounter = 0;
 };
 

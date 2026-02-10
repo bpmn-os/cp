@@ -10,12 +10,19 @@
 #include <limits>
 #include <iostream>
 #include <cstring>
+#include <cmath>
 
 namespace CP {
 
 SCIPSolver::SCIPSolver(const Model& model, double epsilon)
   : epsilon(epsilon)
 {
+  // Calculate rounding precision to eliminate epsilon-scale noise
+  // Round to k decimal places where 0.5 * 10^(-k) >= epsilon
+  // This ensures SCIP's epsilon-scale tolerance exploitation is removed
+  int decimalPlaces = static_cast<int>(std::floor(-std::log10(2.0 * epsilon)));
+  roundingFactor = std::pow(10.0, decimalPlaces);
+
   SCIPcreate(&scip);
   SCIPincludeDefaultPlugins(scip);
   SCIPcreateProbBasic(scip, "cp_model");
@@ -1551,9 +1558,13 @@ std::expected<Solution, std::string> SCIPSolver::solve(const Model& model) {
   // Create CP solution object
   Solution solution(model);
 
-  // Extract variable values from SCIP solution
+  // Extract variable values from SCIP solution with epsilon-aware rounding
   for (const auto& [variable, scipVar] : variableMap) {
     double value = SCIPgetSolVal(scip, sol, scipVar);
+
+    // Round to eliminate epsilon-scale noise caused by SCIP tolerance exploitation
+    value = std::round(value * roundingFactor) / roundingFactor;
+
     solution.setVariableValue(*variable, value);
   }
 
