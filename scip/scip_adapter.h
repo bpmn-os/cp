@@ -22,6 +22,7 @@ private:
   void addSequences(const Model& model);
   void addVariables(const Model& model);
   void addIndexedVariables(const Model& model);
+  void addDeducedConstraints(const Model& model);
   void addObjective(const Model& model);
   void addConstraints(const Model& model);
 

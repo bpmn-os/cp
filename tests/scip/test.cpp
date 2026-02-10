@@ -1626,6 +1626,73 @@ int main() {
         std::cout << GREEN << "Test 67 PASSED: Deduced variable enforces constraint correctly (infeasible)" << RESET << std::endl;
     }
 
-    std::cout << "\n" << GREEN << "All 67 SCIP adapter tests PASSED" << RESET << std::endl;
+    // Test 68: Deduced variable from IndexedVariable access
+    {
+        CP::Model model;
+
+        // Create indexed variables
+        auto& array = model.addIndexedVariables(CP::Variable::Type::REAL, "array");
+        array.emplace_back(5.0, 5.0);  // array[0] = 5
+        array.emplace_back(10.0, 10.0); // array[1] = 10
+        array.emplace_back(15.0, 15.0); // array[2] = 15
+
+        // Create index variable
+        const auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 0.0, 2.0);
+
+        // Create deduced variable: value := array[index]
+        const auto& value = model.addVariable(CP::Variable::Type::REAL, "value", array[index]);
+
+        // Set index = 1, so value should be 10
+        model.addConstraint(index == 1.0);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto indexVal = solution.getVariableValue(index);
+        auto valueVal = solution.getVariableValue(value);
+
+        assert(indexVal.has_value());
+        assert(valueVal.has_value());
+        assert(std::abs(indexVal.value() - 1.0) < 1e-5);
+        assert(std::abs(valueVal.value() - 10.0) < 1e-5);
+
+        std::cout << GREEN << "Test 68 PASSED: Deduced variable from IndexedVariable access" << RESET << std::endl;
+    }
+
+    // Test 69: Deduced variable from IndexedVariable in constraint (like BPMNOS case)
+    {
+        CP::Model model;
+
+        // Create indexed variables (like value_{Instance_1,Process_1},Instance)
+        auto& processInstance = model.addIndexedVariables(CP::Variable::Type::REAL, "process_instance");
+        processInstance.emplace_back(2.0, 2.0);  // processInstance[0] = 2
+
+        // Create index variable (like data_index[Process_1]_{Instance_1,Activity_1,entry})
+        const auto& dataIndex = model.addVariable(CP::Variable::Type::INTEGER, "data_index", 0.0, 0.0);
+
+        // Create deduced variable (like value_{Instance_1,Activity_1,0},Instance)
+        const auto& activityInstance = model.addVariable(CP::Variable::Type::REAL, "activity_instance", processInstance[dataIndex]);
+
+        // This should constrain activity_instance = processInstance[0] = 2
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto dataIndexVal = solution.getVariableValue(dataIndex);
+        auto activityInstanceVal = solution.getVariableValue(activityInstance);
+
+        assert(dataIndexVal.has_value());
+        assert(activityInstanceVal.has_value());
+        assert(std::abs(dataIndexVal.value() - 0.0) < 1e-5);
+        assert(std::abs(activityInstanceVal.value() - 2.0) < 1e-5);
+
+        std::cout << GREEN << "Test 69 PASSED: Deduced variable from IndexedVariable in constraint (BPMNOS-like)" << RESET << std::endl;
+    }
+
+    std::cout << "\n" << GREEN << "All 69 SCIP adapter tests PASSED" << RESET << std::endl;
     return 0;
 }
