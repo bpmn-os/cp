@@ -129,10 +129,10 @@ void SCIPSolver::addSequenceConstraints(const std::string& sequenceName, const s
 }
 
 void SCIPSolver::addVariables(const Model& model) {
-  for (const auto& var : model.getVariables()) {
+  for (const auto& variable : model.getVariables()) {
     SCIP_VARTYPE vartype;
 
-    switch (var.type) {
+    switch (variable.type) {
       case Variable::Type::BOOLEAN:
         vartype = SCIP_VARTYPE_BINARY;
         break;
@@ -145,15 +145,15 @@ void SCIPSolver::addVariables(const Model& model) {
     }
 
     // Convert C++ limits to SCIP infinity
-    double lowerBound = (var.lowerBound == std::numeric_limits<double>::lowest())
-                        ? -SCIPinfinity(scip_) : var.lowerBound;
-    double upperBound = (var.upperBound == std::numeric_limits<double>::max())
-                        ? SCIPinfinity(scip_) : var.upperBound;
+    double lowerBound = (variable.lowerBound == std::numeric_limits<double>::lowest())
+                        ? -SCIPinfinity(scip_) : variable.lowerBound;
+    double upperBound = (variable.upperBound == std::numeric_limits<double>::max())
+                        ? SCIPinfinity(scip_) : variable.upperBound;
 
     SCIP_VAR* scipVar;
-    SCIPcreateVarBasic(scip_, &scipVar, var.name.c_str(), lowerBound, upperBound, 0.0, vartype);
+    SCIPcreateVarBasic(scip_, &scipVar, variable.name.c_str(), lowerBound, upperBound, 0.0, vartype);
     SCIPaddVar(scip_, scipVar);
-    variableMap_[&var] = scipVar;
+    variableMap_[&variable] = scipVar;
   }
 }
 
