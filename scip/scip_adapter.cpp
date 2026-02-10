@@ -57,20 +57,18 @@ void SCIPSolver::addSequences(const Model& model) {
 
 void SCIPSolver::addSequenceConstraints(const std::string& sequenceName, const std::vector<SCIP_VAR*>& sequenceVariables) {
   size_t n = sequenceVariables.size();
-  int minValue = 1;
-  int maxValue = n;
 
   // Binary matrix formulation for alldifferent
-  // Create n×(maxValue-minValue+1) binary variables b[i][v] for each position i and value v
+  // Create n×n binary variables b[i][v] for each position i and value v in {1, ..., n}
   std::vector<std::vector<SCIP_VAR*>> binaries(n);
   for (size_t i = 0; i < n; i++) {
-    binaries[i].resize(maxValue - minValue + 1);
-    for (int value = minValue; value <= maxValue; value++) {
-      std::string binName = sequenceName + "_b[" + std::to_string(i) + "][" + std::to_string(value) + "]";
-      SCIP_VAR* binVar;
-      SCIPcreateVarBasic(scip_, &binVar, binName.c_str(), 0.0, 1.0, 0.0, SCIP_VARTYPE_BINARY);
-      SCIPaddVar(scip_, binVar);
-      binaries[i][value - minValue] = binVar;
+    binaries[i].resize(n);
+    for (int value = 1; value <= static_cast<int>(n); value++) {
+      std::string binaryName = sequenceName + "_b[" + std::to_string(i) + "][" + std::to_string(value) + "]";
+      SCIP_VAR* binaryVar;
+      SCIPcreateVarBasic(scip_, &binaryVar, binaryName.c_str(), 0.0, 1.0, 0.0, SCIP_VARTYPE_BINARY);
+      SCIPaddVar(scip_, binaryVar);
+      binaries[i][value - 1] = binaryVar;
     }
   }
 
@@ -85,12 +83,12 @@ void SCIPSolver::addSequenceConstraints(const std::string& sequenceName, const s
   }
 
   // Column constraints: sum_i b[i][v] = 1 for each value v
-  for (int value = minValue; value <= maxValue; value++) {
+  for (int value = 1; value <= static_cast<int>(n); value++) {
     SCIP_CONS* colCons;
     std::vector<SCIP_VAR*> colVars(n);
     std::vector<double> coeffs(n, 1.0);
     for (size_t i = 0; i < n; i++) {
-      colVars[i] = binaries[i][value - minValue];
+      colVars[i] = binaries[i][value - 1];
     }
     std::string consName = sequenceName + "_col[" + std::to_string(value) + "]";
     SCIPcreateConsBasicLinear(scip_, &colCons, consName.c_str(), n, colVars.data(), coeffs.data(), 1.0, 1.0);
@@ -111,8 +109,8 @@ void SCIPSolver::addSequenceConstraints(const std::string& sequenceName, const s
     linkCoeffs.push_back(-1.0);
 
     // Add b[i][v] with coefficient v
-    for (int value = minValue; value <= maxValue; value++) {
-      linkVars.push_back(binaries[i][value - minValue]);
+    for (int value = 1; value <= static_cast<int>(n); value++) {
+      linkVars.push_back(binaries[i][value - 1]);
       linkCoeffs.push_back(static_cast<double>(value));
     }
 
