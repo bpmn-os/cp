@@ -287,7 +287,7 @@ void SCIPSolver::addObjective(const Model& model) {
 
   // Build objective expression - wrap in operand
   Operand objOperand = objective;
-  auto objExpr = buildExpr(objOperand);
+  auto objExpr = buildExpression(objOperand);
   if (!objExpr) {
     return;
   }
@@ -317,7 +317,7 @@ void SCIPSolver::addObjective(const Model& model) {
   SCIPreleaseVar(scip_, &objVar);
 }
 
-std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& operand) {
+std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand& operand) {
   // Handle constants
   if (std::holds_alternative<double>(operand)) {
     SCIP_EXPR* expr;
@@ -381,12 +381,12 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& oper
 
     // Base case: none operator
     if (cpExpr._operator == none && cpExpr.operands.size() == 1) {
-      return buildExpr(cpExpr.operands[0]);
+      return buildExpression(cpExpr.operands[0]);
     }
 
     // Negate: -expr
     if (cpExpr._operator == negate && cpExpr.operands.size() == 1) {
-      auto subExpr = buildExpr(cpExpr.operands[0]);
+      auto subExpr = buildExpression(cpExpr.operands[0]);
       if (!subExpr) return subExpr;
 
       SCIP_EXPR* expr;
@@ -399,8 +399,8 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& oper
 
     // Addition: a + b
     if (cpExpr._operator == add && cpExpr.operands.size() == 2) {
-      auto left = buildExpr(cpExpr.operands[0]);
-      auto right = buildExpr(cpExpr.operands[1]);
+      auto left = buildExpression(cpExpr.operands[0]);
+      auto right = buildExpression(cpExpr.operands[1]);
       if (!left) return left;
       if (!right) return right;
 
@@ -415,8 +415,8 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& oper
 
     // Subtraction: a - b
     if (cpExpr._operator == subtract && cpExpr.operands.size() == 2) {
-      auto left = buildExpr(cpExpr.operands[0]);
-      auto right = buildExpr(cpExpr.operands[1]);
+      auto left = buildExpression(cpExpr.operands[0]);
+      auto right = buildExpression(cpExpr.operands[1]);
       if (!left) return left;
       if (!right) return right;
 
@@ -431,8 +431,8 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& oper
 
     // Multiplication: a * b
     if (cpExpr._operator == multiply && cpExpr.operands.size() == 2) {
-      auto left = buildExpr(cpExpr.operands[0]);
-      auto right = buildExpr(cpExpr.operands[1]);
+      auto left = buildExpression(cpExpr.operands[0]);
+      auto right = buildExpression(cpExpr.operands[1]);
       if (!left) return left;
       if (!right) return right;
 
@@ -446,8 +446,8 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& oper
 
     // Division: a / b
     if (cpExpr._operator == divide && cpExpr.operands.size() == 2) {
-      auto numerator = buildExpr(cpExpr.operands[0]);
-      auto denominator = buildExpr(cpExpr.operands[1]);
+      auto numerator = buildExpression(cpExpr.operands[0]);
+      auto denominator = buildExpression(cpExpr.operands[1]);
       if (!numerator) return numerator;
       if (!denominator) return denominator;
 
@@ -467,7 +467,7 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& oper
 
     // Logical NOT: !a  => 1 - bool(a)
     if (cpExpr._operator == logical_not && cpExpr.operands.size() == 1) {
-      auto subExpr = buildExpr(cpExpr.operands[0]);
+      auto subExpr = buildExpression(cpExpr.operands[0]);
       if (!subExpr) return subExpr;
 
       // Convert to boolean first
@@ -485,8 +485,8 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& oper
 
     // Logical AND: a && b  => bool(a) * bool(b)
     if (cpExpr._operator == logical_and && cpExpr.operands.size() == 2) {
-      auto left = buildExpr(cpExpr.operands[0]);
-      auto right = buildExpr(cpExpr.operands[1]);
+      auto left = buildExpression(cpExpr.operands[0]);
+      auto right = buildExpression(cpExpr.operands[1]);
       if (!left) return left;
       if (!right) return right;
 
@@ -507,8 +507,8 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& oper
 
     // Logical OR: a || b  => bool(bool(a) + bool(b))
     if (cpExpr._operator == logical_or && cpExpr.operands.size() == 2) {
-      auto left = buildExpr(cpExpr.operands[0]);
-      auto right = buildExpr(cpExpr.operands[1]);
+      auto left = buildExpression(cpExpr.operands[0]);
+      auto right = buildExpression(cpExpr.operands[1]);
       if (!left) return left;
       if (!right) return right;
 
@@ -549,7 +549,7 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& oper
         // pow(a, b) - if b is constant
         if (std::holds_alternative<double>(cpExpr.operands[2])) {
           double exponent = std::get<double>(cpExpr.operands[2]);
-          auto baseExpr = buildExpr(cpExpr.operands[1]);
+          auto baseExpr = buildExpression(cpExpr.operands[1]);
           if (!baseExpr) return baseExpr;
 
           SCIPcreateExprPow(scip_, &expr, baseExpr.value(), exponent, nullptr, nullptr);
@@ -564,7 +564,7 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpr(const Operand& oper
       // For other operators, build all child expressions
       std::vector<SCIP_EXPR*> children;
       for (size_t i = 1; i < cpExpr.operands.size(); i++) {
-        auto childExpr = buildExpr(cpExpr.operands[i]);
+        auto childExpr = buildExpression(cpExpr.operands[i]);
         if (!childExpr) {
           // Cleanup already created expressions
           for (auto child : children) {
@@ -930,8 +930,8 @@ void SCIPSolver::addConstraints(const Model& model) {
       }
 
       // Build expression for lhs - rhs
-      auto leftExpr = buildExpr(constraint.operands[0]);
-      auto rightExpr = buildExpr(constraint.operands[1]);
+      auto leftExpr = buildExpression(constraint.operands[0]);
+      auto rightExpr = buildExpression(constraint.operands[1]);
 
       if (!leftExpr || !rightExpr) {
         continue; // Skip if expression building failed

@@ -25,7 +25,7 @@ private:
   void addObjective(const Model& model);
   void addConstraints(const Model& model);
 
-  std::expected<SCIP_EXPR*, std::string> buildExpr(const Operand& operand);
+  std::expected<SCIP_EXPR*, std::string> buildExpression(const Operand& operand);
 
   // Helper functions for constraints
   void addSequenceConstraints(const std::string& sequenceName, const std::vector<SCIP_VAR*>& sequenceVariables);
