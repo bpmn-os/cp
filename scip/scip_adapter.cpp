@@ -96,7 +96,7 @@ void SCIPSolver::addSequenceConstraints(const std::string& sequenceName, const s
     SCIPreleaseCons(scip_, &colCons);
   }
 
-  // Link constraints: x[i] = sum_v (v * b[i][v])
+  // Link sequence variable with binary matrix: x[i] = sum_v (v * b[i][v])
   for (size_t i = 0; i < n; i++) {
     SCIP_VAR* scipVar = sequenceVariables[i];
 
