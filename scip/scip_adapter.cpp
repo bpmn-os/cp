@@ -189,7 +189,7 @@ void SCIPSolver::addIndexedVariables(const Model& model) {
 }
 
 SCIP_EXPR* SCIPSolver::boolify(SCIP_EXPR* expr) {
-  // Convert expression to boolean: 0 if abs(expr) < epsilon, 1 if abs(expr) >= epsilon
+  // Convert expression to boolean: 0 if abs(expr) <= epsilon, 1 if abs(expr) >= 1.1 * epsilon
   // Using epsilon-based algebraic formulation (no big-M)
 
   // Create binary variable b
