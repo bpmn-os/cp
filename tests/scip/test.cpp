@@ -566,7 +566,6 @@ int main() {
         auto yVal = solution.getVariableValue(y);
         assert(xVal.has_value());
         assert(yVal.has_value());
-        std::cout << "x = " << xVal.value() << ", y = " << yVal.value() << std::endl;
         assert(xVal.value() == 0.0);
         assert(yVal.value() == 1.0);
 
