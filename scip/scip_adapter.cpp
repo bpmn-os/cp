@@ -678,6 +678,11 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
         std::vector<double> coeffs(children.size(), 1.0 / children.size());
         SCIPcreateExprSum(scip, &scipExpr, children.size(), children.data(), coeffs.data(), 0.0, nullptr, nullptr);
       }
+      else if (opName == "count") {
+        // count(...) returns the number of arguments (constant)
+        double count = static_cast<double>(children.size());
+        SCIPcreateExprValue(scip, &scipExpr, count, nullptr, nullptr);
+      }
       else if (opName == "if_then_else") {
         // if_then_else(c, v1, v2) = c * v1 + (1 - c) * v2
         if (children.size() != 3) {
