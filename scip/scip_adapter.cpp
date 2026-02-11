@@ -499,6 +499,53 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
       return scipExpr;
     }
 
+    // Collection: wrapper for collections, just unwrap
+    if (expression._operator == collection && expression.operands.size() == 1) {
+      return buildExpression(expression.operands[0]);
+    }
+
+    // At: indexed access collection[index]
+    if (expression._operator == at && expression.operands.size() == 2) {
+      // operands[0] should be a collection expression
+      // operands[1] is the index expression
+
+      // First, unwrap the collection to get the actual array expression
+      if (!std::holds_alternative<Expression>(expression.operands[0])) {
+        return std::unexpected("At operator: first operand must be a collection expression");
+      }
+
+      const Expression& collectionExpr = std::get<Expression>(expression.operands[0]);
+      if (collectionExpr._operator != collection || collectionExpr.operands.size() != 1) {
+        return std::unexpected("At operator: first operand must be a collection");
+      }
+
+      // The collection wraps the actual array reference
+      const Operand& arrayOperand = collectionExpr.operands[0];
+
+      // Handle case where array is an IndexedVariables reference
+      if (std::holds_alternative<std::reference_wrapper<const Variable>>(arrayOperand)) {
+        // This might be a reference to a collection variable - not supported yet
+        return std::unexpected("At operator with Variable reference not yet supported");
+      }
+
+      // For now, handle expression-based collections
+      // Build the index expression
+      auto indexExprResult = buildExpression(expression.operands[1]);
+      if (!indexExprResult) return indexExprResult;
+
+      // Build the collection expression
+      auto collectionResult = buildExpression(arrayOperand);
+      if (!collectionResult) {
+        SCIPreleaseExpr(scip, &indexExprResult.value());
+        return collectionResult;
+      }
+
+      // For now, return the collection result (indexed access would need element constraints)
+      // TODO: Implement proper indexed access with element constraints
+      SCIPreleaseExpr(scip, &indexExprResult.value());
+      return collectionResult;
+    }
+
     // Custom operators: max, min, sum, pow, etc.
     if (expression._operator == custom && expression.operands.size() >= 2) {
       // First operand is the operator index

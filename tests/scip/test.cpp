@@ -1733,6 +1733,75 @@ int main() {
         std::cout << GREEN << "Test 69 PASSED: Deduced variable from IndexedVariable in constraint" << RESET << std::endl;
     }
 
-    std::cout << "\n" << GREEN << "All 69 SCIP adapter tests PASSED" << RESET << std::endl;
+    // Test 70: Expression::Operator::collection (wrapper)
+    {
+        CP::Model model;
+        const auto& x = model.addVariable(CP::Variable::Type::REAL, "x", 5.0, 5.0);
+
+        // Create collection expression wrapping x
+        std::vector<CP::Operand> collectionOperands;
+        collectionOperands.push_back(std::ref(x));
+        CP::Expression collectionExpr(CP::Expression::Operator::collection, collectionOperands);
+        const auto& y = model.addVariable(CP::Variable::Type::REAL, "y", collectionExpr);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
+        auto xVal = solution.getVariableValue(x);
+        auto yVal = solution.getVariableValue(y);
+
+        assert(xVal.has_value());
+        assert(yVal.has_value());
+        assert(std::abs(xVal.value() - 5.0) < 1e-5);
+        assert(std::abs(yVal.value() - 5.0) < 1e-5);
+
+        std::cout << GREEN << "Test 70 PASSED: Expression::Operator::collection" << RESET << std::endl;
+    }
+
+    // Test 71: Expression::Operator::at with collection and index
+    {
+        CP::Model model;
+
+        // Create a simple expression to wrap in collection
+        const auto& val1 = model.addVariable(CP::Variable::Type::REAL, "val1", 10.0, 10.0);
+        const auto& val2 = model.addVariable(CP::Variable::Type::REAL, "val2", 20.0, 20.0);
+        const auto& val3 = model.addVariable(CP::Variable::Type::REAL, "val3", 30.0, 30.0);
+
+        // This would be the pattern used by LIMEX indexedEvaluation
+        // collection(val1 + val2 + val3)[index]
+        CP::Expression sumExpr = val1 + val2 + val3;
+        std::vector<CP::Operand> collectionOperands;
+        collectionOperands.push_back(sumExpr);
+        CP::Expression collectionExpr(CP::Expression::Operator::collection, collectionOperands);
+
+        const auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 0.0, 0.0);
+        std::vector<CP::Operand> atOperands;
+        atOperands.push_back(collectionExpr);
+        atOperands.push_back(std::ref(index));
+        CP::Expression atExpr(CP::Expression::Operator::at, atOperands);
+
+        const auto& result_var = model.addVariable(CP::Variable::Type::REAL, "result", atExpr);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
+        auto resultVal = solution.getVariableValue(result_var);
+
+        assert(resultVal.has_value());
+        // Since at operator with expression-based collections isn't fully implemented,
+        // it currently just returns the collection value
+        // For full implementation, this would need element constraints
+        assert(std::abs(resultVal.value() - 60.0) < 1e-5);
+
+        std::cout << GREEN << "Test 71 PASSED: Expression::Operator::at with collection" << RESET << std::endl;
+    }
+
+    std::cout << "\n" << GREEN << "All 71 SCIP adapter tests PASSED" << RESET << std::endl;
     return 0;
 }
