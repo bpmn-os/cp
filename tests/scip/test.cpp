@@ -385,6 +385,8 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         assert(xVal.has_value());
         assert(xVal.value() == 5.0);
@@ -404,6 +406,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         assert(xVal.has_value());
         assert(xVal.value() == 10.0);
@@ -425,6 +428,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
         assert(xVal.has_value());
@@ -450,6 +454,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
         assert(xVal.has_value());
@@ -476,6 +481,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
         assert(xVal.has_value());
@@ -516,6 +522,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
         assert(xVal.has_value());
@@ -539,6 +546,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         assert(xVal.has_value());
         assert(xVal.value() == 1.0);
@@ -558,6 +566,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
         assert(xVal.has_value());
@@ -581,6 +590,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
         assert(xVal.has_value());
@@ -610,6 +620,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
         auto zVal = solution.getVariableValue(z);
@@ -640,6 +651,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
         auto zVal = solution.getVariableValue(z);
@@ -667,6 +679,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         assert(xVal.has_value());
         assert(xVal.value() == 4.0);
@@ -690,6 +703,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
         assert(xVal.has_value());
@@ -720,6 +734,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
         auto zVal = solution.getVariableValue(z);
@@ -756,6 +771,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto selectorVal = solution.getVariableValue(selector);
         assert(xVal.has_value());
@@ -787,6 +803,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto conditionVal = solution.getVariableValue(condition);
         assert(xVal.has_value());
@@ -809,6 +826,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto seqVals = solution.getSequenceValues(seq);
         assert(seqVals.has_value());
 
@@ -915,6 +933,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
         assert(xVal.has_value());
@@ -992,6 +1011,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
         assert(xVal.has_value());
@@ -1046,6 +1066,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
         assert(xVal.has_value());
@@ -1074,6 +1095,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
         assert(xVal.has_value());
@@ -1100,6 +1122,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         assert(xVal.has_value());
         assert(xVal.value() == 5.0);
@@ -1125,6 +1148,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
         auto zVal = solution.getVariableValue(z);
@@ -1156,6 +1180,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
         auto zVal = solution.getVariableValue(z);
@@ -1195,6 +1220,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
         auto zVal = solution.getVariableValue(z);
@@ -1229,6 +1255,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
         assert(xVal.has_value());
@@ -1259,6 +1286,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
 
         auto aVal = solution.getVariableValue(a);
         auto bVal = solution.getVariableValue(b);
@@ -1299,6 +1327,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
 
         auto visitVal = solution.getVariableValue(visit);
         auto entryVal = solution.getVariableValue(entry);
@@ -1332,6 +1361,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
 
@@ -1355,6 +1385,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
 
         assert(xVal.has_value());
@@ -1379,6 +1410,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
 
@@ -1404,6 +1436,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
 
@@ -1429,6 +1462,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
 
         assert(xVal.has_value());
@@ -1450,6 +1484,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
         auto yVal = solution.getVariableValue(y);
 
@@ -1474,6 +1509,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
 
         assert(xVal.has_value());
@@ -1495,6 +1531,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto xVal = solution.getVariableValue(x);
 
         assert(xVal.has_value());
@@ -1516,6 +1553,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto aVal = solution.getVariableValue(a);
         auto bVal = solution.getVariableValue(b);
 
@@ -1542,6 +1580,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto aVal = solution.getVariableValue(a);
         auto bVal = solution.getVariableValue(b);
         auto cVal = solution.getVariableValue(c);
@@ -1579,6 +1618,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto visitVal = solution.getVariableValue(visit);
         auto tokenflowVal = solution.getVariableValue(tokenflow);
         auto xVal = solution.getVariableValue(x);
@@ -1648,6 +1688,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto indexVal = solution.getVariableValue(index);
         auto valueVal = solution.getVariableValue(value);
 
@@ -1680,6 +1721,7 @@ int main() {
 
         assert(result.has_value());
         auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
         auto dataIndexVal = solution.getVariableValue(dataIndex);
         auto activityInstanceVal = solution.getVariableValue(activityInstance);
 
