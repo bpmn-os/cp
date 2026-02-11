@@ -68,16 +68,16 @@ int main()
     auto cpExpression2 = limexExpression2.evaluate( variables, collections );
     auto& constraint2 = model.addConstraint(cpExpression2);
 
-    CP::Solution solution(model);
-
     std::vector<double> collection1{ 4, 3, 2, 1 };
     std::vector<double> collection2{ 0, 8, 15 };
 
-    solution.setCollectionEvaluator(
-      [&collection1,&collection2](double value) -> std::expected< std::reference_wrapper<const std::vector<double> >, std::string > {
+    model.setCollectionLookup(
+      [&collection1,&collection2](double value) -> std::expected<std::vector<double>, std::string> {
         return ( value == 42 ? collection1 : collection2 );
       }
     );
+
+    CP::Solution solution(model);
 
     solution.setVariableValue(x,42);
     assert( !solution.evaluate(constraint1).value() );

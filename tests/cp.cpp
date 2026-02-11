@@ -185,7 +185,7 @@ int main()
     assert( solution.errors().empty() );
   }
 
-  // Test collection lookup in Model and Solution (Option B: independent setup)
+  // Test collection lookup in Model with Solution delegation
   {
     // Mock collection registry (simulating BPMNOS::CollectionRegistry)
     std::vector<std::vector<double>> mockCollections = {
@@ -205,7 +205,7 @@ int main()
 
     CP::Model model;
 
-    // Set collection lookup on model
+    // Set collection lookup on model only (Solution will delegate to Model)
     model.setCollectionLookup(collectionLookup);
 
     // Test Model::getCollection directly
@@ -223,32 +223,26 @@ int main()
     auto collBad = model.getCollection(99.0);
     assert( !collBad.has_value() );
 
-    // Create variables using collection data during model creation
-    auto& collectionKey = model.addVariable(CP::Variable::Type::INTEGER, "collectionKey", 1.0, 1.0);
-
-    // Create solution and set collection evaluator independently
-    CP::Solution solution(model);
-    solution.setCollectionEvaluator(collectionLookup);
-
-    // Test using "at" operator with collection: elementValue := at(2, collection[1][0], collection[1][1], collection[1][2])
-    // This simulates: get element at position 2 (1-based) from collection at registry index 1
+    // Get collection data for use in constraints
     auto collection = model.getCollection(1.0).value();
+
+    CP::Solution solution(model);
+
+    // Test "at" operator: at(2, 10, 20, 30) returns 20 (1-based indexing)
     auto atExpr = CP::customOperator("at", 2.0, collection[0], collection[1], collection[2]);
     auto& elementValue = model.addVariable(CP::Variable::Type::REAL, "elementValue", atExpr);
 
     auto elemVal = solution.evaluate(elementValue);
     assert( elemVal.has_value() );
-    assert( elemVal.value() == 20.0 ); // at(2, 10, 20, 30) returns 20
+    assert( elemVal.value() == 20.0 );
 
-    // Test using "count" operator: numElements := count(collection[1][0], collection[1][1], collection[1][2])
+    // Test "count" operator
     auto countExpr = CP::customOperator("count", collection[0], collection[1], collection[2]);
     auto& numElements = model.addVariable(CP::Variable::Type::INTEGER, "numElements", countExpr);
 
     auto countVal = solution.evaluate(numElements);
     assert( countVal.has_value() );
     assert( countVal.value() == 3.0 );
-
-    std::cout << "Collection lookup test (Option B) passed." << std::endl;
   }
 
   std::cout << "Basic CP tests passed." << std::endl;

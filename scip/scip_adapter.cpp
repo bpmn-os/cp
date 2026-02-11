@@ -735,11 +735,11 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
         SCIP_EXPR* indexExpr = children[0];
         std::vector<SCIP_EXPR*> arrayExprs(children.begin() + 1, children.end());
 
-        // Create index variable from expression
+        // Create index variable from expression (1-based indexing for custom "at")
         SCIP_VAR* indexVar;
         std::string indexName = "at_index_" + std::to_string(auxId);
         SCIPcreateVarBasic(scip, &indexVar, indexName.c_str(),
-                  0, arrayExprs.size() - 1, 0.0, SCIP_VARTYPE_INTEGER);
+                  1, arrayExprs.size(), 0.0, SCIP_VARTYPE_INTEGER);
         SCIPaddVar(scip, indexVar);
 
         // Constrain index variable to equal the index expression
@@ -790,9 +790,9 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
                   -SCIPinfinity(scip), SCIPinfinity(scip), 0.0, SCIP_VARTYPE_CONTINUOUS);
         SCIPaddVar(scip, resultVar);
 
-        // Add element constraint
+        // Add element constraint with 1-based indexing for custom "at" operator
         std::string elemName = "at_elem_" + std::to_string(auxId);
-        SCIP_EXPR* resultExpr = addIndexingConstraints(elemName, arrayVars, indexVar, resultVar);
+        SCIP_EXPR* resultExpr = addIndexingConstraints(elemName, arrayVars, indexVar, resultVar, 1);
 
         // Release variables
         SCIPreleaseVar(scip, &indexVar);
@@ -1494,9 +1494,8 @@ void SCIPSolver::addConstraints(const Model& model) {
   }
 }
 
-SCIP_EXPR* SCIPSolver::addIndexingConstraints(const std::string& name, const std::vector<SCIP_VAR*>& arrayVars, SCIP_VAR* indexVar, SCIP_VAR* resultVar) {
+SCIP_EXPR* SCIPSolver::addIndexingConstraints(const std::string& name, const std::vector<SCIP_VAR*>& arrayVars, SCIP_VAR* indexVar, SCIP_VAR* resultVar, int indexOffset) {
   size_t n = arrayVars.size();
-  int indexOffset = 0;
 
   // Create binary variables b[i] for each position i
   std::vector<SCIP_VAR*> binaries(n);

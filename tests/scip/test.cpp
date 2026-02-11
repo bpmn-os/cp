@@ -869,15 +869,15 @@ int main() {
     // Test: Custom operator at
     {
         CP::Model model;
-        const auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 0, 2);
+        const auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 1, 3);
         const auto& result = model.addIntegerVariable("result");
 
-        // result = at(index, 10, 20, 30) - pick from inline values
+        // result = at(index, 10, 20, 30) - pick from inline values (1-based indexing)
         auto atExpr = CP::customOperator("at", index, 10.0, 20.0, 30.0);
         model.addConstraint(result == atExpr);
 
-        // Fix index to 1
-        model.addConstraint(index == 1.0);
+        // Fix index to 2 (select second element with 1-based indexing)
+        model.addConstraint(index == 2.0);
 
         CP::SCIPSolver solver(model);
         auto result_solve = solver.solve(model);
@@ -889,8 +889,8 @@ int main() {
         assert(indexVal.has_value());
         assert(resultVal.has_value());
 
-        // index=1, so result should be 20 (second value, 0-indexed)
-        assert(indexVal.value() == 1.0);
+        // index=2, so result should be 20 (second value, 1-based indexing)
+        assert(indexVal.value() == 2.0);
         assert(resultVal.value() == 20.0);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Custom operator at" << RESET << std::endl;
@@ -1755,6 +1755,56 @@ int main() {
         assert(std::abs(resultVal.value() - 60.0) < 1e-5);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Expression::Operator::at with collection" << RESET << std::endl;
+    }
+
+    // Test: Collection lookup with count and at operators
+    {
+        // Mock collection registry
+        std::vector<std::vector<double>> mockCollections = {
+            {},                    // index 0: empty
+            {10.0, 20.0, 30.0},   // index 1: 3 elements
+            {5.0, 15.0}           // index 2: 2 elements
+        };
+
+        CP::Model model;
+
+        // Set collection lookup on model
+        model.setCollectionLookup([&mockCollections](double key) -> std::expected<std::vector<double>, std::string> {
+            size_t index = static_cast<size_t>(std::round(key));
+            if (index >= mockCollections.size()) {
+                return std::unexpected("Collection index out of bounds");
+            }
+            return mockCollections[index];
+        });
+
+        // Use collection data to build constraints
+        auto collection = model.getCollection(1.0).value();
+
+        auto countExpr = CP::customOperator("count", collection[0], collection[1], collection[2]);
+        auto& numElements = model.addVariable(CP::Variable::Type::INTEGER, "numElements", countExpr);
+
+        auto atExpr = CP::customOperator("at", 2.0, collection[0], collection[1], collection[2]);
+
+        auto& elementValue = model.addVariable(CP::Variable::Type::REAL, "elementValue", atExpr);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
+
+        // Verify count returns 3
+        auto numVal = solution.getVariableValue(numElements);
+        assert(numVal.has_value());
+        assert(std::abs(numVal.value() - 3.0) < 1e-5);
+
+        // Verify at(2, ...) returns 20.0 (second element, 1-based indexing)
+        auto elemVal = solution.getVariableValue(elementValue);
+        assert(elemVal.has_value());
+        assert(std::abs(elemVal.value() - 20.0) < 1e-5);
+
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: Collection lookup with Model::setCollectionLookup" << RESET << std::endl;
     }
 
     std::cout << "\n" << GREEN << "All " << testNum << " SCIP adapter tests PASSED" << RESET << std::endl;

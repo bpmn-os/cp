@@ -916,7 +916,6 @@ public:
   inline std::expected< double, std::string> getVariableValue(const Variable& variable) const;
 
   inline void addEvaluator( const std::string& name, std::function< std::expected<double, std::string>(const std::vector<double>&) > implementation );
-  inline void setCollectionEvaluator( std::function< std::expected< std::reference_wrapper<const std::vector<double> >, std::string>(double) > implementation );
 
   inline bool complete() const; /// Returns true if all variables have a value
   inline std::expected< std::vector<double>, std::string> evaluate( const std::ranges::range auto& operands ) const;
@@ -931,7 +930,6 @@ private:
   Status _status = Status::UNKNOWN;
   std::unordered_map< const Variable*, double > _variableValues;
   std::vector< std::function< std::expected<double, std::string>(const std::vector<double>&) > > _customEvaluators;
-  std::function< std::expected<std::vector<double>, std::string>(double) > _collectionEvaluator;
 };
 
 inline Solution::Solution(const Model& model) : model(model) {
@@ -1015,10 +1013,6 @@ inline void Solution::addEvaluator( const std::string& name, std::function< std:
     _customEvaluators.resize(index+1);
   }
   _customEvaluators[index] = std::move(implementation);
-}
-
-inline void Solution::setCollectionEvaluator( std::function< std::expected< std::reference_wrapper<const std::vector<double> >, std::string>(double) > implementation ) {
-  _collectionEvaluator = std::move(implementation);
 }
 
 inline bool Solution::complete() const {
@@ -1132,8 +1126,8 @@ inline std::expected<std::vector<double>, std::string> Solution::getCollection(c
     return std::unexpected( evaluation.error() );
   }
 
-  // determine collection for variable value
-  return _collectionEvaluator(evaluation.value());
+  // delegate to model's collection lookup
+  return model.getCollection(evaluation.value());
 }
 
 inline std::expected<double, std::string> Solution::evaluate(const Expression& expression) const {

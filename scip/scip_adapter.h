@@ -32,7 +32,7 @@ private:
 
   // Helper functions for constraints
   void addSequenceConstraints(const std::string& sequenceName, const std::vector<SCIP_VAR*>& sequenceVariables);
-  SCIP_EXPR* addIndexingConstraints(const std::string& name, const std::vector<SCIP_VAR*>& arrayVars, SCIP_VAR* indexVar, SCIP_VAR* resultVar);
+  SCIP_EXPR* addIndexingConstraints(const std::string& name, const std::vector<SCIP_VAR*>& arrayVars, SCIP_VAR* indexVar, SCIP_VAR* resultVar, int indexOffset = 0);
   SCIP_EXPR* boolify(SCIP_EXPR* scipExpr);
 
   SCIP* scip = nullptr;
