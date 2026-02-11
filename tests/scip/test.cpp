@@ -1308,8 +1308,6 @@ int main() {
         assert(entryVal.has_value());
         assert(exitVal.has_value());
 
-        std::cerr << "visit=" << visitVal.value() << ", entry=" << entryVal.value() << ", exit=" << exitVal.value() << std::endl;
-
         // Since visit=1 and entry=5, exit must be >= 5
         assert(visitVal.value() > 0.5);  // visit is true
         assert(std::abs(entryVal.value() - 5.0) < 1e-5);  // entry is 5
@@ -1661,7 +1659,7 @@ int main() {
         std::cout << GREEN << "Test 68 PASSED: Deduced variable from IndexedVariable access" << RESET << std::endl;
     }
 
-    // Test 69: Deduced variable from IndexedVariable in constraint (like BPMNOS case)
+    // Test 69: Deduced variable from IndexedVariable in constraint
     {
         CP::Model model;
 
@@ -1690,7 +1688,7 @@ int main() {
         assert(std::abs(dataIndexVal.value() - 0.0) < 1e-5);
         assert(std::abs(activityInstanceVal.value() - 2.0) < 1e-5);
 
-        std::cout << GREEN << "Test 69 PASSED: Deduced variable from IndexedVariable in constraint (BPMNOS-like)" << RESET << std::endl;
+        std::cout << GREEN << "Test 69 PASSED: Deduced variable from IndexedVariable in constraint" << RESET << std::endl;
     }
 
     std::cout << "\n" << GREEN << "All 69 SCIP adapter tests PASSED" << RESET << std::endl;

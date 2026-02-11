@@ -7,6 +7,7 @@
 #include <scip/expr_var.h>
 #include <scip/expr_product.h>
 #include <scip/expr_sum.h>
+#include <scip/type_message.h>
 #include <limits>
 #include <iostream>
 #include <cstring>
@@ -26,6 +27,9 @@ SCIPSolver::SCIPSolver(const Model& model, double epsilon)
   SCIPcreate(&scip);
   SCIPincludeDefaultPlugins(scip);
   SCIPcreateProbBasic(scip, "cp_model");
+
+  // Set verbosity to errors and warnings only
+  SCIPsetIntParam(scip, "display/verblevel", SCIP_VERBLEVEL_NONE);
 
   addSequences(model);
   addVariables(model);
