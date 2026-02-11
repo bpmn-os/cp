@@ -825,6 +825,17 @@ public:
     return constraints.back();
   };
 
+  inline void setCollectionLookup( std::function< std::expected<std::vector<double>, std::string>(double) > lookup ) {
+    _collectionLookup = std::move(lookup);
+  }
+
+  inline std::expected<std::vector<double>, std::string> getCollection(double key) const {
+    if (!_collectionLookup) {
+      return std::unexpected("Collection lookup not set in Model");
+    }
+    return _collectionLookup(key);
+  }
+
   inline std::string stringify() const {
     std::string result;
     result +=  "Sequences:\n";
@@ -855,13 +866,14 @@ public:
     return result;
   }
 
-private:  
+private:
   ObjectiveSense objectiveSense;
   Expression objective;
   std::deque< Sequence > sequences;
   std::deque< Variable > variables;
   std::deque< IndexedVariables > indexedVariables;
   std::deque< Expression > constraints;
+  std::function< std::expected<std::vector<double>, std::string>(double) > _collectionLookup;
 };
 
 /*******************************************
