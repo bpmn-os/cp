@@ -15,21 +15,19 @@
 
 namespace CP {
 
-SCIPSolver::SCIPSolver(const Model& model, double epsilon)
-  : epsilon(epsilon)
+SCIPSolver::SCIPSolver(const Model& model, unsigned int precision)
+  : precision(precision)
 {
-  // Calculate rounding precision to eliminate epsilon-scale noise
-  // Round to k decimal places where 0.5 * 10^(-k) >= epsilon
-  // This ensures SCIP's epsilon-scale tolerance exploitation is removed
-  int decimalPlaces = static_cast<int>(std::floor(-std::log10(2.0 * epsilon)));
-  roundingFactor = std::pow(10.0, decimalPlaces);
-
   SCIPcreate(&scip);
   SCIPincludeDefaultPlugins(scip);
   SCIPcreateProbBasic(scip, "cp_model");
 
   // Set verbosity to errors and warnings only
   SCIPsetIntParam(scip, "display/verblevel", SCIP_VERBLEVEL_NONE);
+
+  // Query SCIP's feasibility tolerance for constraint formulations
+  // This ensures our epsilon-based constraints use SCIP's feasibility tolerance
+  SCIPgetRealParam(scip, "numerics/feastol", &epsilon);
 
   addSequences(model);
   addVariables(model);
@@ -967,12 +965,12 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
       // Add epsilon-based constraints to enforce: binaryVar = 1 iff (lhs comp rhs)
       if (expression._operator == greater_or_equal) {
         // b ⟺ (lhs >= rhs)
-        // True when: lhs - rhs >= -0.9 * epsilon
-        // False when: lhs - rhs <= -epsilon
+        // True when: lhs - rhs >= -epsilon
+        // False when: lhs - rhs <= -1.1 * epsilon
 
-        // Constraint 1: b * (lhs - rhs + 0.9*epsilon) >= 0
+        // Constraint 1: b * (lhs - rhs + epsilon) >= 0
         SCIP_EXPR* expr1;
-        double offset1 = 0.9 * epsilon;
+        double offset1 = epsilon;
         SCIPcreateExprSum(scip, &expr1, 1, &diffExpr, nullptr, offset1, nullptr, nullptr);
         SCIP_EXPR* product1;
         SCIP_EXPR* prod1Children[] = { binaryExpr1, expr1 };
@@ -986,13 +984,13 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
         SCIPreleaseExpr(scip, &product1);
         SCIPreleaseExpr(scip, &expr1);
 
-        // Constraint 2: (1-b) * (-epsilon - (lhs - rhs)) >= 0
+        // Constraint 2: (1-b) * (-1.1*epsilon - (lhs - rhs)) >= 0
         SCIP_EXPR* oneMinusB;
         double negOne = -1.0;
         SCIPcreateExprSum(scip, &oneMinusB, 1, &binaryExpr2, &negOne, 1.0, nullptr, nullptr);
 
         SCIP_EXPR* expr2;
-        SCIPcreateExprSum(scip, &expr2, 1, &diffExpr, &negOne, -epsilon, nullptr, nullptr);
+        SCIPcreateExprSum(scip, &expr2, 1, &diffExpr, &negOne, -1.1 * epsilon, nullptr, nullptr);
 
         SCIP_EXPR* product2;
         SCIP_EXPR* prod2Children[] = { oneMinusB, expr2 };
@@ -1009,13 +1007,13 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
       }
       else if (expression._operator == less_or_equal) {
         // b ⟺ (lhs <= rhs)
-        // True when: rhs - lhs >= -0.9 * epsilon, i.e., lhs - rhs <= 0.9 * epsilon
-        // False when: rhs - lhs <= -epsilon, i.e., lhs - rhs >= epsilon
+        // True when: lhs - rhs <= epsilon
+        // False when: lhs - rhs >= 1.1 * epsilon
 
-        // Constraint 1: b * (0.9*epsilon - (lhs - rhs)) >= 0
+        // Constraint 1: b * (epsilon - (lhs - rhs)) >= 0
         double negOne = -1.0;
         SCIP_EXPR* expr1;
-        double offset1 = 0.9 * epsilon;
+        double offset1 = epsilon;
         SCIPcreateExprSum(scip, &expr1, 1, &diffExpr, &negOne, offset1, nullptr, nullptr);
         SCIP_EXPR* product1;
         SCIP_EXPR* prod1Children[] = { binaryExpr1, expr1 };
@@ -1029,12 +1027,12 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
         SCIPreleaseExpr(scip, &product1);
         SCIPreleaseExpr(scip, &expr1);
 
-        // Constraint 2: (1-b) * (lhs - rhs - epsilon) >= 0
+        // Constraint 2: (1-b) * (lhs - rhs - 1.1*epsilon) >= 0
         SCIP_EXPR* oneMinusB;
         SCIPcreateExprSum(scip, &oneMinusB, 1, &binaryExpr2, &negOne, 1.0, nullptr, nullptr);
 
         SCIP_EXPR* expr2;
-        SCIPcreateExprSum(scip, &expr2, 1, &diffExpr, nullptr, -epsilon, nullptr, nullptr);
+        SCIPcreateExprSum(scip, &expr2, 1, &diffExpr, nullptr, -1.1 * epsilon, nullptr, nullptr);
 
         SCIP_EXPR* product2;
         SCIP_EXPR* prod2Children[] = { oneMinusB, expr2 };
@@ -1051,12 +1049,12 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
       }
       else if (expression._operator == greater_than) {
         // b ⟺ (lhs > rhs)
-        // True when: lhs - rhs >= epsilon
-        // False when: lhs - rhs <= 0.9 * epsilon
+        // True when: lhs - rhs >= 1.1 * epsilon (strictly larger)
+        // False when: lhs - rhs <= epsilon
 
-        // Constraint 1: b * (lhs - rhs - epsilon) >= 0
+        // Constraint 1: b * (lhs - rhs - 1.1*epsilon) >= 0
         SCIP_EXPR* expr1;
-        SCIPcreateExprSum(scip, &expr1, 1, &diffExpr, nullptr, -epsilon, nullptr, nullptr);
+        SCIPcreateExprSum(scip, &expr1, 1, &diffExpr, nullptr, -1.1 * epsilon, nullptr, nullptr);
         SCIP_EXPR* product1;
         SCIP_EXPR* prod1Children[] = { binaryExpr1, expr1 };
         SCIPcreateExprProduct(scip, &product1, 2, prod1Children, 1.0, nullptr, nullptr);
@@ -1069,13 +1067,13 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
         SCIPreleaseExpr(scip, &product1);
         SCIPreleaseExpr(scip, &expr1);
 
-        // Constraint 2: (1-b) * (0.9*epsilon - (lhs - rhs)) >= 0
+        // Constraint 2: (1-b) * (epsilon - (lhs - rhs)) >= 0
         SCIP_EXPR* oneMinusB;
         double negOne = -1.0;
         SCIPcreateExprSum(scip, &oneMinusB, 1, &binaryExpr2, &negOne, 1.0, nullptr, nullptr);
 
         SCIP_EXPR* expr2;
-        double offset2 = 0.9 * epsilon;
+        double offset2 = epsilon;
         SCIPcreateExprSum(scip, &expr2, 1, &diffExpr, &negOne, offset2, nullptr, nullptr);
 
         SCIP_EXPR* product2;
@@ -1093,13 +1091,13 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
       }
       else if (expression._operator == less_than) {
         // b ⟺ (lhs < rhs)
-        // True when: rhs - lhs >= epsilon, i.e., lhs - rhs <= -epsilon
-        // False when: rhs - lhs <= 0.9 * epsilon, i.e., lhs - rhs >= -0.9 * epsilon
+        // True when: lhs - rhs <= -1.1 * epsilon (strictly smaller)
+        // False when: lhs - rhs >= -epsilon
 
-        // Constraint 1: b * (-epsilon - (lhs - rhs)) >= 0
+        // Constraint 1: b * (-1.1*epsilon - (lhs - rhs)) >= 0
         double negOne = -1.0;
         SCIP_EXPR* expr1;
-        SCIPcreateExprSum(scip, &expr1, 1, &diffExpr, &negOne, -epsilon, nullptr, nullptr);
+        SCIPcreateExprSum(scip, &expr1, 1, &diffExpr, &negOne, -1.1 * epsilon, nullptr, nullptr);
         SCIP_EXPR* product1;
         SCIP_EXPR* prod1Children[] = { binaryExpr1, expr1 };
         SCIPcreateExprProduct(scip, &product1, 2, prod1Children, 1.0, nullptr, nullptr);
@@ -1112,12 +1110,12 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
         SCIPreleaseExpr(scip, &product1);
         SCIPreleaseExpr(scip, &expr1);
 
-        // Constraint 2: (1-b) * (lhs - rhs + 0.9*epsilon) >= 0
+        // Constraint 2: (1-b) * (lhs - rhs + epsilon) >= 0
         SCIP_EXPR* oneMinusB;
         SCIPcreateExprSum(scip, &oneMinusB, 1, &binaryExpr2, &negOne, 1.0, nullptr, nullptr);
 
         SCIP_EXPR* expr2;
-        double offset2 = 0.9 * epsilon;
+        double offset2 = epsilon;
         SCIPcreateExprSum(scip, &expr2, 1, &diffExpr, nullptr, offset2, nullptr, nullptr);
 
         SCIP_EXPR* product2;
@@ -1432,34 +1430,35 @@ void SCIPSolver::addConstraints(const Model& model) {
       std::string consName = "cons_" + std::to_string(i);
 
       if (constraint._operator == less_or_equal) {
-        // expr <= 0
-        rhs = 0.0;
+        // expr <= 0  =>  expr <= epsilon
+        rhs = epsilon;
       }
       else if (constraint._operator == less_than) {
-        // expr < 0  =>  expr <= -epsilon
-        rhs = -epsilon;
+        // expr < 0  =>  expr <= -1.1*epsilon
+        rhs = -1.1 * epsilon;
       }
       else if (constraint._operator == greater_or_equal) {
-        // expr >= 0
-        lhs = 0.0;
+        // expr >= 0  =>  expr >= -epsilon
+        lhs = -epsilon;
       }
       else if (constraint._operator == greater_than) {
-        // expr > 0  =>  expr >= epsilon
-        lhs = epsilon;
+        // expr > 0  =>  expr >= 1.1*epsilon
+        lhs = 1.1 * epsilon;
       }
       else if (constraint._operator == equal) {
-        // expr == 0
-        lhs = rhs = 0.0;
+        // expr == 0  =>  -epsilon <= expr <= epsilon
+        lhs = -epsilon;
+        rhs = epsilon;
       }
       else if (constraint._operator == not_equal) {
-        // x != y  =>  |x - y| >= epsilon
+        // x != y  =>  |x - y| >= 1.1*epsilon
         // Use SCIP's built-in absolute value expression
         SCIP_EXPR* absExpr;
         SCIPcreateExprAbs(scip, &absExpr, diffExpr, nullptr, nullptr);
 
         SCIP_CONS* absGeCons;
         SCIPcreateConsBasicNonlinear(scip, &absGeCons, consName.c_str(), absExpr,
-                      epsilon, SCIPinfinity(scip));
+                      1.1 * epsilon, SCIPinfinity(scip));
         SCIPaddCons(scip, absGeCons);
         SCIPreleaseCons(scip, &absGeCons);
         SCIPreleaseExpr(scip, &absExpr);
@@ -1664,12 +1663,13 @@ std::expected<Solution, std::string> SCIPSolver::solve(const Model& model, doubl
     return std::unexpected("No solution found");
   }
 
-  // Extract variable values from SCIP solution with epsilon-aware rounding
+  // Extract variable values from SCIP solution with precision rounding for CP solution
   for (const auto& [variable, scipVar] : variableMap) {
     double value = SCIPgetSolVal(scip, sol, scipVar);
 
-    // Round to eliminate epsilon-scale noise caused by SCIP tolerance exploitation
-    value = std::round(value * roundingFactor) / roundingFactor;
+    // Round to precision decimal places for CP solution generation
+    double factor = std::pow(10.0, precision);
+    value = std::round(value * factor) / factor;
 
     solution.setVariableValue(*variable, value);
   }

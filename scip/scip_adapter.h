@@ -9,7 +9,7 @@ namespace CP {
 
 class SCIPSolver : public Solver {
 public:
-  SCIPSolver(const Model& model, double epsilon = 1e-6);
+  SCIPSolver(const Model& model, unsigned int precision = 4);
   ~SCIPSolver() override;
 
   std::expected<Solution, std::string> solve(const Model& model) override;
@@ -37,8 +37,8 @@ private:
 
   SCIP* scip = nullptr;
   std::unordered_map<const Variable*, SCIP_VAR*> variableMap;
-  double epsilon;
-  double roundingFactor;
+  unsigned int precision;  // Number of decimal places for CP solution rounding
+  double epsilon;      // SCIP's feasibility tolerance (numerics/feastol) for constraint formulations
   size_t auxiliaryCounter = 0;
 };
 
