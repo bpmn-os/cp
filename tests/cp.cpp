@@ -138,6 +138,53 @@ int main()
 
     assert( solution.errors().empty() );
   }
+
+  // Test custom operator "at" evaluation
+  {
+    CP::Model model;
+    auto& index = model.addIntegerVariable("index");
+
+    // Create deduced variable using at: result := at(index, 10, 20, 30)
+    auto atExpr = CP::customOperator("at", index, 10.0, 20.0, 30.0);
+    auto& result = model.addVariable(CP::Variable::Type::REAL, "result", atExpr);
+
+    CP::Solution solution(model);
+    solution.setVariableValue(index, 1);
+    assert( solution.complete() );
+    assert( solution.errors().empty() );
+
+    // Verify correctness: at(1, 10, 20, 30) should return 10.0
+    auto resultVal = solution.evaluate(result);
+    assert( resultVal.has_value() );
+    assert( resultVal.value() == 10.0 );
+  }
+
+  // Test count operator with deduced variables (mimics multiinstanceactivity scenario)
+  {
+    CP::Model model;
+    auto& x = model.addVariable(CP::Variable::Type::REAL, "x", 1.0, 10.0);
+    auto& y = model.addVariable(CP::Variable::Type::REAL, "y", 1.0, 10.0);
+    auto& z = model.addVariable(CP::Variable::Type::REAL, "z", 1.0, 10.0);
+
+    // Create deduced variable: numElements := count(x, y, z)
+    auto countExpr = CP::customOperator("count", x, y, z);
+    auto& numElements = model.addVariable(CP::Variable::Type::INTEGER, "numElements", countExpr);
+
+    CP::Solution solution(model);
+    solution.setVariableValue(x, 5.0);
+    solution.setVariableValue(y, 7.0);
+    solution.setVariableValue(z, 3.0);
+
+    // Verify count returns 3 (the number of arguments)
+    auto countVal = solution.evaluate(numElements);
+    assert( countVal.has_value() );
+    assert( countVal.value() == 3.0 );
+
+    // Verify complete() works (this was causing bad_function_call before)
+    assert( solution.complete() );
+    assert( solution.errors().empty() );
+  }
+
   std::cout << "Basic CP tests passed." << std::endl;
   return 0;
 }

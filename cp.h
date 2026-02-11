@@ -929,8 +929,19 @@ inline Solution::Solution(const Model& model) : model(model) {
   addEvaluator("n_ary_if", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(n_ary_if));
   addEvaluator("sum", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(sum));
   addEvaluator("avg", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(avg));
-  addEvaluator("count", [](const std::vector<double>& operands) -> double { 
+  addEvaluator("count", [](const std::vector<double>& operands) -> double {
     return operands.size();
+  });
+  addEvaluator("at", [](const std::vector<double>& operands) -> std::expected<double, std::string> {
+    // at(index, val0, val1, val2, ...) returns val[index] (1-based indexing)
+    if (operands.empty()) {
+      return std::unexpected("at operator requires at least an index");
+    }
+    size_t index = static_cast<size_t>(std::round(operands[0]));
+    if (index < 1 || index > operands.size() - 1) {
+      return std::unexpected("at operator: index out of bounds");
+    }
+    return operands[index];
   });
   addEvaluator("pow", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(pow));
 };
