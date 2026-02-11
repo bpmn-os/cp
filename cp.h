@@ -882,9 +882,20 @@ inline std::expected<double, std::string> pow(const std::vector<double>& operand
  */
 class Solution {
 public:
+  enum class Status {
+    OPTIMAL,      ///< Proven optimal solution
+    FEASIBLE,     ///< Feasible solution found (not proven optimal)
+    INFEASIBLE,   ///< Problem is infeasible
+    UNBOUNDED,    ///< Problem is unbounded
+    UNKNOWN       ///< Status unknown or error
+  };
+
   Solution(const Model& model);
   const Model& model;
   inline std::optional<double> getObjectiveValue() const;
+  inline Status getStatus() const { return _status; }
+  inline void setStatus(Status status) { _status = status; }
+
   template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool>* = nullptr >
   inline void setSequenceValues(const Sequence& sequence, std::vector<T> values);
 
@@ -905,6 +916,7 @@ public:
   inline std::string stringify(const Variable& variable) const;
 private:
   inline std::expected<std::vector<double>, std::string> getCollection(const Operand& operand) const;
+  Status _status = Status::UNKNOWN;
   std::unordered_map< const Variable*, double > _variableValues;
   std::vector< std::function< std::expected<double, std::string>(const std::vector<double>&) > > _customEvaluators;
   std::function< std::expected<std::vector<double>, std::string>(double) > _collectionEvaluator;

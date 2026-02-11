@@ -1543,20 +1543,70 @@ SCIP_EXPR* SCIPSolver::addIndexingConstraints(const std::string& name, const std
 }
 
 std::expected<Solution, std::string> SCIPSolver::solve(const Model& model) {
+  return solve(model, std::numeric_limits<double>::infinity());
+}
+
+std::expected<Solution, std::string> SCIPSolver::solve(const Model& model, double timeLimit) {
+  // Set or unset time limit
+  if (std::isfinite(timeLimit)) {
+    // Set finite time limit
+    SCIPsetRealParam(scip, "limits/time", timeLimit);
+  }
+  else {
+    // Unset time limit by setting to SCIP's infinity
+    SCIPsetRealParam(scip, "limits/time", SCIPinfinity(scip));
+  }
+
   // Solve the problem
   SCIP_RETCODE retcode = SCIPsolve(scip);
   if (retcode != SCIP_OKAY) {
     return std::unexpected("SCIP solve failed");
   }
 
+  // Check SCIP status
+  SCIP_STATUS scipStatus = SCIPgetStatus(scip);
+
   // Get the best solution
   SCIP_SOL* sol = SCIPgetBestSol(scip);
-  if (!sol) {
-    return std::unexpected("No solution found");
-  }
 
   // Create CP solution object
   Solution solution(model);
+
+  // Map SCIP status to Solution::Status
+  switch (scipStatus) {
+    case SCIP_STATUS_OPTIMAL:
+      solution.setStatus(Solution::Status::OPTIMAL);
+      break;
+    case SCIP_STATUS_BESTSOLLIMIT:
+    case SCIP_STATUS_GAPLIMIT:
+    case SCIP_STATUS_SOLLIMIT:
+    case SCIP_STATUS_STALLNODELIMIT:
+    case SCIP_STATUS_TIMELIMIT:
+    case SCIP_STATUS_MEMLIMIT:
+    case SCIP_STATUS_NODELIMIT:
+    case SCIP_STATUS_TOTALNODELIMIT:
+    case SCIP_STATUS_USERINTERRUPT:
+      // Stopped before proving optimality - solution is feasible but not proven optimal
+      if (sol) {
+        solution.setStatus(Solution::Status::FEASIBLE);
+      } else {
+        solution.setStatus(Solution::Status::UNKNOWN);
+      }
+      break;
+    case SCIP_STATUS_INFEASIBLE:
+      solution.setStatus(Solution::Status::INFEASIBLE);
+      return std::unexpected("Problem is infeasible");
+    case SCIP_STATUS_UNBOUNDED:
+      solution.setStatus(Solution::Status::UNBOUNDED);
+      return std::unexpected("Problem is unbounded");
+    default:
+      solution.setStatus(Solution::Status::UNKNOWN);
+  }
+
+  // Check if we have a solution to extract
+  if (!sol) {
+    return std::unexpected("No solution found");
+  }
 
   // Extract variable values from SCIP solution with epsilon-aware rounding
   for (const auto& [variable, scipVar] : variableMap) {
