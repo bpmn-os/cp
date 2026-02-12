@@ -1716,23 +1716,24 @@ int main() {
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Expression::Operator::collection" << RESET << std::endl;
     }
-    // Test: Expression::Operator::at with collection and index
+    // Test: Expression::Operator::at with collection lookup
     {
         CP::Model model;
 
-        // Create a simple expression to wrap in collection
-        const auto& val1 = model.addVariable(CP::Variable::Type::REAL, "val1", 10.0, 10.0);
-        const auto& val2 = model.addVariable(CP::Variable::Type::REAL, "val2", 20.0, 20.0);
-        const auto& val3 = model.addVariable(CP::Variable::Type::REAL, "val3", 30.0, 30.0);
+        // Set up collection lookup
+        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 1) return std::vector<double>{10.0, 20.0, 30.0};
+            return std::unexpected("Collection key not found");
+        });
 
-        // This would be the pattern used by LIMEX indexedEvaluation
-        // collection(val1 + val2 + val3)[index]
-        CP::Expression sumExpr = val1 + val2 + val3;
+        // Create collection(key)[index] using Expression::Operator::at directly
+        const auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 1.0, 1.0);
         std::vector<CP::Operand> collectionOperands;
-        collectionOperands.push_back(sumExpr);
+        collectionOperands.push_back(std::ref(key));
         CP::Expression collectionExpr(CP::Expression::Operator::collection, collectionOperands);
 
-        const auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 0.0, 0.0);
+        const auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 2.0, 2.0);
         std::vector<CP::Operand> atOperands;
         atOperands.push_back(collectionExpr);
         atOperands.push_back(std::ref(index));
@@ -1749,10 +1750,8 @@ int main() {
         auto resultVal = solution.getVariableValue(result_var);
 
         assert(resultVal.has_value());
-        // Since at operator with expression-based collections isn't fully implemented,
-        // it currently just returns the collection value
-        // For full implementation, this would need element constraints
-        assert(std::abs(resultVal.value() - 60.0) < 1e-5);
+        // collection(1)[2] should be 20
+        assert(std::abs(resultVal.value() - 20.0) < 1e-5);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Expression::Operator::at with collection" << RESET << std::endl;
     }

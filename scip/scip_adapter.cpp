@@ -19,6 +19,21 @@
 
 namespace CP {
 
+// Helper to extract constant value from operand (handles direct double or Expression(none, {double}))
+static std::optional<double> extractConstant(const Operand& operand) {
+  if (std::holds_alternative<double>(operand)) {
+    return std::get<double>(operand);
+  } else if (std::holds_alternative<Expression>(operand)) {
+    const Expression& expr = std::get<Expression>(operand);
+    if (expr._operator == Expression::Operator::none && expr.operands.size() == 1) {
+      if (std::holds_alternative<double>(expr.operands[0])) {
+        return std::get<double>(expr.operands[0]);
+      }
+    }
+  }
+  return std::nullopt;
+}
+
 SCIPSolver::SCIPSolver(const Model& model, unsigned int precision)
   : precision(precision)
 {
@@ -492,41 +507,259 @@ SCIP_EXPR* SCIPSolver::buildExpression(const Model& model, const Operand& operan
       return buildExpression(model, expression.operands[0]);
     }
 
-    // At: indexed access collection[index]
+    // At: indexed access using [] operator - collection(key)[index]
     if (expression._operator == at && expression.operands.size() == 2) {
-      // operands[0] should be a collection expression
-      // operands[1] is the index expression
+      // operands[0] = collection expression
+      // operands[1] = index expression
 
-      // First, unwrap the collection to get the actual array expression
       if (!std::holds_alternative<Expression>(expression.operands[0])) {
         throw std::runtime_error("SCIPSolver: First operand must be an expression");
       }
 
       const Expression& collectionExpr = std::get<Expression>(expression.operands[0]);
-      if (collectionExpr._operator != collection || collectionExpr.operands.size() != 1) {
-        throw std::runtime_error("SCIPSolver: First operand must be a collection");
+
+      // Check if this is collection(key)[index] syntax
+      if (collectionExpr._operator == collection && collectionExpr.operands.size() == 1) {
+        // This is collection(key)[index] - delegate to the same implementation as at(index, collection(key))
+        // We need to create an equivalent custom operator expression structure
+
+        // Extract key from collection(key) - can be variable or constant
+        const Operand& keyOperand = collectionExpr.operands[0];
+
+        // Handle constant key
+        auto constantKeyOpt = extractConstant(keyOperand);
+        if (constantKeyOpt.has_value()) {
+          double constantKey = constantKeyOpt.value();
+          auto collectionResult = model.getCollection(constantKey);
+          if (!collectionResult) {
+            throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(constantKey) +
+                                     " not found in model");
+          }
+
+          const std::vector<double>& collection = collectionResult.value();
+          const Operand& indexOperand = expression.operands[1];
+
+          // With constant key, just need to handle the index
+          auto constantIndexOpt = extractConstant(indexOperand);
+          if (constantIndexOpt.has_value()) {
+            size_t index = (size_t)constantIndexOpt.value();
+            if (index < 1 || index > collection.size()) {
+              throw std::runtime_error("SCIPSolver: Index out of bounds");
+            }
+            // Return constant value
+            SCIP_EXPR* resultExpr;
+            double value = collection[index - 1];
+            SCIPcreateExprValue(scip, &resultExpr, value, nullptr, nullptr);
+            return resultExpr;
+          } else {
+            // Variable index with constant key - use 1D element constraint
+            SCIP_VAR* scipIndexVar = nullptr;
+            if (std::holds_alternative<std::reference_wrapper<const Variable>>(indexOperand)) {
+              const Variable& indexVar = std::get<std::reference_wrapper<const Variable>>(indexOperand).get();
+              scipIndexVar = variableMap.at(&indexVar);
+            } else {
+              throw std::runtime_error("SCIPSolver: Index must be a variable or constant");
+            }
+
+            double indexLb = SCIPvarGetLbGlobal(scipIndexVar);
+            std::vector<double> elements(collection.begin(), collection.end());
+            return buildElementConstraint(elements, scipIndexVar, indexLb);
+          }
+        }
+
+        // Handle variable key
+        if (!std::holds_alternative<std::reference_wrapper<const Variable>>(keyOperand)) {
+          throw std::runtime_error(
+            "SCIPSolver: collection() key must be a variable or constant"
+          );
+        }
+
+        const Variable& keyVar = std::get<std::reference_wrapper<const Variable>>(keyOperand).get();
+        SCIP_VAR* scipKeyVar = variableMap.at(&keyVar);
+
+        const Operand& indexOperand = expression.operands[1];
+
+        // Get key bounds
+        double keyLb = SCIPvarGetLbGlobal(scipKeyVar);
+        double keyUb = SCIPvarGetUbGlobal(scipKeyVar);
+        int numKeys = (int)std::floor(keyUb) - (int)std::ceil(keyLb) + 1;
+
+        // Case A: Index is a constant
+        if (std::holds_alternative<double>(indexOperand)) {
+          size_t index = (size_t)std::get<double>(indexOperand);
+
+          if (index < 1) {
+            throw std::runtime_error("SCIPSolver: Index must be >= 1 (1-based indexing)");
+          }
+
+          // Pre-compute element at this index for each collection
+          std::vector<double> elements(numKeys);
+
+          for (int i = 0; i < numKeys; i++) {
+            int key = (int)std::ceil(keyLb) + i;
+            auto collectionResult = model.getCollection((double)key);
+            if (!collectionResult) {
+              throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(key) +
+                                       " not found in model");
+            }
+
+            const std::vector<double>& collection = collectionResult.value();
+
+            if (index > collection.size()) {
+              throw std::runtime_error(
+                "SCIPSolver: Index " + std::to_string(index) +
+                " out of bounds for collection at key " + std::to_string(key) +
+                " (size: " + std::to_string(collection.size()) + ")"
+              );
+            }
+
+            elements[i] = collection[index - 1];  // Convert to 0-based
+          }
+
+          // Use 1D element constraint
+          return buildElementConstraint(elements, scipKeyVar, keyLb);
+        }
+
+        // Case B: Index is a variable - requires 2D matrix
+        SCIP_VAR* scipIndexVar = nullptr;
+
+        // Build index expression to extract variable
+        auto indexExprResult = buildExpression(model, indexOperand);
+
+        // Try to extract SCIP variable from the index
+        if (std::holds_alternative<std::reference_wrapper<const Variable>>(indexOperand)) {
+          const Variable& indexVar = std::get<std::reference_wrapper<const Variable>>(indexOperand).get();
+          scipIndexVar = variableMap.at(&indexVar);
+        }
+        else if (std::holds_alternative<Expression>(indexOperand)) {
+          // Navigate through 'none' operators to find the underlying Variable
+          const Operand* currentOperand = &indexOperand;
+          while (std::holds_alternative<Expression>(*currentOperand)) {
+            const Expression& expr = std::get<Expression>(*currentOperand);
+            if (expr._operator == Expression::Operator::none && expr.operands.size() == 1) {
+              currentOperand = &expr.operands[0];
+            } else {
+              // Complex expression - not a simple variable
+              SCIPreleaseExpr(scip, &indexExprResult);
+              throw std::runtime_error(
+                "SCIPSolver: collection[index] requires index to be a variable or constant"
+              );
+            }
+          }
+
+          if (!std::holds_alternative<std::reference_wrapper<const Variable>>(*currentOperand)) {
+            SCIPreleaseExpr(scip, &indexExprResult);
+            throw std::runtime_error("SCIPSolver: Failed to extract variable from index");
+          }
+
+          const Variable& indexVar = std::get<std::reference_wrapper<const Variable>>(*currentOperand).get();
+          scipIndexVar = variableMap.at(&indexVar);
+        }
+        else {
+          SCIPreleaseExpr(scip, &indexExprResult);
+          throw std::runtime_error("SCIPSolver: Invalid index operand for collection[]");
+        }
+
+        SCIPreleaseExpr(scip, &indexExprResult);
+
+        // Get index bounds (1-based)
+        double indexLb = SCIPvarGetLbGlobal(scipIndexVar);
+        double indexUb = SCIPvarGetUbGlobal(scipIndexVar);
+        int numIndices = (int)std::floor(indexUb) - (int)std::ceil(indexLb) + 1;
+
+        // Build 2D matrix of elements (flattened to 1D)
+        std::vector<double> elements2D(numKeys * numIndices);
+
+        for (int ki = 0; ki < numKeys; ki++) {
+          int key = (int)std::ceil(keyLb) + ki;
+          auto collectionResult = model.getCollection((double)key);
+          if (!collectionResult) {
+            throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(key) +
+                                     " not found in model");
+          }
+          const std::vector<double>& collection = collectionResult.value();
+
+          for (int ii = 0; ii < numIndices; ii++) {
+            size_t index = (size_t)std::ceil(indexLb) + ii;  // 1-based
+
+            if (index < 1 || index > collection.size()) {
+              throw std::runtime_error(
+                "SCIPSolver: Index " + std::to_string(index) +
+                " out of bounds for collection at key " + std::to_string(key)
+              );
+            }
+
+            int flatIndex = ki * numIndices + ii;
+            elements2D[flatIndex] = collection[index - 1];  // Convert to 0-based
+          }
+        }
+
+        // Create computed index: (key - keyLb) * numIndices + (index - indexLb)
+        SCIP_EXPR* keyExpr;
+        SCIPcreateExprVar(scip, &keyExpr, scipKeyVar, nullptr, nullptr);
+
+        SCIP_EXPR* indexExpr;
+        SCIPcreateExprVar(scip, &indexExpr, scipIndexVar, nullptr, nullptr);
+
+        // (key - keyLb)
+        SCIP_EXPR* keyMinusOffset;
+        SCIPcreateExprSum(scip, &keyMinusOffset, 1, &keyExpr, nullptr, -keyLb, nullptr, nullptr);
+
+        // (key - keyLb) * numIndices
+        SCIP_EXPR* keyTimesNumIndices;
+        double keyCoeff = (double)numIndices;
+        SCIPcreateExprSum(scip, &keyTimesNumIndices, 1, &keyMinusOffset, &keyCoeff, 0.0, nullptr, nullptr);
+
+        // (index - indexLb)
+        SCIP_EXPR* indexMinusOffset;
+        SCIPcreateExprSum(scip, &indexMinusOffset, 1, &indexExpr, nullptr, -indexLb, nullptr, nullptr);
+
+        // (key - keyLb) * numIndices + (index - indexLb)
+        SCIP_EXPR* exprs[2] = {keyTimesNumIndices, indexMinusOffset};
+        SCIP_EXPR* computedIndexExpr;
+        SCIPcreateExprSum(scip, &computedIndexExpr, 2, exprs, nullptr, 0.0, nullptr, nullptr);
+
+        // Convert to integer variable for the computed index
+        SCIP_VAR* computedIndexVar;
+        std::string indexName = "computed_index_" + std::to_string(auxiliaryCounter++);
+        SCIPcreateVarBasic(scip, &computedIndexVar, indexName.c_str(),
+          0.0, (double)(numKeys * numIndices - 1), 0.0, SCIP_VARTYPE_INTEGER);
+        SCIPaddVar(scip, computedIndexVar);
+
+        // Add constraint: computedIndexVar == computedIndexExpr
+        SCIP_CONS* indexCons;
+        SCIP_EXPR* indexVarExpr;
+        SCIPcreateExprVar(scip, &indexVarExpr, computedIndexVar, nullptr, nullptr);
+
+        SCIP_EXPR* indexDiff;
+        SCIP_EXPR* exprsForDiff[2] = {indexVarExpr, computedIndexExpr};
+        double coeffs[2] = {1.0, -1.0};
+        SCIPcreateExprSum(scip, &indexDiff, 2, exprsForDiff, coeffs, 0.0, nullptr, nullptr);
+
+        std::string consName = "index_def_" + std::to_string(auxiliaryCounter++);
+        SCIPcreateConsBasicNonlinear(scip, &indexCons, consName.c_str(), indexDiff, 0.0, 0.0);
+        SCIPaddCons(scip, indexCons);
+        SCIPreleaseCons(scip, &indexCons);
+
+        // Release intermediate expressions
+        SCIPreleaseExpr(scip, &keyExpr);
+        SCIPreleaseExpr(scip, &indexExpr);
+        SCIPreleaseExpr(scip, &keyMinusOffset);
+        SCIPreleaseExpr(scip, &keyTimesNumIndices);
+        SCIPreleaseExpr(scip, &indexMinusOffset);
+        SCIPreleaseExpr(scip, &computedIndexExpr);
+        SCIPreleaseExpr(scip, &indexVarExpr);
+        SCIPreleaseExpr(scip, &indexDiff);
+
+        // Use element constraint with computed index
+        SCIP_EXPR* result = buildElementConstraint(elements2D, computedIndexVar, 0.0);
+        SCIPreleaseVar(scip, &computedIndexVar);
+
+        return result;
       }
 
-      // The collection wraps the actual array reference
-      const Operand& arrayOperand = collectionExpr.operands[0];
-
-      // Handle case where array is an IndexedVariables reference
-      if (std::holds_alternative<std::reference_wrapper<const Variable>>(arrayOperand)) {
-        // This might be a reference to a collection variable - not supported yet
-        throw std::runtime_error("SCIPSolver: At operator with Variable reference not yet supported");
-      }
-
-      // For now, handle expression-based collections
-      // Build the index expression
-      auto indexExprResult = buildExpression(model, expression.operands[1]);
-
-      // Build the collection expression
-      auto collectionResult = buildExpression(model, arrayOperand);
-
-      // For now, return the collection result (indexed access would need element constraints)
-      // TODO: Implement proper indexed access with element constraints
-      SCIPreleaseExpr(scip, &indexExprResult);
-      return collectionResult;
+      // Not a collection() expression - might be IndexedVariables or something else
+      throw std::runtime_error("SCIPSolver: [] operator only supported for collection() expressions");
     }
 
     // Collection: should not appear standalone, only as operand to custom operators
@@ -1694,8 +1927,56 @@ SCIP_EXPR* SCIPSolver::resolveCollectionOperation(
   }
 
   const Operand& keyOperand = collectionExpr.operands[0];
+
+  // Handle constant key - return constant result
+  auto constantKeyOpt = extractConstant(keyOperand);
+  if (constantKeyOpt.has_value()) {
+    double constantKey = constantKeyOpt.value();
+    auto collectionResult = model.getCollection(constantKey);
+    if (!collectionResult) {
+      throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(constantKey) +
+                               " not found in model");
+    }
+
+    const std::vector<double>& collection = collectionResult.value();
+    double result;
+
+    if (opName == "count") {
+      result = (double)collection.size();
+    }
+    else if (opName == "sum") {
+      result = std::accumulate(collection.begin(), collection.end(), 0.0);
+    }
+    else if (opName == "avg") {
+      if (collection.empty()) {
+        throw std::runtime_error("SCIPSolver: avg() is undefined for empty collection");
+      }
+      result = std::accumulate(collection.begin(), collection.end(), 0.0) / collection.size();
+    }
+    else if (opName == "max") {
+      if (collection.empty()) {
+        throw std::runtime_error("SCIPSolver: max() is undefined for empty collection");
+      }
+      result = *std::max_element(collection.begin(), collection.end());
+    }
+    else if (opName == "min") {
+      if (collection.empty()) {
+        throw std::runtime_error("SCIPSolver: min() is undefined for empty collection");
+      }
+      result = *std::min_element(collection.begin(), collection.end());
+    }
+
+    // Return constant value expression
+    SCIP_EXPR* resultExpr;
+    SCIPcreateExprValue(scip, &resultExpr, result, nullptr, nullptr);
+    return resultExpr;
+  }
+
+  // Handle variable key
   if (!std::holds_alternative<std::reference_wrapper<const Variable>>(keyOperand)) {
-    throw std::runtime_error("SCIPSolver: collection key must be a variable");
+    throw std::runtime_error(
+      "SCIPSolver: collection() key must be a variable or constant"
+    );
   }
 
   const Variable& keyVar = std::get<std::reference_wrapper<const Variable>>(keyOperand).get();
@@ -1843,14 +2124,47 @@ SCIP_EXPR* SCIPSolver::resolveCollectionMembership(
   const Operand& valueOperand = expression.operands[1];
   const Expression& collectionExpr = std::get<Expression>(expression.operands[2]);
 
-  // Extract key variable from collection(key)
+  // Extract key from collection(key)
   if (collectionExpr.operands.size() != 1) {
     throw std::runtime_error("SCIPSolver: collection() must have exactly 1 argument");
   }
 
   const Operand& keyOperand = collectionExpr.operands[0];
+
+  // Handle constant key
+  auto constantKeyOpt = extractConstant(keyOperand);
+  if (constantKeyOpt.has_value()) {
+    double constantKey = constantKeyOpt.value();
+    auto collectionResult = model.getCollection(constantKey);
+    if (!collectionResult) {
+      throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(constantKey) +
+                               " not found in model");
+    }
+
+    const std::vector<double>& collection = collectionResult.value();
+
+    // With constant key, just check membership for the value
+    auto constantValueOpt = extractConstant(valueOperand);
+    if (constantValueOpt.has_value()) {
+      double constantValue = constantValueOpt.value();
+      bool found = std::find(collection.begin(), collection.end(), constantValue) != collection.end();
+      double result = (opName == "element_of") ? (found ? 1.0 : 0.0) : (found ? 0.0 : 1.0);
+
+      SCIP_EXPR* resultExpr;
+      SCIPcreateExprValue(scip, &resultExpr, result, nullptr, nullptr);
+      return resultExpr;
+    } else {
+      throw std::runtime_error(
+        "SCIPSolver: " + opName + " with constant key requires constant value"
+      );
+    }
+  }
+
+  // Handle variable key
   if (!std::holds_alternative<std::reference_wrapper<const Variable>>(keyOperand)) {
-    throw std::runtime_error("SCIPSolver: collection key must be a variable");
+    throw std::runtime_error(
+      "SCIPSolver: collection() key must be a variable or constant"
+    );
   }
 
   const Variable& keyVar = std::get<std::reference_wrapper<const Variable>>(keyOperand).get();
@@ -1910,7 +2224,7 @@ SCIP_EXPR* SCIPSolver::resolveCollectionMembership(
       } else {
         // Complex expression - not a simple variable
         throw std::runtime_error(
-          "SCIPSolver: " + opName + " requires value to be a variable or constant, not a complex expression"
+          "SCIPSolver: " + opName + " requires value to be a variable or constant"
         );
       }
     }
@@ -2036,14 +2350,48 @@ SCIP_EXPR* SCIPSolver::resolveCollectionItem(
   const Operand& indexOperand = expression.operands[1];
   const Expression& collectionExpr = std::get<Expression>(expression.operands[2]);
 
-  // Extract key variable from collection(key)
+  // Extract key from collection(key)
   if (collectionExpr.operands.size() != 1) {
     throw std::runtime_error("SCIPSolver: collection() must have exactly 1 argument");
   }
 
   const Operand& keyOperand = collectionExpr.operands[0];
+
+  // Handle constant key
+  auto constantKeyOpt = extractConstant(keyOperand);
+  if (constantKeyOpt.has_value()) {
+    double constantKey = constantKeyOpt.value();
+    auto collectionResult = model.getCollection(constantKey);
+    if (!collectionResult) {
+      throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(constantKey) +
+                               " not found in model");
+    }
+
+    const std::vector<double>& collection = collectionResult.value();
+
+    // With constant key, just get element at index
+    auto constantIndexOpt = extractConstant(indexOperand);
+    if (constantIndexOpt.has_value()) {
+      size_t index = (size_t)constantIndexOpt.value();
+      if (index < 1 || index > collection.size()) {
+        throw std::runtime_error("SCIPSolver: Index out of bounds");
+      }
+
+      SCIP_EXPR* resultExpr;
+      SCIPcreateExprValue(scip, &resultExpr, collection[index - 1], nullptr, nullptr);
+      return resultExpr;
+    } else {
+      throw std::runtime_error(
+        "SCIPSolver: at() with constant key requires constant index"
+      );
+    }
+  }
+
+  // Handle variable key
   if (!std::holds_alternative<std::reference_wrapper<const Variable>>(keyOperand)) {
-    throw std::runtime_error("SCIPSolver: collection key must be a variable");
+    throw std::runtime_error(
+      "SCIPSolver: collection() key must be a variable or constant"
+    );
   }
 
   const Variable& keyVar = std::get<std::reference_wrapper<const Variable>>(keyOperand).get();
@@ -2114,7 +2462,7 @@ SCIP_EXPR* SCIPSolver::resolveCollectionItem(
       } else {
         // Complex expression - not a simple variable
         throw std::runtime_error(
-          "SCIPSolver: at() requires index to be a variable or constant, not a complex expression"
+          "SCIPSolver: at() requires index to be a variable or constant"
         );
       }
     }

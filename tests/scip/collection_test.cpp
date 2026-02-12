@@ -523,6 +523,56 @@ void test_at_variable_both_scip() {
   std::cout << GREEN << "Test 17 PASSED: at(variable_index, collection(variable_key)) returns 60" << RESET << std::endl;
 }
 
+// Test 18: count(collection(constant_key)) - constant key
+void test_count_constant_key_scip() {
+  CP::Model model;
+
+  model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+    int k = (int)std::round(key);
+    if (k == 1) return std::vector<double>{10.0, 20.0, 30.0};
+    return std::unexpected("Collection key not found");
+  });
+
+  auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 10.0);
+
+  // Use constant key directly
+  model.addConstraint(result == CP::count(CP::collection(CP::Expression(1.0))));
+
+  CP::SCIPSolver solver(model);
+  auto solution = solver.solve(model);
+
+  assert(solution.has_value());
+  double resultVal = solution->getVariableValue(result).value();
+  assert(std::abs(resultVal - 3.0) < 1e-5);  // collection(1) has 3 elements
+
+  std::cout << GREEN << "Test 18 PASSED: count(collection(1.0)) with constant key returns 3" << RESET << std::endl;
+}
+
+// Test 19: at(constant_index, collection(constant_key)) - both constant
+void test_at_both_constant_scip() {
+  CP::Model model;
+
+  model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+    int k = (int)std::round(key);
+    if (k == 1) return std::vector<double>{10.0, 20.0, 30.0};
+    return std::unexpected("Collection key not found");
+  });
+
+  auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+
+  // Use constant key and constant index
+  model.addConstraint(result == CP::at(2.0, CP::collection(CP::Expression(1.0))));
+
+  CP::SCIPSolver solver(model);
+  auto solution = solver.solve(model);
+
+  assert(solution.has_value());
+  double resultVal = solution->getVariableValue(result).value();
+  assert(std::abs(resultVal - 20.0) < 1e-5);  // collection(1)[2] = 20
+
+  std::cout << GREEN << "Test 19 PASSED: at(2.0, collection(1.0)) with both constant returns 20" << RESET << std::endl;
+}
+
 int main() {
   int testNum = 0;
 
@@ -576,6 +626,12 @@ int main() {
     testNum++;
 
     test_at_variable_both_scip();
+    testNum++;
+
+    test_count_constant_key_scip();
+    testNum++;
+
+    test_at_both_constant_scip();
     testNum++;
   } catch (const std::exception& e) {
     std::cerr << "Test " << (testNum + 1) << " FAILED: " << e.what() << std::endl;
