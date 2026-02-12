@@ -12,6 +12,7 @@
 #include <iostream>
 #include <cstring>
 #include <cmath>
+#include <stdexcept>
 
 namespace CP {
 
@@ -293,7 +294,7 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
     const Variable& var = std::get<std::reference_wrapper<const Variable>>(operand).get();
     auto it = variableMap.find(&var);
     if (it == variableMap.end()) {
-      return std::unexpected("Variable not found in variableMap");
+      throw std::runtime_error("SCIPSolver: Variable not found in variableMap: " + var.name);
     }
     SCIP_EXPR* scipExpr;
     SCIPcreateExprVar(scip, &scipExpr, it->second, nullptr, nullptr);
@@ -309,7 +310,7 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
     // Get index SCIP variable
     auto indexIt = variableMap.find(&indexVar);
     if (indexIt == variableMap.end()) {
-      return std::unexpected("Index variable not found in variableMap");
+      throw std::runtime_error("SCIPSolver: Index variable not found in variableMap: " + indexVar.name);
     }
     SCIP_VAR* scipIndexVar = indexIt->second;
 
@@ -318,7 +319,7 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
     for (const auto& var : container) {
       auto varIt = variableMap.find(&var);
       if (varIt == variableMap.end()) {
-        return std::unexpected("Array variable not found in variableMap");
+        throw std::runtime_error("SCIPSolver: Array variable not found in variableMap: " + var.name);
       }
       arrayVars.push_back(varIt->second);
     }
@@ -509,12 +510,12 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
 
       // First, unwrap the collection to get the actual array expression
       if (!std::holds_alternative<Expression>(expression.operands[0])) {
-        return std::unexpected("At operator: first operand must be a collection expression");
+        throw std::runtime_error("SCIPSolver: First operand must be an expression");
       }
 
       const Expression& collectionExpr = std::get<Expression>(expression.operands[0]);
       if (collectionExpr._operator != collection || collectionExpr.operands.size() != 1) {
-        return std::unexpected("At operator: first operand must be a collection");
+        throw std::runtime_error("SCIPSolver: First operand must be a collection");
       }
 
       // The collection wraps the actual array reference
@@ -523,7 +524,7 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
       // Handle case where array is an IndexedVariables reference
       if (std::holds_alternative<std::reference_wrapper<const Variable>>(arrayOperand)) {
         // This might be a reference to a collection variable - not supported yet
-        return std::unexpected("At operator with Variable reference not yet supported");
+        throw std::runtime_error("SCIPSolver: At operator with Variable reference not yet supported");
       }
 
       // For now, handle expression-based collections
@@ -548,7 +549,7 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
     if (expression._operator == custom && expression.operands.size() >= 2) {
       // First operand is the operator index
       if (!std::holds_alternative<size_t>(expression.operands[0])) {
-        return std::unexpected("Custom operator index missing");
+        throw std::runtime_error("SCIPSolver: Custom operator index missing");
       }
       size_t opIndex = std::get<size_t>(expression.operands[0]);
       std::string opName = Expression::customOperators[opIndex];
@@ -568,7 +569,7 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
           return scipExpr;
         }
         else {
-          return std::unexpected("pow with non-constant exponent not supported");
+          throw std::runtime_error("SCIPSolver: Pow with non-constant exponent not supported");
         }
       }
 
@@ -687,7 +688,7 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
           for (auto child : children) {
             SCIPreleaseExpr(scip, &child);
           }
-          return std::unexpected("if_then_else requires exactly 3 operands");
+          throw std::runtime_error("SCIPSolver: if_then_else requires exactly 3 operands");
         }
 
         SCIP_EXPR* condition = children[0];
@@ -728,7 +729,7 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
           for (auto child : children) {
             SCIPreleaseExpr(scip, &child);
           }
-          return std::unexpected("at requires at least 2 operands (index and at least one value)");
+          throw std::runtime_error("SCIPSolver: at requires at least 2 operands (index and at least one value)");
         }
 
         size_t auxId = auxiliaryCounter++;
@@ -816,7 +817,7 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
           for (auto child : children) {
             SCIPreleaseExpr(scip, &child);
           }
-          return std::unexpected("n_ary_if requires an odd number of operands");
+          throw std::runtime_error("SCIPSolver: n_ary_if requires an odd number of operands");
         }
 
         // Build terms: each term is (product of (1-cj) for j<i) * ci * vi
@@ -912,7 +913,7 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
         for (auto child : children) {
           SCIPreleaseExpr(scip, &child);
         }
-        return std::unexpected("Unsupported custom operator: " + opName);
+        throw std::runtime_error("SCIPSolver: Unsupported custom operator: " + opName);
       }
 
       // Release children (SCIP keeps its own references)
@@ -932,7 +933,7 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
         expression._operator == not_equal) {
 
       if (expression.operands.size() != 2) {
-        return std::unexpected("Comparison operator requires exactly 2 operands");
+        throw std::runtime_error("SCIPSolver: Comparison operator requires exactly 2 operands");
       }
 
       // Build lhs and rhs expressions
@@ -1258,10 +1259,10 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
       return resultExpr;
     }
 
-    return std::unexpected("Unsupported expression operator");
+    throw std::runtime_error("SCIPSolver: Unsupported expression operator");
   }
 
-  return std::unexpected("Unsupported operand type");
+  throw std::runtime_error("SCIPSolver: Unsupported operand type");
 }
 
 void SCIPSolver::addDeducedConstraints(const Model& model) {
@@ -1270,16 +1271,14 @@ void SCIPSolver::addDeducedConstraints(const Model& model) {
     if (variable.deducedFrom) {
       auto it = variableMap.find(&variable);
       if (it == variableMap.end()) {
-        std::cerr << "ERROR: Variable " << variable.name << " not found in variableMap" << std::endl;
-        continue;
+        throw std::runtime_error("SCIPSolver: Variable " + variable.name + " not found in variableMap");
       }
       SCIP_VAR* scipVar = it->second;
 
       auto expressionResult = buildExpression(*variable.deducedFrom);
       if (!expressionResult) {
-        std::cerr << "ERROR: Failed to build deducedFrom expression for variable "
-                  << variable.name << ": " << expressionResult.error() << std::endl;
-        continue;
+        throw std::runtime_error("SCIPSolver: Failed to build deducedFrom expression for variable " +
+                                 variable.name + ": " + expressionResult.error());
       }
 
       // Create var - expression == 0 constraint
@@ -1308,16 +1307,14 @@ void SCIPSolver::addDeducedConstraints(const Model& model) {
       if (indexedVariable.deducedFrom) {
         auto it = variableMap.find(&indexedVariable);
         if (it == variableMap.end()) {
-          std::cerr << "ERROR: Indexed variable " << indexedVariable.name << " not found in variableMap" << std::endl;
-          continue;
+          throw std::runtime_error("SCIPSolver: Indexed variable " + indexedVariable.name + " not found in variableMap");
         }
         SCIP_VAR* scipVar = it->second;
 
         auto expressionResult = buildExpression(*indexedVariable.deducedFrom);
         if (!expressionResult) {
-          std::cerr << "ERROR: Failed to build deducedFrom expression for variable "
-                    << indexedVariable.name << ": " << expressionResult.error() << std::endl;
-          continue;
+          throw std::runtime_error("SCIPSolver: Failed to build deducedFrom expression for variable " +
+                                   indexedVariable.name + ": " + expressionResult.error());
         }
 
         // Create var - expression == 0 constraint
@@ -1361,7 +1358,7 @@ void SCIPSolver::addObjective(const Model& model) {
   Operand objOperand = objective;
   auto objExpr = buildExpression(objOperand);
   if (!objExpr) {
-    return;
+    throw std::runtime_error("SCIPSolver: Failed to build objective expression: " + objExpr.error());
   }
 
   // Create auxiliary variable for objective with coefficient 1.0
@@ -1404,7 +1401,7 @@ void SCIPSolver::addConstraints(const Model& model) {
       constraint._operator == not_equal) {
 
       if (constraint.operands.size() != 2) {
-        continue; // Skip malformed constraints
+        throw std::runtime_error("SCIPSolver: malformed constraint" );
       }
 
       // Build expression for lhs - rhs
@@ -1412,7 +1409,7 @@ void SCIPSolver::addConstraints(const Model& model) {
       auto rightExpr = buildExpression(constraint.operands[1]);
 
       if (!leftExpr || !rightExpr) {
-        continue; // Skip if expression building failed
+        throw std::runtime_error("SCIPSolver: expression building failed" );
       }
 
       // Create lhs - rhs expression
@@ -1478,9 +1475,7 @@ void SCIPSolver::addConstraints(const Model& model) {
       // Handle other boolean constraints (logical_or, logical_and, etc.)
       auto constraintExpr = buildExpression(constraint);
       if (!constraintExpr) {
-        // buildExpression failed - this is an error, not something to skip silently
-        std::cerr << "ERROR: Failed to build constraint " << i << ": " << constraintExpr.error() << std::endl;
-        continue;
+        throw std::runtime_error("SCIPSolver: Failed to build constraint " + std::to_string(i) + ": " + constraintExpr.error());
       }
 
       // Enforce constraintExpr >= 1 - epsilon (i.e., must be true)
