@@ -28,12 +28,36 @@ private:
   void addObjective(const Model& model);
   void addConstraints(const Model& model);
 
-  SCIP_EXPR* buildExpression(const Operand& operand);
+  SCIP_EXPR* buildExpression(const Model& model, const Operand& operand);
 
   // Helper functions for constraints
   void addSequenceConstraints(const std::string& sequenceName, const std::vector<SCIP_VAR*>& sequenceVariables);
   SCIP_EXPR* addIndexingConstraints(const std::string& name, const std::vector<SCIP_VAR*>& arrayVars, SCIP_VAR* indexVar, SCIP_VAR* resultVar, int indexOffset = 0);
   SCIP_EXPR* boolify(SCIP_EXPR* scipExpr);
+
+  // Collection operation helpers
+  SCIP_EXPR* resolveCollectionOperation(
+    const Model& model,
+    const Expression& expression,
+    const std::string& opName
+  );
+
+  SCIP_EXPR* resolveCollectionMembership(
+    const Model& model,
+    const Expression& expression,
+    const std::string& opName
+  );
+
+  SCIP_EXPR* resolveCollectionItem(
+    const Model& model,
+    const Expression& expression
+  );
+
+  SCIP_EXPR* buildElementConstraint(
+    const std::vector<double>& values,
+    SCIP_VAR* indexVar,
+    double indexOffset
+  );
 
   SCIP* scip = nullptr;
   std::unordered_map<const Variable*, SCIP_VAR*> variableMap;

@@ -738,6 +738,67 @@ inline Expression if_then_else(Expression condition, Expression ifExpression, Ex
   return Expression(Expression::Operator::custom,std::move(operands));
 };
 
+/*******************************************
+ * Collection operations
+ ******************************************/
+
+// collection() - wraps a key expression to indicate collection lookup
+inline Expression collection(const Variable& keyVar) {
+  return Expression(Expression::Operator::collection, { std::ref(keyVar) });
+}
+
+inline Expression collection(const Expression& keyExpr) {
+  return Expression(Expression::Operator::collection, { keyExpr });
+}
+
+// Aggregate operations on collections
+inline Expression count(const Expression& expr) {
+  return Expression(Expression::Operator::custom,
+                   { Expression::getCustomIndex("count"), expr });
+}
+
+inline Expression sum(const Expression& expr) {
+  return Expression(Expression::Operator::custom,
+                   { Expression::getCustomIndex("sum"), expr });
+}
+
+inline Expression avg(const Expression& expr) {
+  return Expression(Expression::Operator::custom,
+                   { Expression::getCustomIndex("avg"), expr });
+}
+
+// Membership operations
+inline Expression element_of(const Expression& value, const Expression& collection) {
+  return Expression(Expression::Operator::custom,
+                   { Expression::getCustomIndex("element_of"), value, collection });
+}
+
+inline Expression element_of(double value, const Expression& collection) {
+  return Expression(Expression::Operator::custom,
+                   { Expression::getCustomIndex("element_of"), value, collection });
+}
+
+inline Expression not_element_of(const Expression& value, const Expression& collection) {
+  return Expression(Expression::Operator::custom,
+                   { Expression::getCustomIndex("not_element_of"), value, collection });
+}
+
+inline Expression not_element_of(double value, const Expression& collection) {
+  return Expression(Expression::Operator::custom,
+                   { Expression::getCustomIndex("not_element_of"), value, collection });
+}
+
+// Indexed access
+inline Expression at(const Expression& index, const Expression& collection) {
+  return Expression(Expression::Operator::custom,
+                   { Expression::getCustomIndex("at"), index, collection });
+}
+
+inline Expression at(double index, const Expression& collection) {
+  return Expression(Expression::Operator::custom,
+                   { Expression::getCustomIndex("at"), index, collection });
+}
+
 using Cases = std::vector< std::pair<Expression, Expression> >;
 /**
  * @brief Creates an n-ary expression composed of a collection condition-expression pairs representing:
