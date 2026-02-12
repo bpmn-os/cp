@@ -281,7 +281,7 @@ SCIP_EXPR* SCIPSolver::boolify(SCIP_EXPR* scipExpr) {
   return resultExpr;
 }
 
-std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand& operand) {
+SCIP_EXPR* SCIPSolver::buildExpression(const Operand& operand) {
   // Handle constants
   if (std::holds_alternative<double>(operand)) {
     SCIP_EXPR* scipExpr;
@@ -352,10 +352,9 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
     // Negate: -scipExpr
     if (expression._operator == negate && expression.operands.size() == 1) {
       auto subExpression = buildExpression(expression.operands[0]);
-      if (!subExpression) return subExpression;
 
       SCIP_EXPR* scipExpr;
-      SCIP_EXPR* children[] = { subExpression.value() };
+      SCIP_EXPR* children[] = { subExpression };
       double coeffs[] = { -1.0 };
       SCIPcreateExprSum(scip, &scipExpr, 1, children, coeffs, 0.0, nullptr, nullptr);
       SCIPreleaseExpr(scip, &children[0]);
@@ -366,11 +365,9 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
     if (expression._operator == add && expression.operands.size() == 2) {
       auto left = buildExpression(expression.operands[0]);
       auto right = buildExpression(expression.operands[1]);
-      if (!left) return left;
-      if (!right) return right;
 
       SCIP_EXPR* scipExpr;
-      SCIP_EXPR* children[] = { left.value(), right.value() };
+      SCIP_EXPR* children[] = { left, right };
       double coeffs[] = { 1.0, 1.0 };
       SCIPcreateExprSum(scip, &scipExpr, 2, children, coeffs, 0.0, nullptr, nullptr);
       SCIPreleaseExpr(scip, &children[0]);
@@ -382,11 +379,9 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
     if (expression._operator == subtract && expression.operands.size() == 2) {
       auto left = buildExpression(expression.operands[0]);
       auto right = buildExpression(expression.operands[1]);
-      if (!left) return left;
-      if (!right) return right;
 
       SCIP_EXPR* scipExpr;
-      SCIP_EXPR* children[] = { left.value(), right.value() };
+      SCIP_EXPR* children[] = { left, right };
       double coeffs[] = { 1.0, -1.0 };
       SCIPcreateExprSum(scip, &scipExpr, 2, children, coeffs, 0.0, nullptr, nullptr);
       SCIPreleaseExpr(scip, &children[0]);
@@ -398,11 +393,9 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
     if (expression._operator == multiply && expression.operands.size() == 2) {
       auto left = buildExpression(expression.operands[0]);
       auto right = buildExpression(expression.operands[1]);
-      if (!left) return left;
-      if (!right) return right;
 
       SCIP_EXPR* scipExpr;
-      SCIP_EXPR* children[] = { left.value(), right.value() };
+      SCIP_EXPR* children[] = { left, right };
       SCIPcreateExprProduct(scip, &scipExpr, 2, children, 1.0, nullptr, nullptr);
       SCIPreleaseExpr(scip, &children[0]);
       SCIPreleaseExpr(scip, &children[1]);
@@ -413,31 +406,28 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
     if (expression._operator == divide && expression.operands.size() == 2) {
       auto numerator = buildExpression(expression.operands[0]);
       auto denominator = buildExpression(expression.operands[1]);
-      if (!numerator) return numerator;
-      if (!denominator) return denominator;
 
       // Division is a * b^(-1)
       SCIP_EXPR* powExpr;
-      SCIPcreateExprPow(scip, &powExpr, denominator.value(), -1.0, nullptr, nullptr);
+      SCIPcreateExprPow(scip, &powExpr, denominator, -1.0, nullptr, nullptr);
 
       SCIP_EXPR* scipExpr;
-      SCIP_EXPR* children[] = { numerator.value(), powExpr };
+      SCIP_EXPR* children[] = { numerator, powExpr };
       SCIPcreateExprProduct(scip, &scipExpr, 2, children, 1.0, nullptr, nullptr);
 
       SCIPreleaseExpr(scip, &children[0]);
       SCIPreleaseExpr(scip, &children[1]);
-      SCIPreleaseExpr(scip, &denominator.value());
+      SCIPreleaseExpr(scip, &denominator);
       return scipExpr;
     }
 
     // Logical NOT: !a  => 1 - bool(a)
     if (expression._operator == logical_not && expression.operands.size() == 1) {
       auto subExpression = buildExpression(expression.operands[0]);
-      if (!subExpression) return subExpression;
 
       // Convert to boolean first
-      SCIP_EXPR* boolExpr = boolify(subExpression.value());
-      SCIPreleaseExpr(scip, &subExpression.value());
+      SCIP_EXPR* boolExpr = boolify(subExpression);
+      SCIPreleaseExpr(scip, &subExpression);
 
       // NOT: 1 - bool(a)
       SCIP_EXPR* scipExpr;
@@ -452,14 +442,12 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
     if (expression._operator == logical_and && expression.operands.size() == 2) {
       auto left = buildExpression(expression.operands[0]);
       auto right = buildExpression(expression.operands[1]);
-      if (!left) return left;
-      if (!right) return right;
 
       // Convert to booleans first
-      SCIP_EXPR* boolLeft = boolify(left.value());
-      SCIP_EXPR* boolRight = boolify(right.value());
-      SCIPreleaseExpr(scip, &left.value());
-      SCIPreleaseExpr(scip, &right.value());
+      SCIP_EXPR* boolLeft = boolify(left);
+      SCIP_EXPR* boolRight = boolify(right);
+      SCIPreleaseExpr(scip, &left);
+      SCIPreleaseExpr(scip, &right);
 
       // AND: bool(a) * bool(b)
       SCIP_EXPR* scipExpr;
@@ -474,14 +462,12 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
     if (expression._operator == logical_or && expression.operands.size() == 2) {
       auto left = buildExpression(expression.operands[0]);
       auto right = buildExpression(expression.operands[1]);
-      if (!left) return left;
-      if (!right) return right;
 
       // Convert to booleans first
-      SCIP_EXPR* boolLeft = boolify(left.value());
-      SCIP_EXPR* boolRight = boolify(right.value());
-      SCIPreleaseExpr(scip, &left.value());
-      SCIPreleaseExpr(scip, &right.value());
+      SCIP_EXPR* boolLeft = boolify(left);
+      SCIP_EXPR* boolRight = boolify(right);
+      SCIPreleaseExpr(scip, &left);
+      SCIPreleaseExpr(scip, &right);
 
       // OR: bool(a) + bool(b)
       SCIP_EXPR* sumExpr;
@@ -530,18 +516,13 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
       // For now, handle expression-based collections
       // Build the index expression
       auto indexExprResult = buildExpression(expression.operands[1]);
-      if (!indexExprResult) return indexExprResult;
 
       // Build the collection expression
       auto collectionResult = buildExpression(arrayOperand);
-      if (!collectionResult) {
-        SCIPreleaseExpr(scip, &indexExprResult.value());
-        return collectionResult;
-      }
 
       // For now, return the collection result (indexed access would need element constraints)
       // TODO: Implement proper indexed access with element constraints
-      SCIPreleaseExpr(scip, &indexExprResult.value());
+      SCIPreleaseExpr(scip, &indexExprResult);
       return collectionResult;
     }
 
@@ -562,14 +543,13 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
         if (std::holds_alternative<double>(expression.operands[2])) {
           double exponent = std::get<double>(expression.operands[2]);
           auto baseExpr = buildExpression(expression.operands[1]);
-          if (!baseExpr) return baseExpr;
 
-          SCIPcreateExprPow(scip, &scipExpr, baseExpr.value(), exponent, nullptr, nullptr);
-          SCIPreleaseExpr(scip, &baseExpr.value());
+          SCIPcreateExprPow(scip, &scipExpr, baseExpr, exponent, nullptr, nullptr);
+          SCIPreleaseExpr(scip, &baseExpr);
           return scipExpr;
         }
         else {
-          throw std::runtime_error("SCIPSolver: Pow with non-constant exponent not supported");
+          throw std::runtime_error("pow with non-constant exponent not supported");
         }
       }
 
@@ -577,14 +557,7 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
       std::vector<SCIP_EXPR*> children;
       for (size_t i = 1; i < expression.operands.size(); i++) {
         auto childExpr = buildExpression(expression.operands[i]);
-        if (!childExpr) {
-          // Cleanup already created expressions
-          for (auto child : children) {
-            SCIPreleaseExpr(scip, &child);
-          }
-          return childExpr;
-        }
-        children.push_back(childExpr.value());
+        children.push_back(childExpr);
       }
 
       if (opName == "min" || opName == "max") {
@@ -939,12 +912,10 @@ std::expected<SCIP_EXPR*, std::string> SCIPSolver::buildExpression(const Operand
       // Build lhs and rhs expressions
       auto leftResult = buildExpression(expression.operands[0]);
       auto rightResult = buildExpression(expression.operands[1]);
-      if (!leftResult) return leftResult;
-      if (!rightResult) return rightResult;
 
       // Create lhs - rhs
       SCIP_EXPR* diffExpr;
-      SCIP_EXPR* diffChildren[] = { leftResult.value(), rightResult.value() };
+      SCIP_EXPR* diffChildren[] = { leftResult, rightResult };
       double diffCoeffs[] = { 1.0, -1.0 };
       SCIPcreateExprSum(scip, &diffExpr, 2, diffChildren, diffCoeffs, 0.0, nullptr, nullptr);
       SCIPreleaseExpr(scip, &diffChildren[0]);
@@ -1276,16 +1247,12 @@ void SCIPSolver::addDeducedConstraints(const Model& model) {
       SCIP_VAR* scipVar = it->second;
 
       auto expressionResult = buildExpression(*variable.deducedFrom);
-      if (!expressionResult) {
-        throw std::runtime_error("SCIPSolver: Failed to build deducedFrom expression for variable " +
-                                 variable.name + ": " + expressionResult.error());
-      }
 
       // Create var - expression == 0 constraint
       SCIP_EXPR* varExpr;
       SCIPcreateExprVar(scip, &varExpr, scipVar, nullptr, nullptr);
 
-      SCIP_EXPR* diffChildren[] = { varExpr, expressionResult.value() };
+      SCIP_EXPR* diffChildren[] = { varExpr, expressionResult };
       double coeffs[] = { 1.0, -1.0 };
       SCIP_EXPR* diffExpr;
       SCIPcreateExprSum(scip, &diffExpr, 2, diffChildren, coeffs, 0.0, nullptr, nullptr);
@@ -1297,7 +1264,7 @@ void SCIPSolver::addDeducedConstraints(const Model& model) {
       SCIPreleaseCons(scip, &cons);
       SCIPreleaseExpr(scip, &diffExpr);
       SCIPreleaseExpr(scip, &varExpr);
-      SCIPreleaseExpr(scip, &expressionResult.value());
+      SCIPreleaseExpr(scip, &expressionResult);
     }
   }
 
@@ -1312,16 +1279,12 @@ void SCIPSolver::addDeducedConstraints(const Model& model) {
         SCIP_VAR* scipVar = it->second;
 
         auto expressionResult = buildExpression(*indexedVariable.deducedFrom);
-        if (!expressionResult) {
-          throw std::runtime_error("SCIPSolver: Failed to build deducedFrom expression for variable " +
-                                   indexedVariable.name + ": " + expressionResult.error());
-        }
 
         // Create var - expression == 0 constraint
         SCIP_EXPR* varExpr;
         SCIPcreateExprVar(scip, &varExpr, scipVar, nullptr, nullptr);
 
-        SCIP_EXPR* diffChildren[] = { varExpr, expressionResult.value() };
+        SCIP_EXPR* diffChildren[] = { varExpr, expressionResult };
         double coeffs[] = { 1.0, -1.0 };
         SCIP_EXPR* diffExpr;
         SCIPcreateExprSum(scip, &diffExpr, 2, diffChildren, coeffs, 0.0, nullptr, nullptr);
@@ -1333,7 +1296,7 @@ void SCIPSolver::addDeducedConstraints(const Model& model) {
         SCIPreleaseCons(scip, &cons);
         SCIPreleaseExpr(scip, &diffExpr);
         SCIPreleaseExpr(scip, &varExpr);
-        SCIPreleaseExpr(scip, &expressionResult.value());
+        SCIPreleaseExpr(scip, &expressionResult);
       }
     }
   }
@@ -1357,9 +1320,6 @@ void SCIPSolver::addObjective(const Model& model) {
   // Build objective expression - wrap in operand
   Operand objOperand = objective;
   auto objExpr = buildExpression(objOperand);
-  if (!objExpr) {
-    throw std::runtime_error("SCIPSolver: Failed to build objective expression: " + objExpr.error());
-  }
 
   // Create auxiliary variable for objective with coefficient 1.0
   SCIP_VAR* objVar;
@@ -1371,7 +1331,7 @@ void SCIPSolver::addObjective(const Model& model) {
   SCIPcreateExprVar(scip, &objVarExpr, objVar, nullptr, nullptr);
 
   SCIP_EXPR* diffExpr;
-  SCIP_EXPR* children[] = { objVarExpr, objExpr.value() };
+  SCIP_EXPR* children[] = { objVarExpr, objExpr };
   double coeffs[] = { 1.0, -1.0 };
   SCIPcreateExprSum(scip, &diffExpr, 2, children, coeffs, 0.0, nullptr, nullptr);
 
@@ -1382,7 +1342,7 @@ void SCIPSolver::addObjective(const Model& model) {
   SCIPreleaseCons(scip, &objCons);
   SCIPreleaseExpr(scip, &diffExpr);
   SCIPreleaseExpr(scip, &objVarExpr);
-  SCIPreleaseExpr(scip, &objExpr.value());
+  SCIPreleaseExpr(scip, &objExpr);
   SCIPreleaseVar(scip, &objVar);
 }
 
@@ -1408,13 +1368,9 @@ void SCIPSolver::addConstraints(const Model& model) {
       auto leftExpr = buildExpression(constraint.operands[0]);
       auto rightExpr = buildExpression(constraint.operands[1]);
 
-      if (!leftExpr || !rightExpr) {
-        throw std::runtime_error("SCIPSolver: expression building failed" );
-      }
-
       // Create lhs - rhs expression
       SCIP_EXPR* diffExpr;
-      SCIP_EXPR* children[] = { leftExpr.value(), rightExpr.value() };
+      SCIP_EXPR* children[] = { leftExpr, rightExpr };
       double coeffs[] = { 1.0, -1.0 };
       SCIPcreateExprSum(scip, &diffExpr, 2, children, coeffs, 0.0, nullptr, nullptr);
       SCIPreleaseExpr(scip, &children[0]);
@@ -1474,17 +1430,14 @@ void SCIPSolver::addConstraints(const Model& model) {
     else {
       // Handle other boolean constraints (logical_or, logical_and, etc.)
       auto constraintExpr = buildExpression(constraint);
-      if (!constraintExpr) {
-        throw std::runtime_error("SCIPSolver: Failed to build constraint " + std::to_string(i) + ": " + constraintExpr.error());
-      }
 
       // Enforce constraintExpr >= 1 - epsilon (i.e., must be true)
       std::string consName = "cons_" + std::to_string(i);
       SCIP_CONS* cons;
-      SCIPcreateConsBasicNonlinear(scip, &cons, consName.c_str(), constraintExpr.value(), 1.0 - epsilon, SCIPinfinity(scip));
+      SCIPcreateConsBasicNonlinear(scip, &cons, consName.c_str(), constraintExpr, 1.0 - epsilon, SCIPinfinity(scip));
       SCIPaddCons(scip, cons);
       SCIPreleaseCons(scip, &cons);
-      SCIPreleaseExpr(scip, &constraintExpr.value());
+      SCIPreleaseExpr(scip, &constraintExpr);
     }
   }
 }
