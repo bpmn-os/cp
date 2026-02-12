@@ -573,6 +573,45 @@ void test_at_both_constant_scip() {
   std::cout << GREEN << "Test 19 PASSED: at(2.0, collection(1.0)) with both constant returns 20" << RESET << std::endl;
 }
 
+// Test 20: count(collection(indexedVariable[index])) - IndexedVariable as key
+void test_count_indexed_variable_key_scip() {
+  CP::Model model;
+
+  // Set up collections
+  model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+    int k = (int)std::round(key);
+    if (k == 1) return std::vector<double>{10.0, 20.0, 30.0};
+    if (k == 2) return std::vector<double>{40.0, 50.0};
+    return std::unexpected("Collection key not found");
+  });
+
+  // Create an array of collection keys: collectionKeys[0], collectionKeys[1], etc.
+  auto& collectionKeys = model.addIndexedVariables(CP::Variable::Type::INTEGER, "collectionKeys");
+  collectionKeys.emplace_back(1.0, 2.0);  // collectionKeys[0] can be 1 or 2
+  collectionKeys.emplace_back(1.0, 2.0);  // collectionKeys[1] can be 1 or 2
+  collectionKeys.emplace_back(1.0, 2.0);  // collectionKeys[2] can be 1 or 2
+
+  // Create an index variable
+  auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 0.0, 2.0);
+
+  auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 10.0);
+
+  // Use indexed variable as collection key: count(collection(collectionKeys[index]))
+  // This creates a TRUE IndexedVariable: array[variable_index]
+  model.addConstraint(result == CP::count(CP::collection(collectionKeys[index])));
+  model.addConstraint(index == 1.0);  // Use collectionKeys[1]
+  model.addConstraint(collectionKeys[1] == 2.0);  // Force collectionKeys[1] to be 2
+
+  CP::SCIPSolver solver(model);
+  auto solution = solver.solve(model);
+
+  assert(solution.has_value());
+  double resultVal = solution->getVariableValue(result).value();
+  assert(std::abs(resultVal - 2.0) < 1e-5);  // collection(2) has 2 elements
+
+  std::cout << GREEN << "Test 20 PASSED: count(collection(indexedVariable)) returns 2" << RESET << std::endl;
+}
+
 int main() {
   int testNum = 0;
 
@@ -633,7 +672,11 @@ int main() {
 
     test_at_both_constant_scip();
     testNum++;
-  } catch (const std::exception& e) {
+
+    test_count_indexed_variable_key_scip();
+    testNum++;
+  }
+  catch (const std::exception& e) {
     std::cerr << "Test " << (testNum + 1) << " FAILED: " << e.what() << std::endl;
     return 1;
   }

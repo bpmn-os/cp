@@ -1972,19 +1972,83 @@ SCIP_EXPR* SCIPSolver::resolveCollectionOperation(
     return resultExpr;
   }
 
+  // Unwrap Expression(none, {operand}) to get the actual operand
+  const Operand* actualKeyOperand = &keyOperand;
+  if (std::holds_alternative<Expression>(keyOperand)) {
+    const Expression& keyExpr = std::get<Expression>(keyOperand);
+    if (keyExpr._operator == Expression::Operator::none && keyExpr.operands.size() == 1) {
+      actualKeyOperand = &keyExpr.operands[0];
+    }
+  }
+
+  SCIP_VAR* scipKeyVar = nullptr;
+  bool releaseScipKeyVar = false;  // Track if we need to release the auxiliary variable
+
   // Handle variable key
-  if (!std::holds_alternative<std::reference_wrapper<const Variable>>(keyOperand)) {
+  if (std::holds_alternative<std::reference_wrapper<const Variable>>(*actualKeyOperand)) {
+    const Variable& keyVar = std::get<std::reference_wrapper<const Variable>>(*actualKeyOperand).get();
+    auto it = variableMap.find(&keyVar);
+    if (it == variableMap.end()) {
+      throw std::runtime_error("SCIPSolver: Collection key variable not found");
+    }
+    scipKeyVar = it->second;
+  }
+  // Handle IndexedVariable key
+  else if (std::holds_alternative<IndexedVariable>(*actualKeyOperand)) {
+    const IndexedVariable& idxVar = std::get<IndexedVariable>(*actualKeyOperand);
+
+    // Build expression for the indexed variable
+    SCIP_EXPR* keyScipExpr = buildExpression(model, *actualKeyOperand);
+
+    // Get bounds from the IndexedVariables container's variables
+    const IndexedVariables& container = idxVar.container.get();
+    double minBound = std::numeric_limits<double>::max();
+    double maxBound = std::numeric_limits<double>::lowest();
+
+    for (const auto& var : container) {
+      auto it = variableMap.find(&var);
+      if (it != variableMap.end()) {
+        double lb = SCIPvarGetLbGlobal(it->second);
+        double ub = SCIPvarGetUbGlobal(it->second);
+        minBound = std::min(minBound, lb);
+        maxBound = std::max(maxBound, ub);
+      }
+    }
+
+    // Create auxiliary variable for the collection key
+    size_t auxId = auxiliaryCounter++;
+    std::string auxName = "aux_collection_key_" + std::to_string(auxId);
+    SCIP_VAR* auxKeyVar;
+    SCIPcreateVarBasic(scip, &auxKeyVar, auxName.c_str(), minBound, maxBound,
+                       0.0, SCIP_VARTYPE_INTEGER);
+    SCIPaddVar(scip, auxKeyVar);
+
+    // Add constraint: auxKeyVar == keyScipExpr
+    SCIP_EXPR* auxExpr;
+    SCIPcreateExprVar(scip, &auxExpr, auxKeyVar, nullptr, nullptr);
+
+    SCIP_EXPR* diffExprs[] = { auxExpr, keyScipExpr };
+    double coeffs[] = { 1.0, -1.0 };
+    SCIP_EXPR* diffExpr;
+    SCIPcreateExprSum(scip, &diffExpr, 2, diffExprs, coeffs, 0.0, nullptr, nullptr);
+
+    SCIP_CONS* auxCons;
+    std::string consName = "aux_collection_key_cons_" + std::to_string(auxId);
+    SCIPcreateConsBasicNonlinear(scip, &auxCons, consName.c_str(), diffExpr, 0.0, 0.0);
+    SCIPaddCons(scip, auxCons);
+    SCIPreleaseCons(scip, &auxCons);
+    SCIPreleaseExpr(scip, &diffExpr);
+    SCIPreleaseExpr(scip, &auxExpr);
+    SCIPreleaseExpr(scip, &keyScipExpr);
+
+    scipKeyVar = auxKeyVar;
+    releaseScipKeyVar = true;  // Mark for cleanup
+  }
+  else {
     throw std::runtime_error(
       "SCIPSolver: collection() key must be a variable or constant"
     );
   }
-
-  const Variable& keyVar = std::get<std::reference_wrapper<const Variable>>(keyOperand).get();
-  auto it = variableMap.find(&keyVar);
-  if (it == variableMap.end()) {
-    throw std::runtime_error("SCIPSolver: Collection key variable not found");
-  }
-  SCIP_VAR* scipKeyVar = it->second;
 
   // Get key bounds
   double lb = SCIPvarGetLbGlobal(scipKeyVar);
@@ -2039,7 +2103,14 @@ SCIP_EXPR* SCIPSolver::resolveCollectionOperation(
   }
 
   // Use element constraint to select result
-  return buildElementConstraint(results, scipKeyVar, lb);
+  SCIP_EXPR* result = buildElementConstraint(results, scipKeyVar, lb);
+
+  // Release auxiliary variable if created
+  if (releaseScipKeyVar) {
+    SCIPreleaseVar(scip, &scipKeyVar);
+  }
+
+  return result;
 }
 
 SCIP_EXPR* SCIPSolver::buildElementConstraint(
@@ -2160,19 +2231,83 @@ SCIP_EXPR* SCIPSolver::resolveCollectionMembership(
     }
   }
 
+  // Unwrap Expression(none, {operand}) to get the actual operand
+  const Operand* actualKeyOperand = &keyOperand;
+  if (std::holds_alternative<Expression>(keyOperand)) {
+    const Expression& keyExpr = std::get<Expression>(keyOperand);
+    if (keyExpr._operator == Expression::Operator::none && keyExpr.operands.size() == 1) {
+      actualKeyOperand = &keyExpr.operands[0];
+    }
+  }
+
+  SCIP_VAR* scipKeyVar = nullptr;
+  bool releaseScipKeyVar = false;  // Track if we need to release the auxiliary variable
+
   // Handle variable key
-  if (!std::holds_alternative<std::reference_wrapper<const Variable>>(keyOperand)) {
+  if (std::holds_alternative<std::reference_wrapper<const Variable>>(*actualKeyOperand)) {
+    const Variable& keyVar = std::get<std::reference_wrapper<const Variable>>(*actualKeyOperand).get();
+    auto it = variableMap.find(&keyVar);
+    if (it == variableMap.end()) {
+      throw std::runtime_error("SCIPSolver: Collection key variable not found");
+    }
+    scipKeyVar = it->second;
+  }
+  // Handle IndexedVariable key
+  else if (std::holds_alternative<IndexedVariable>(*actualKeyOperand)) {
+    const IndexedVariable& idxVar = std::get<IndexedVariable>(*actualKeyOperand);
+
+    // Build expression for the indexed variable
+    SCIP_EXPR* keyScipExpr = buildExpression(model, *actualKeyOperand);
+
+    // Get bounds from the IndexedVariables container's variables
+    const IndexedVariables& container = idxVar.container.get();
+    double minBound = std::numeric_limits<double>::max();
+    double maxBound = std::numeric_limits<double>::lowest();
+
+    for (const auto& var : container) {
+      auto it = variableMap.find(&var);
+      if (it != variableMap.end()) {
+        double lb = SCIPvarGetLbGlobal(it->second);
+        double ub = SCIPvarGetUbGlobal(it->second);
+        minBound = std::min(minBound, lb);
+        maxBound = std::max(maxBound, ub);
+      }
+    }
+
+    // Create auxiliary variable for the collection key
+    size_t auxId = auxiliaryCounter++;
+    std::string auxName = "aux_collection_key_" + std::to_string(auxId);
+    SCIP_VAR* auxKeyVar;
+    SCIPcreateVarBasic(scip, &auxKeyVar, auxName.c_str(), minBound, maxBound,
+                       0.0, SCIP_VARTYPE_INTEGER);
+    SCIPaddVar(scip, auxKeyVar);
+
+    // Add constraint: auxKeyVar == keyScipExpr
+    SCIP_EXPR* auxExpr;
+    SCIPcreateExprVar(scip, &auxExpr, auxKeyVar, nullptr, nullptr);
+
+    SCIP_EXPR* diffExprs[] = { auxExpr, keyScipExpr };
+    double coeffs[] = { 1.0, -1.0 };
+    SCIP_EXPR* diffExpr;
+    SCIPcreateExprSum(scip, &diffExpr, 2, diffExprs, coeffs, 0.0, nullptr, nullptr);
+
+    SCIP_CONS* auxCons;
+    std::string consName = "aux_collection_key_cons_" + std::to_string(auxId);
+    SCIPcreateConsBasicNonlinear(scip, &auxCons, consName.c_str(), diffExpr, 0.0, 0.0);
+    SCIPaddCons(scip, auxCons);
+    SCIPreleaseCons(scip, &auxCons);
+    SCIPreleaseExpr(scip, &diffExpr);
+    SCIPreleaseExpr(scip, &auxExpr);
+    SCIPreleaseExpr(scip, &keyScipExpr);
+
+    scipKeyVar = auxKeyVar;
+    releaseScipKeyVar = true;  // Mark for cleanup
+  }
+  else {
     throw std::runtime_error(
       "SCIPSolver: collection() key must be a variable or constant"
     );
   }
-
-  const Variable& keyVar = std::get<std::reference_wrapper<const Variable>>(keyOperand).get();
-  auto it = variableMap.find(&keyVar);
-  if (it == variableMap.end()) {
-    throw std::runtime_error("SCIPSolver: Collection key variable not found");
-  }
-  SCIP_VAR* scipKeyVar = it->second;
 
   // Get key bounds
   double keyLb = SCIPvarGetLbGlobal(scipKeyVar);
@@ -2331,6 +2466,11 @@ SCIP_EXPR* SCIPSolver::resolveCollectionMembership(
   SCIP_EXPR* result = buildElementConstraint(membership2D, computedIndexVar, 0.0);
   SCIPreleaseVar(scip, &computedIndexVar);
 
+  // Release auxiliary variable if created
+  if (releaseScipKeyVar) {
+    SCIPreleaseVar(scip, &scipKeyVar);
+  }
+
   return result;
 }
 
@@ -2387,19 +2527,83 @@ SCIP_EXPR* SCIPSolver::resolveCollectionItem(
     }
   }
 
+  // Unwrap Expression(none, {operand}) to get the actual operand
+  const Operand* actualKeyOperand = &keyOperand;
+  if (std::holds_alternative<Expression>(keyOperand)) {
+    const Expression& keyExpr = std::get<Expression>(keyOperand);
+    if (keyExpr._operator == Expression::Operator::none && keyExpr.operands.size() == 1) {
+      actualKeyOperand = &keyExpr.operands[0];
+    }
+  }
+
+  SCIP_VAR* scipKeyVar = nullptr;
+  bool releaseScipKeyVar = false;  // Track if we need to release the auxiliary variable
+
   // Handle variable key
-  if (!std::holds_alternative<std::reference_wrapper<const Variable>>(keyOperand)) {
+  if (std::holds_alternative<std::reference_wrapper<const Variable>>(*actualKeyOperand)) {
+    const Variable& keyVar = std::get<std::reference_wrapper<const Variable>>(*actualKeyOperand).get();
+    auto it = variableMap.find(&keyVar);
+    if (it == variableMap.end()) {
+      throw std::runtime_error("SCIPSolver: Collection key variable not found");
+    }
+    scipKeyVar = it->second;
+  }
+  // Handle IndexedVariable key
+  else if (std::holds_alternative<IndexedVariable>(*actualKeyOperand)) {
+    const IndexedVariable& idxVar = std::get<IndexedVariable>(*actualKeyOperand);
+
+    // Build expression for the indexed variable
+    SCIP_EXPR* keyScipExpr = buildExpression(model, *actualKeyOperand);
+
+    // Get bounds from the IndexedVariables container's variables
+    const IndexedVariables& container = idxVar.container.get();
+    double minBound = std::numeric_limits<double>::max();
+    double maxBound = std::numeric_limits<double>::lowest();
+
+    for (const auto& var : container) {
+      auto it = variableMap.find(&var);
+      if (it != variableMap.end()) {
+        double lb = SCIPvarGetLbGlobal(it->second);
+        double ub = SCIPvarGetUbGlobal(it->second);
+        minBound = std::min(minBound, lb);
+        maxBound = std::max(maxBound, ub);
+      }
+    }
+
+    // Create auxiliary variable for the collection key
+    size_t auxId = auxiliaryCounter++;
+    std::string auxName = "aux_collection_key_" + std::to_string(auxId);
+    SCIP_VAR* auxKeyVar;
+    SCIPcreateVarBasic(scip, &auxKeyVar, auxName.c_str(), minBound, maxBound,
+                       0.0, SCIP_VARTYPE_INTEGER);
+    SCIPaddVar(scip, auxKeyVar);
+
+    // Add constraint: auxKeyVar == keyScipExpr
+    SCIP_EXPR* auxExpr;
+    SCIPcreateExprVar(scip, &auxExpr, auxKeyVar, nullptr, nullptr);
+
+    SCIP_EXPR* diffExprs[] = { auxExpr, keyScipExpr };
+    double coeffs[] = { 1.0, -1.0 };
+    SCIP_EXPR* diffExpr;
+    SCIPcreateExprSum(scip, &diffExpr, 2, diffExprs, coeffs, 0.0, nullptr, nullptr);
+
+    SCIP_CONS* auxCons;
+    std::string consName = "aux_collection_key_cons_" + std::to_string(auxId);
+    SCIPcreateConsBasicNonlinear(scip, &auxCons, consName.c_str(), diffExpr, 0.0, 0.0);
+    SCIPaddCons(scip, auxCons);
+    SCIPreleaseCons(scip, &auxCons);
+    SCIPreleaseExpr(scip, &diffExpr);
+    SCIPreleaseExpr(scip, &auxExpr);
+    SCIPreleaseExpr(scip, &keyScipExpr);
+
+    scipKeyVar = auxKeyVar;
+    releaseScipKeyVar = true;  // Mark for cleanup
+  }
+  else {
     throw std::runtime_error(
       "SCIPSolver: collection() key must be a variable or constant"
     );
   }
-
-  const Variable& keyVar = std::get<std::reference_wrapper<const Variable>>(keyOperand).get();
-  auto it = variableMap.find(&keyVar);
-  if (it == variableMap.end()) {
-    throw std::runtime_error("SCIPSolver: Collection key variable not found");
-  }
-  SCIP_VAR* scipKeyVar = it->second;
 
   // Get key bounds
   double keyLb = SCIPvarGetLbGlobal(scipKeyVar);
@@ -2441,7 +2645,14 @@ SCIP_EXPR* SCIPSolver::resolveCollectionItem(
     }
 
     // Use 1D element constraint
-    return buildElementConstraint(elements, scipKeyVar, keyLb);
+    SCIP_EXPR* result = buildElementConstraint(elements, scipKeyVar, keyLb);
+
+    // Release auxiliary variable if created
+    if (releaseScipKeyVar) {
+      SCIPreleaseVar(scip, &scipKeyVar);
+    }
+
+    return result;
   }
   // Case B: Index is a variable - requires 2D matrix
   SCIP_VAR* scipIndexVar = nullptr;
@@ -2600,6 +2811,11 @@ SCIP_EXPR* SCIPSolver::resolveCollectionItem(
   // Use element constraint with computed index (offset 0 since we already adjusted)
   SCIP_EXPR* result = buildElementConstraint(elements2D, computedIndexVar, 0.0);
   SCIPreleaseVar(scip, &computedIndexVar);
+
+  // Release auxiliary variable if created
+  if (releaseScipKeyVar) {
+    SCIPreleaseVar(scip, &scipKeyVar);
+  }
 
   return result;
 }
