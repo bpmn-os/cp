@@ -323,6 +323,206 @@ void test_at_different_keys_scip() {
   std::cout << GREEN << "Test 10 PASSED: at(2, collection(key)) returns correct values for different keys" << RESET << std::endl;
 }
 
+// Test 11: element_of(variable_value, collection(key))
+void test_element_of_variable_scip() {
+  CP::Model model;
+
+  // collection(1) = [10, 20, 30]
+  model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+    int k = (int)std::round(key);
+    if (k == 1) return std::vector<double>{10.0, 20.0, 30.0};
+    return std::unexpected("Collection key not found");
+  });
+
+  auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 1.0, 1.0);
+  auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
+  auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+
+  // Check if value is in collection(key)
+  model.addConstraint(result == CP::element_of(value, CP::collection(key)));
+  model.addConstraint(value == 20.0);  // Force value to be 20
+
+  CP::SCIPSolver solver(model);
+  auto solution = solver.solve(model);
+
+  assert(solution.has_value());
+  double resultVal = solution->getVariableValue(result).value();
+  assert(std::abs(resultVal - 1.0) < 1e-5);  // 20 is in [10, 20, 30]
+
+  std::cout << GREEN << "Test 11 PASSED: element_of(variable, collection(1)) with value=20 returns 1" << RESET << std::endl;
+}
+
+// Test 12: element_of(variable_value, collection(key)) - value NOT in collection
+void test_element_of_variable_not_found_scip() {
+  CP::Model model;
+
+  model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+    int k = (int)std::round(key);
+    if (k == 1) return std::vector<double>{10.0, 20.0, 30.0};
+    return std::unexpected("Collection key not found");
+  });
+
+  auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 1.0, 1.0);
+  auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
+  auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+
+  model.addConstraint(result == CP::element_of(value, CP::collection(key)));
+  model.addConstraint(value == 25.0);  // 25 is NOT in [10, 20, 30]
+
+  CP::SCIPSolver solver(model);
+  auto solution = solver.solve(model);
+
+  assert(solution.has_value());
+  double resultVal = solution->getVariableValue(result).value();
+  assert(std::abs(resultVal - 0.0) < 1e-5);  // 25 is NOT in collection
+
+  std::cout << GREEN << "Test 12 PASSED: element_of(variable, collection(1)) with value=25 returns 0" << RESET << std::endl;
+}
+
+// Test 13: element_of(variable_value, collection(variable_key))
+void test_element_of_variable_both_scip() {
+  CP::Model model;
+
+  // collection(1) = [10, 20, 30]
+  // collection(2) = [40, 50, 60]
+  model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+    int k = (int)std::round(key);
+    if (k == 1) return std::vector<double>{10.0, 20.0, 30.0};
+    if (k == 2) return std::vector<double>{40.0, 50.0, 60.0};
+    return std::unexpected("Collection key not found");
+  });
+
+  auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 1.0, 2.0);
+  auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 60.0);
+  auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+
+  model.addConstraint(result == CP::element_of(value, CP::collection(key)));
+  model.addConstraint(key == 2.0);    // Select collection 2: [40, 50, 60]
+  model.addConstraint(value == 50.0); // 50 is in collection 2
+
+  CP::SCIPSolver solver(model);
+  auto solution = solver.solve(model);
+
+  assert(solution.has_value());
+  double resultVal = solution->getVariableValue(result).value();
+  assert(std::abs(resultVal - 1.0) < 1e-5);  // 50 is in [40, 50, 60]
+
+  std::cout << GREEN << "Test 13 PASSED: element_of(variable, collection(variable_key)) returns 1" << RESET << std::endl;
+}
+
+// Test 14: not_element_of(variable_value, collection(key)) - value IS in collection
+void test_not_element_of_variable_found_scip() {
+  CP::Model model;
+
+  model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+    int k = (int)std::round(key);
+    if (k == 1) return std::vector<double>{10.0, 20.0, 30.0};
+    return std::unexpected("Collection key not found");
+  });
+
+  auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 1.0, 1.0);
+  auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
+  auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+
+  model.addConstraint(result == CP::not_element_of(value, CP::collection(key)));
+  model.addConstraint(value == 20.0);  // 20 IS in [10, 20, 30]
+
+  CP::SCIPSolver solver(model);
+  auto solution = solver.solve(model);
+
+  assert(solution.has_value());
+  double resultVal = solution->getVariableValue(result).value();
+  assert(std::abs(resultVal - 0.0) < 1e-5);  // not_element_of returns 0 when found
+
+  std::cout << GREEN << "Test 14 PASSED: not_element_of(variable, collection(1)) with value=20 returns 0" << RESET << std::endl;
+}
+
+// Test 15: not_element_of(variable_value, collection(key)) - value NOT in collection
+void test_not_element_of_variable_not_found_scip() {
+  CP::Model model;
+
+  model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+    int k = (int)std::round(key);
+    if (k == 1) return std::vector<double>{10.0, 20.0, 30.0};
+    return std::unexpected("Collection key not found");
+  });
+
+  auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 1.0, 1.0);
+  auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
+  auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+
+  model.addConstraint(result == CP::not_element_of(value, CP::collection(key)));
+  model.addConstraint(value == 35.0);  // 35 is NOT in [10, 20, 30]
+
+  CP::SCIPSolver solver(model);
+  auto solution = solver.solve(model);
+
+  assert(solution.has_value());
+  double resultVal = solution->getVariableValue(result).value();
+  assert(std::abs(resultVal - 1.0) < 1e-5);  // not_element_of returns 1 when not found
+
+  std::cout << GREEN << "Test 15 PASSED: not_element_of(variable, collection(1)) with value=35 returns 1" << RESET << std::endl;
+}
+
+// Test 16: at(variable_index, collection(key))
+void test_at_variable_index_scip() {
+  CP::Model model;
+
+  // collection(1) = [10, 20, 30]
+  model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+    int k = (int)std::round(key);
+    if (k == 1) return std::vector<double>{10.0, 20.0, 30.0};
+    return std::unexpected("Collection key not found");
+  });
+
+  auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 1.0, 1.0);
+  auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 1.0, 3.0);
+  auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+
+  model.addConstraint(result == CP::at(index, CP::collection(key)));
+  model.addConstraint(index == 2.0);  // Get element at index 2
+
+  CP::SCIPSolver solver(model);
+  auto solution = solver.solve(model);
+
+  assert(solution.has_value());
+  double resultVal = solution->getVariableValue(result).value();
+  assert(std::abs(resultVal - 20.0) < 1e-5);  // at(2, [10, 20, 30]) = 20
+
+  std::cout << GREEN << "Test 16 PASSED: at(variable_index, collection(1)) with index=2 returns 20" << RESET << std::endl;
+}
+
+// Test 17: at(variable_index, collection(variable_key))
+void test_at_variable_both_scip() {
+  CP::Model model;
+
+  // collection(1) = [10, 20, 30]
+  // collection(2) = [40, 50, 60]
+  model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+    int k = (int)std::round(key);
+    if (k == 1) return std::vector<double>{10.0, 20.0, 30.0};
+    if (k == 2) return std::vector<double>{40.0, 50.0, 60.0};
+    return std::unexpected("Collection key not found");
+  });
+
+  auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 1.0, 2.0);
+  auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 1.0, 3.0);
+  auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+
+  model.addConstraint(result == CP::at(index, CP::collection(key)));
+  model.addConstraint(key == 2.0);    // Select collection 2: [40, 50, 60]
+  model.addConstraint(index == 3.0);  // Get element at index 3
+
+  CP::SCIPSolver solver(model);
+  auto solution = solver.solve(model);
+
+  assert(solution.has_value());
+  double resultVal = solution->getVariableValue(result).value();
+  assert(std::abs(resultVal - 60.0) < 1e-5);  // at(3, [40, 50, 60]) = 60
+
+  std::cout << GREEN << "Test 17 PASSED: at(variable_index, collection(variable_key)) returns 60" << RESET << std::endl;
+}
+
 int main() {
   int testNum = 0;
 
@@ -355,6 +555,27 @@ int main() {
     testNum++;
 
     test_at_different_keys_scip();
+    testNum++;
+
+    test_element_of_variable_scip();
+    testNum++;
+
+    test_element_of_variable_not_found_scip();
+    testNum++;
+
+    test_element_of_variable_both_scip();
+    testNum++;
+
+    test_not_element_of_variable_found_scip();
+    testNum++;
+
+    test_not_element_of_variable_not_found_scip();
+    testNum++;
+
+    test_at_variable_index_scip();
+    testNum++;
+
+    test_at_variable_both_scip();
     testNum++;
   } catch (const std::exception& e) {
     std::cerr << "Test " << (testNum + 1) << " FAILED: " << e.what() << std::endl;
