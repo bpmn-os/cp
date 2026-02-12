@@ -68,24 +68,29 @@ int main()
     auto cpExpression2 = limexExpression2.evaluate( variables, collections );
     auto& constraint2 = model.addConstraint(cpExpression2);
 
-    std::vector<double> collection1{ 4, 3, 2, 1 };
-    std::vector<double> collection2{ 0, 8, 15 };
+    std::vector<double> collection0{ 4, 3, 2, 1 };
+    std::vector<double> collection1{ 0, 8, 15 };
 
     model.setCollectionLookup(
-      [&collection1,&collection2](double value) -> std::expected<std::vector<double>, std::string> {
-        return ( value == 42 ? collection1 : collection2 );
-      }
+      [&collection0,&collection1](double key) -> std::expected<std::vector<double>, std::string> {
+        if (key == 0.0) return collection0;
+        if (key == 1.0) return collection1;
+        return std::unexpected("Collection key not found");
+      },
+      2  // 2 collections: 0 and 1
     );
 
     CP::Solution solution(model);
 
-    solution.setVariableValue(x,42);
-    assert( !solution.evaluate(constraint1).value() );
-    assert( solution.evaluate(constraint2).value() );
+    // x=0: use collection0 = {4, 3, 2, 1}, count=4 (!=3), at(1)=4 (true)
+    solution.setVariableValue(x, 0.0);
+    assert( !solution.evaluate(constraint1).value() );  // count != 3
+    assert( solution.evaluate(constraint2).value() );   // x[1] == 4
 
-    solution.setVariableValue(x,15);
-    assert( solution.evaluate(constraint1).value() );
-    assert( !solution.evaluate(constraint2).value() );
+    // x=1: use collection1 = {0, 8, 15}, count=3 (==3), at(1)=0 (!=4)
+    solution.setVariableValue(x, 1.0);
+    assert( solution.evaluate(constraint1).value() );   // count == 3
+    assert( !solution.evaluate(constraint2).value() );  // x[1] != 4
   }
 
   std::cout << "LIMEX tests passed." << std::endl;

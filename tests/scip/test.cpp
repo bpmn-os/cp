@@ -1723,12 +1723,12 @@ int main() {
         // Set up collection lookup
         model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
             int k = (int)std::round(key);
-            if (k == 1) return std::vector<double>{10.0, 20.0, 30.0};
+            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
             return std::unexpected("Collection key not found");
-        });
+        }, 1);
 
         // Create collection(key)[index] using Expression::Operator::at directly
-        const auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 1.0, 1.0);
+        const auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         std::vector<CP::Operand> collectionOperands;
         collectionOperands.push_back(std::ref(key));
         CP::Expression collectionExpr(CP::Expression::Operator::collection, collectionOperands);
@@ -1750,7 +1750,7 @@ int main() {
         auto resultVal = solution.getVariableValue(result_var);
 
         assert(resultVal.has_value());
-        // collection(1)[2] should be 20
+        // collection(0)[2] should be 20
         assert(std::abs(resultVal.value() - 20.0) < 1e-5);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Expression::Operator::at with collection" << RESET << std::endl;
@@ -1774,7 +1774,7 @@ int main() {
                 return std::unexpected("Collection index out of bounds");
             }
             return mockCollections[index];
-        });
+        }, mockCollections.size());
 
         // Use collection data to build constraints
         auto collection = model.getCollection(1.0).value();

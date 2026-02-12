@@ -886,8 +886,12 @@ public:
     return constraints.back();
   };
 
-  inline void setCollectionLookup( std::function< std::expected<std::vector<double>, std::string>(double) > lookup ) {
+  inline void setCollectionLookup(
+    std::function< std::expected<std::vector<double>, std::string>(double) > lookup,
+    size_t numberOfCollections
+  ) {
     _collectionLookup = std::move(lookup);
+    _numberOfCollections = numberOfCollections;
   }
 
   inline std::expected<std::vector<double>, std::string> getCollection(double key) const {
@@ -895,6 +899,14 @@ public:
       return std::unexpected("Collection lookup not set in Model");
     }
     return _collectionLookup(key);
+  }
+
+  inline size_t getNumberOfCollections() const {
+    return _numberOfCollections;
+  }
+
+  inline bool hasCollections() const {
+    return _numberOfCollections > 0;
   }
 
   inline std::string stringify() const {
@@ -935,6 +947,7 @@ private:
   std::deque< IndexedVariables > indexedVariables;
   std::deque< Expression > constraints;
   std::function< std::expected<std::vector<double>, std::string>(double) > _collectionLookup;
+  size_t _numberOfCollections = 0;
 };
 
 /*******************************************

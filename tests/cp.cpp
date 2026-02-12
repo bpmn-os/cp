@@ -206,9 +206,14 @@ int main()
     CP::Model model;
 
     // Set collection lookup on model only (Solution will delegate to Model)
-    model.setCollectionLookup(collectionLookup);
+    // Collections are numbered 0, 1, 2
+    model.setCollectionLookup(collectionLookup, mockCollections.size());
 
     // Test Model::getCollection directly
+    auto coll0 = model.getCollection(0.0);
+    assert( coll0.has_value() );
+    assert( coll0.value().size() == 0 );
+
     auto coll1 = model.getCollection(1.0);
     assert( coll1.has_value() );
     assert( coll1.value().size() == 3 );
@@ -223,7 +228,7 @@ int main()
     auto collBad = model.getCollection(99.0);
     assert( !collBad.has_value() );
 
-    // Get collection data for use in constraints
+    // Get collection data for use in constraints (collection at index 1)
     auto collection = model.getCollection(1.0).value();
 
     CP::Solution solution(model);

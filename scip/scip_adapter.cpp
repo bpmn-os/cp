@@ -2050,18 +2050,32 @@ SCIP_EXPR* SCIPSolver::resolveCollectionOperation(
     );
   }
 
-  // Get key bounds
-  double lb = SCIPvarGetLbGlobal(scipKeyVar);
-  double ub = SCIPvarGetUbGlobal(scipKeyVar);
+  // Use collection keys (0 to numberOfCollections-1)
+  if (!model.hasCollections()) {
+    throw std::runtime_error(
+      std::string("SCIPSolver: No collection keys provided to model. ") +
+      "Use model.setCollectionLookup(lookup, numberOfCollections) where collections are numbered 0 to numberOfCollections-1."
+    );
+  }
 
-  // Pre-compute ONLY the requested operation (lazy evaluation)
-  int numKeys = (int)std::floor(ub) - (int)std::ceil(lb) + 1;
-  std::vector<double> results(numKeys);
+  size_t numberOfCollections = model.getNumberOfCollections();
+  if (numberOfCollections == 0) {
+    throw std::runtime_error("SCIPSolver: numberOfCollections is 0");
+  }
 
-  for (int i = 0; i < numKeys; i++) {
-    int key = (int)std::ceil(lb) + i;
+  // Build keys: 0, 1, 2, ..., numberOfCollections-1
+  std::vector<double> keys(numberOfCollections);
+  for (size_t i = 0; i < numberOfCollections; i++) {
+    keys[i] = (double)i;
+  }
 
-    auto collectionResult = model.getCollection((double)key);
+  // Pre-compute the requested operation for all collection keys
+  std::vector<double> results(keys.size());
+
+  for (size_t i = 0; i < keys.size(); i++) {
+    double key = keys[i];
+
+    auto collectionResult = model.getCollection(key);
     if (!collectionResult) {
       throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(key) +
                                " not found in model");
@@ -2103,7 +2117,8 @@ SCIP_EXPR* SCIPSolver::resolveCollectionOperation(
   }
 
   // Use element constraint to select result
-  SCIP_EXPR* result = buildElementConstraint(results, scipKeyVar, lb);
+  // Keys start at 0, so: result = results[scipKeyVar]
+  SCIP_EXPR* result = buildElementConstraint(results, scipKeyVar, 0.0);
 
   // Release auxiliary variable if created
   if (releaseScipKeyVar) {
@@ -2309,10 +2324,26 @@ SCIP_EXPR* SCIPSolver::resolveCollectionMembership(
     );
   }
 
-  // Get key bounds
-  double keyLb = SCIPvarGetLbGlobal(scipKeyVar);
-  double keyUb = SCIPvarGetUbGlobal(scipKeyVar);
-  int numKeys = (int)std::floor(keyUb) - (int)std::ceil(keyLb) + 1;
+  // Use collection keys (0 to numberOfCollections-1)
+  if (!model.hasCollections()) {
+    throw std::runtime_error(
+      std::string("SCIPSolver: No collection keys provided to model. ") +
+      "Use model.setCollectionLookup(lookup, numberOfCollections) where collections are numbered 0 to numberOfCollections-1."
+    );
+  }
+
+  size_t numberOfCollections = model.getNumberOfCollections();
+  if (numberOfCollections == 0) {
+    throw std::runtime_error("SCIPSolver: numberOfCollections is 0");
+  }
+
+  // Build keys: 0, 1, 2, ..., numberOfCollections-1
+  std::vector<double> keys(numberOfCollections);
+  for (size_t i = 0; i < numberOfCollections; i++) {
+    keys[i] = (double)i;
+  }
+
+  int numKeys = keys.size();
 
   // Case A: Value is a constant
   if (std::holds_alternative<double>(valueOperand)) {
@@ -2322,8 +2353,8 @@ SCIP_EXPR* SCIPSolver::resolveCollectionMembership(
     std::vector<double> membership(numKeys);
 
     for (int i = 0; i < numKeys; i++) {
-      int key = (int)std::ceil(keyLb) + i;
-      auto collectionResult = model.getCollection((double)key);
+      double key = keys[i];
+      auto collectionResult = model.getCollection(key);
       if (!collectionResult) {
         throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(key) +
                                  " not found in model");
@@ -2337,7 +2368,7 @@ SCIP_EXPR* SCIPSolver::resolveCollectionMembership(
     }
 
     // Use 1D element constraint
-    return buildElementConstraint(membership, scipKeyVar, keyLb);
+    return buildElementConstraint(membership, scipKeyVar, 0.0);
   }
 
   // Case B: Value is a variable - requires 2D matrix
@@ -2382,12 +2413,12 @@ SCIP_EXPR* SCIPSolver::resolveCollectionMembership(
   int numValues = (int)std::floor(valueUb) - (int)std::ceil(valueLb) + 1;
 
   // Build 2D membership matrix (flattened to 1D)
-  // Index formula: (key - keyLb) * numValues + (value - valueLb)
+  // Index formula: (key - 0.0) * numValues + (value - valueLb)
   std::vector<double> membership2D(numKeys * numValues);
 
   for (int ki = 0; ki < numKeys; ki++) {
-    int key = (int)std::ceil(keyLb) + ki;
-    auto collectionResult = model.getCollection((double)key);
+    double key = keys[ki];
+    auto collectionResult = model.getCollection(key);
     if (!collectionResult) {
       throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(key) +
                                " not found in model");
@@ -2405,18 +2436,18 @@ SCIP_EXPR* SCIPSolver::resolveCollectionMembership(
     }
   }
 
-  // Create computed index: (key - keyLb) * numValues + (value - valueLb)
+  // Create computed index: (key - 0.0) * numValues + (value - valueLb)
   SCIP_EXPR* keyExpr;
   SCIPcreateExprVar(scip, &keyExpr, scipKeyVar, nullptr, nullptr);
 
   SCIP_EXPR* valueExpr;
   SCIPcreateExprVar(scip, &valueExpr, scipValueVar, nullptr, nullptr);
 
-  // (key - keyLb)
+  // key (since keys start at 0, no offset needed)
   SCIP_EXPR* keyMinusOffset;
-  SCIPcreateExprSum(scip, &keyMinusOffset, 1, &keyExpr, nullptr, -keyLb, nullptr, nullptr);
+  SCIPcreateExprSum(scip, &keyMinusOffset, 1, &keyExpr, nullptr, 0.0, nullptr, nullptr);
 
-  // (key - keyLb) * numValues
+  // key * numValues
   SCIP_EXPR* keyTimesNumValues;
   double keyCoeff = (double)numValues;
   SCIPcreateExprSum(scip, &keyTimesNumValues, 1, &keyMinusOffset, &keyCoeff, 0.0, nullptr, nullptr);
@@ -2605,10 +2636,26 @@ SCIP_EXPR* SCIPSolver::resolveCollectionItem(
     );
   }
 
-  // Get key bounds
-  double keyLb = SCIPvarGetLbGlobal(scipKeyVar);
-  double keyUb = SCIPvarGetUbGlobal(scipKeyVar);
-  int numKeys = (int)std::floor(keyUb) - (int)std::ceil(keyLb) + 1;
+  // Use collection keys (0 to numberOfCollections-1)
+  if (!model.hasCollections()) {
+    throw std::runtime_error(
+      std::string("SCIPSolver: No collection keys provided to model. ") +
+      "Use model.setCollectionLookup(lookup, numberOfCollections) where collections are numbered 0 to numberOfCollections-1."
+    );
+  }
+
+  size_t numberOfCollections = model.getNumberOfCollections();
+  if (numberOfCollections == 0) {
+    throw std::runtime_error("SCIPSolver: numberOfCollections is 0");
+  }
+
+  // Build keys: 0, 1, 2, ..., numberOfCollections-1
+  std::vector<double> keys(numberOfCollections);
+  for (size_t i = 0; i < numberOfCollections; i++) {
+    keys[i] = (double)i;
+  }
+
+  int numKeys = keys.size();
 
   // Case A: Index is a constant
   if (std::holds_alternative<double>(indexOperand)) {
@@ -2623,7 +2670,7 @@ SCIP_EXPR* SCIPSolver::resolveCollectionItem(
     std::vector<double> elements(numKeys);
 
     for (int i = 0; i < numKeys; i++) {
-      int key = (int)std::ceil(keyLb) + i;
+      double key = keys[i];
       auto collectionResult = model.getCollection((double)key);
       if (!collectionResult) {
         throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(key) +
@@ -2645,7 +2692,7 @@ SCIP_EXPR* SCIPSolver::resolveCollectionItem(
     }
 
     // Use 1D element constraint
-    SCIP_EXPR* result = buildElementConstraint(elements, scipKeyVar, keyLb);
+    SCIP_EXPR* result = buildElementConstraint(elements, scipKeyVar, 0.0);
 
     // Release auxiliary variable if created
     if (releaseScipKeyVar) {
@@ -2697,8 +2744,8 @@ SCIP_EXPR* SCIPSolver::resolveCollectionItem(
 
   // Validate that all indices are within bounds for all collections
   for (int ki = 0; ki < numKeys; ki++) {
-    int key = (int)std::ceil(keyLb) + ki;
-    auto collectionResult = model.getCollection((double)key);
+    double key = keys[ki];
+    auto collectionResult = model.getCollection(key);
     if (!collectionResult) {
       throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(key) +
                                " not found in model");
@@ -2717,14 +2764,14 @@ SCIP_EXPR* SCIPSolver::resolveCollectionItem(
   }
 
   // Build 2D matrix of elements (flattened to 1D)
-  // Index formula: (key - keyLb) * numIndices + (index - indexLb)
+  // Index formula: (key - 0.0) * numIndices + (index - indexLb)
   std::vector<double> elements2D(numKeys * numIndices);
   double minElement = std::numeric_limits<double>::max();
   double maxElement = std::numeric_limits<double>::lowest();
 
   for (int ki = 0; ki < numKeys; ki++) {
-    int key = (int)std::ceil(keyLb) + ki;
-    auto collectionResult = model.getCollection((double)key);
+    double key = keys[ki];
+    auto collectionResult = model.getCollection(key);
     if (!collectionResult) {
       throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(key) +
                                " not found in model");
@@ -2751,16 +2798,16 @@ SCIP_EXPR* SCIPSolver::resolveCollectionItem(
     }
   }
 
-  // Create computed index: (key - keyLb) * numIndices + (index - indexLb)
+  // Create computed index: (key - 0.0) * numIndices + (index - indexLb)
   SCIP_EXPR* keyExpr;
   SCIPcreateExprVar(scip, &keyExpr, scipKeyVar, nullptr, nullptr);
 
   SCIP_EXPR* indexExpr;
   SCIPcreateExprVar(scip, &indexExpr, scipIndexVar, nullptr, nullptr);
 
-  // (key - keyLb)
+  // (key - 0.0)
   SCIP_EXPR* keyMinusOffset;
-  SCIPcreateExprSum(scip, &keyMinusOffset, 1, &keyExpr, nullptr, -keyLb, nullptr, nullptr);
+  SCIPcreateExprSum(scip, &keyMinusOffset, 1, &keyExpr, nullptr, -0.0, nullptr, nullptr);
 
   // (key - keyLb) * numIndices
   SCIP_EXPR* keyTimesNumIndices;
