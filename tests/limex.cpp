@@ -4,6 +4,9 @@
 #include "cp.h"
 #include "limex_handle.h"
 
+#define GREEN "\033[32m"
+#define RESET "\033[0m"
+
 int main()
 {
   LIMEX::Handle<CP::Expression,CP::Expression> handle;
@@ -15,6 +18,7 @@ int main()
     auto limexExpression = LIMEX::Expression<CP::Expression,CP::Expression>("z not in {3, abs(x), y + 5}", handle);
     auto cpExpression = limexExpression.evaluate({z, x, y});
     assert( cpExpression.stringify() == "n_ary_if( z == 3.00, 0.00, z == if_then_else( x >= 0.00, x, -x ), 0.00, z == y + 5.00, 0.00, 1.00 )" );
+    std::cout << GREEN << "LIMEX not_in test PASSED" << RESET << std::endl;
   }
 
   {
@@ -26,6 +30,7 @@ int main()
     std::vector< CP::Expression > collectionVariables = {};
     auto cpExpression = limexExpression.evaluate( variables, collectionVariables );
     assert( cpExpression.stringify() == "min( 3.00, x, y + 5.00 )" );
+    std::cout << GREEN << "LIMEX min test PASSED" << RESET << std::endl;
   }
 
   {
@@ -42,6 +47,7 @@ int main()
     std::vector< CP::Expression > collectionVariables = { z };
     auto cpExpression = limexExpression.evaluate( variables, collectionVariables );
     assert( cpExpression.stringify() == "collection(z)[v]" );
+    std::cout << GREEN << "LIMEX collection indexed access test PASSED" << RESET << std::endl;
   }
 
   {
@@ -52,6 +58,7 @@ int main()
     std::vector< CP::Expression > collectionVariables = { z };
     auto cpExpression = limexExpression.evaluate( variables, collectionVariables );
     assert( cpExpression.stringify() == "count( collection(z) )" );
+    std::cout << GREEN << "LIMEX count collection test PASSED" << RESET << std::endl;
   }
 
   {
@@ -91,8 +98,9 @@ int main()
     solution.setVariableValue(x, 1.0);
     assert( solution.evaluate(constraint1).value() );   // count == 3
     assert( !solution.evaluate(constraint2).value() );  // x[1] != 4
+    std::cout << GREEN << "LIMEX collection evaluation test PASSED" << RESET << std::endl;
   }
 
-  std::cout << "LIMEX tests passed." << std::endl;
+  std::cout << GREEN << "All LIMEX tests passed." << RESET << std::endl;
   return 0;
 }

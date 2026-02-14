@@ -1,7 +1,10 @@
 #include <iostream>
 #include <cassert>
 
-#include "cp.h" 
+#include "cp.h"
+
+#define GREEN "\033[32m"
+#define RESET "\033[0m" 
 
 int main()
 {
@@ -9,18 +12,6 @@ int main()
   {
     CP::Model model;
  
-/*
-    auto objectiveSense = model.getObjectiveSense();
-    if ( objectiveSense == CP::Model::ObjectiveSense::FEASIBLE ) {
-      std::cout << ("Objective is to find a feasible solution.") << std::endl;
-    }
-    else if ( objectiveSense == CP::Model::ObjectiveSense::MINIMIZE ) {
-      std::cout << ("Objective is to find a solution that minimizes the objective.") << std::endl;
-    }
-    else if ( objectiveSense == CP::Model::ObjectiveSense::MAXIMIZE ) {
-      std::cout << ("Objective is to find a solution that maximizes the objective.") << std::endl;
-    }
-*/  
     auto& x = model.addRealVariable("x");
     assert( x.stringify() == "x ∈ [ -infinity, infinity ]");
     auto& y = model.addBinaryVariable("y");
@@ -107,10 +98,10 @@ int main()
     else {
       assert(!"Error");
     }
-//    std::cout << "Model: " << model.stringify() << std::endl;
+    std::cout << GREEN << "Variables, expressions, constraints test PASSED" << RESET << std::endl;
   }
 
-  { 
+  {
     CP::Model model;
     auto& x = model.addRealVariable("x");
     auto& y = model.addIntegerVariable("y");
@@ -137,6 +128,7 @@ int main()
     assert( solution.complete() );
 
     assert( solution.errors().empty() );
+    std::cout << GREEN << "Solution test PASSED" << RESET << std::endl;
   }
 
   // Test custom operator "at" evaluation
@@ -157,6 +149,7 @@ int main()
     auto resultVal = solution.evaluate(result);
     assert( resultVal.has_value() );
     assert( resultVal.value() == 10.0 );
+    std::cout << GREEN << "Custom operator 'at' test PASSED" << RESET << std::endl;
   }
 
   // Test count operator with deduced variables (mimics multiinstanceactivity scenario)
@@ -183,6 +176,7 @@ int main()
     // Verify complete() works (this was causing bad_function_call before)
     assert( solution.complete() );
     assert( solution.errors().empty() );
+    std::cout << GREEN << "Custom operator 'count' test PASSED" << RESET << std::endl;
   }
 
   // Test collection lookup in Model with Solution delegation
@@ -248,9 +242,51 @@ int main()
     auto countVal = solution.evaluate(numElements);
     assert( countVal.has_value() );
     assert( countVal.value() == 3.0 );
+    std::cout << GREEN << "Collection lookup test PASSED" << RESET << std::endl;
   }
 
-  std::cout << "Basic CP tests passed." << std::endl;
+  // Test Collection struct creates Expression with Operator::collection
+  {
+    CP::Model model;
+    auto& key = model.addIntegerVariable("key");
+
+    // Create collection expression via Collection struct
+    CP::Expression collExpr = CP::Collection(key).expression();
+
+    // Verify it has the right operator
+    assert(collExpr._operator == CP::Expression::Operator::collection);
+    assert(collExpr.operands.size() == 1);
+
+    // Verify the operand is the key variable
+    assert(std::holds_alternative<std::reference_wrapper<const CP::Variable>>(collExpr.operands[0]));
+    const CP::Variable& varRef = std::get<std::reference_wrapper<const CP::Variable>>(collExpr.operands[0]);
+    assert(&varRef == &key);
+    std::cout << GREEN << "Collection struct test PASSED" << RESET << std::endl;
+  }
+
+  // Test count() free function creates custom operator expression
+  {
+    CP::Model model;
+    auto& key = model.addIntegerVariable("key");
+
+    // Create count(Collection(key)) expression
+    CP::Expression countExpr = CP::count(CP::Collection(key));
+
+    // Verify it's a custom operator
+    assert(countExpr._operator == CP::Expression::Operator::custom);
+    assert(countExpr.operands.size() == 2);  // custom index + collection expression
+
+    // First operand should be the custom operator index for "count"
+    assert(std::holds_alternative<size_t>(countExpr.operands[0]));
+
+    // Second operand should be the collection expression
+    assert(std::holds_alternative<CP::Expression>(countExpr.operands[1]));
+    const CP::Expression& collExpr = std::get<CP::Expression>(countExpr.operands[1]);
+    assert(collExpr._operator == CP::Expression::Operator::collection);
+    std::cout << GREEN << "Collection count() test PASSED" << RESET << std::endl;
+  }
+
+  std::cout << GREEN << "All CP tests passed." << RESET << std::endl;
   return 0;
 }
 

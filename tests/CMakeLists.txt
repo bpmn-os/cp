@@ -3,11 +3,6 @@ add_executable(test_cp cp.cpp)
 target_link_libraries(test_cp PRIVATE cp)
 add_test(NAME test_cp COMMAND test_cp)
 
-# Collection wrapper test (always built - header-only)
-add_executable(test_collection collection_test.cpp)
-target_link_libraries(test_collection PRIVATE cp)
-add_test(NAME test_collection COMMAND test_collection)
-
 # LIMEX tests (only if LIMEX was fetched)
 if(BUILD_LIMEX_TESTS AND limex_SOURCE_DIR)
     add_executable(test_limex limex.cpp)
