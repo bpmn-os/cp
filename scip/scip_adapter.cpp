@@ -877,7 +877,8 @@ SCIP_EXPR* SCIPSolver::buildExpression(const Model& model, const Operand& operan
           }
 
           SCIP_CONS* cons;
-          SCIPcreateConsBasicNonlinear(scip, &cons, (opName + "_bound").c_str(),
+          std::string boundConsName = opName + "_bound_" + auxName + "_" + std::to_string(auxiliaryCounter++);
+          SCIPcreateConsBasicNonlinear(scip, &cons, boundConsName.c_str(),
                         diffExpr, -SCIPinfinity(scip), 0.0);
           SCIPaddCons(scip, cons);
           SCIPreleaseCons(scip, &cons);
@@ -907,7 +908,8 @@ SCIP_EXPR* SCIPSolver::buildExpression(const Model& model, const Operand& operan
                    1.0, nullptr, nullptr);
 
         SCIP_CONS* eqCons;
-        SCIPcreateConsBasicNonlinear(scip, &eqCons, (opName + "_eq").c_str(),
+        std::string eqConsName = opName + "_eq_" + auxName;
+        SCIPcreateConsBasicNonlinear(scip, &eqCons, eqConsName.c_str(),
                       productExpr, 0.0, 0.0);
         SCIPaddCons(scip, eqCons);
         SCIPreleaseCons(scip, &eqCons);
