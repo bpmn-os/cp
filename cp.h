@@ -674,9 +674,14 @@ Expression customOperator(const std::string& name, Terms&&... terms) {
   return Expression(Expression::Operator::custom, std::move(operands));
 }
 
+struct Collection;  // Forward declaration
+
 template<
-  typename... Terms, 
-  typename = std::enable_if_t< !std::disjunction_v< std::is_same< std::decay_t<Terms>, std::vector<Expression> >...> >
+  typename... Terms,
+  typename = std::enable_if_t< !std::disjunction_v<
+    std::is_same< std::decay_t<Terms>, std::vector<Expression> >...,
+    std::is_same< std::decay_t<Terms>, Collection >...
+  > >
 >
 Expression max(Terms&&... terms) {
   return customOperator("max", std::forward<Terms>(terms)...);
@@ -702,8 +707,11 @@ inline Expression max(std::vector<Expression> terms) {
 
 
 template<
-  typename... Terms, 
-  typename = std::enable_if_t< !std::disjunction_v< std::is_same< std::decay_t<Terms>, std::vector<Expression> >...> >
+  typename... Terms,
+  typename = std::enable_if_t< !std::disjunction_v<
+    std::is_same< std::decay_t<Terms>, std::vector<Expression> >...,
+    std::is_same< std::decay_t<Terms>, Collection >...
+  > >
 >
 Expression min(Terms&&... terms) {
   return customOperator("min", std::forward<Terms>(terms)...);
@@ -742,62 +750,83 @@ inline Expression if_then_else(Expression condition, Expression ifExpression, Ex
  * Collection operations
  ******************************************/
 
-// collection() - wraps a key expression to indicate collection lookup
-inline Expression collection(const Variable& keyVar) {
-  return Expression(Expression::Operator::collection, { std::ref(keyVar) });
-}
+struct Collection {
+  Collection(const Variable& key) : _key(std::ref(key)) {}
+  Collection(double key) : _key(key) {}
 
-inline Expression collection(const Expression& keyExpr) {
-  return Expression(Expression::Operator::collection, { keyExpr });
-}
+  // Indexed access
+  Expression operator[](const Variable& index) const {
+    return Expression(Expression::Operator::at, { expression(), std::ref(index) });
+  }
+
+  Expression operator[](double index) const {
+    return Expression(Expression::Operator::at, { expression(), index });
+  }
+
+  // For use by free functions
+  Expression expression() const {
+    if (std::holds_alternative<std::reference_wrapper<const Variable>>(_key)) {
+      return Expression(Expression::Operator::collection, { std::get<std::reference_wrapper<const Variable>>(_key) });
+    } else {
+      return Expression(Expression::Operator::collection, { std::get<double>(_key) });
+    }
+  }
+
+private:
+  std::variant<std::reference_wrapper<const Variable>, double> _key;
+};
 
 // Aggregate operations on collections
-inline Expression count(const Expression& expr) {
+inline Expression count(const Collection& c) {
   return Expression(Expression::Operator::custom,
-                   { Expression::getCustomIndex("count"), expr });
+                   { Expression::getCustomIndex("count"), c.expression() });
 }
 
-inline Expression sum(const Expression& expr) {
+inline Expression sum(const Collection& c) {
   return Expression(Expression::Operator::custom,
-                   { Expression::getCustomIndex("sum"), expr });
+                   { Expression::getCustomIndex("sum"), c.expression() });
 }
 
-inline Expression avg(const Expression& expr) {
+inline Expression avg(const Collection& c) {
   return Expression(Expression::Operator::custom,
-                   { Expression::getCustomIndex("avg"), expr });
+                   { Expression::getCustomIndex("avg"), c.expression() });
 }
 
 // Membership operations
-inline Expression element_of(const Expression& value, const Expression& collection) {
+inline Expression element_of(const Variable& value, const Collection& c) {
   return Expression(Expression::Operator::custom,
-                   { Expression::getCustomIndex("element_of"), value, collection });
+                   { Expression::getCustomIndex("element_of"), std::ref(value), c.expression() });
 }
 
-inline Expression element_of(double value, const Expression& collection) {
+inline Expression element_of(double value, const Collection& c) {
   return Expression(Expression::Operator::custom,
-                   { Expression::getCustomIndex("element_of"), value, collection });
+                   { Expression::getCustomIndex("element_of"), value, c.expression() });
 }
 
-inline Expression not_element_of(const Expression& value, const Expression& collection) {
+inline Expression not_element_of(const Variable& value, const Collection& c) {
   return Expression(Expression::Operator::custom,
-                   { Expression::getCustomIndex("not_element_of"), value, collection });
+                   { Expression::getCustomIndex("not_element_of"), std::ref(value), c.expression() });
 }
 
-inline Expression not_element_of(double value, const Expression& collection) {
+inline Expression not_element_of(double value, const Collection& c) {
   return Expression(Expression::Operator::custom,
-                   { Expression::getCustomIndex("not_element_of"), value, collection });
+                   { Expression::getCustomIndex("not_element_of"), value, c.expression() });
 }
 
-// Indexed access
-inline Expression at(const Expression& index, const Expression& collection) {
+// Aggregate operations (max/min) on collections
+inline Expression max(const Collection& c) {
   return Expression(Expression::Operator::custom,
-                   { Expression::getCustomIndex("at"), index, collection });
+                   { Expression::getCustomIndex("max"), c.expression() });
 }
 
-inline Expression at(double index, const Expression& collection) {
+inline Expression min(const Collection& c) {
   return Expression(Expression::Operator::custom,
-                   { Expression::getCustomIndex("at"), index, collection });
+                   { Expression::getCustomIndex("min"), c.expression() });
 }
+
+/*******************************************
+ * Cases
+ ******************************************/
 
 using Cases = std::vector< std::pair<Expression, Expression> >;
 /**

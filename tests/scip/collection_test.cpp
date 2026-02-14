@@ -28,7 +28,7 @@ void test_count_collection_scip() {
   auto& result = model.addVariable(CP::Variable::Type::INTEGER, "result", 0.0, 10.0);
 
   // Constraint: result = count(collection(key))
-  model.addConstraint(result == CP::count(CP::collection(key)));
+  model.addConstraint(result == CP::count(CP::Collection(key)));
 
   // Force key to be 0
   model.addConstraint(key == 0.0);
@@ -66,7 +66,7 @@ void test_sum_collection_scip() {
   auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 1.0);
   auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
 
-  model.addConstraint(result == CP::sum(CP::collection(key)));
+  model.addConstraint(result == CP::sum(CP::Collection(key)));
   model.addConstraint(key == 1.0);  // Force key to be 1
 
   CP::SCIPSolver solver(model);
@@ -93,7 +93,7 @@ void test_avg_collection_scip() {
   auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
   auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 50.0);
 
-  model.addConstraint(result == CP::avg(CP::collection(key)));
+  model.addConstraint(result == CP::avg(CP::Collection(key)));
 
   CP::SCIPSolver solver(model);
   auto solution = solver.solve(model);
@@ -119,7 +119,7 @@ void test_max_collection_scip() {
   auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
   auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
 
-  model.addConstraint(result == CP::max(CP::collection(key)));
+  model.addConstraint(result == CP::max(CP::Collection(key)));
 
   CP::SCIPSolver solver(model);
   auto solution = solver.solve(model);
@@ -145,7 +145,7 @@ void test_min_collection_scip() {
   auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
   auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
 
-  model.addConstraint(result == CP::min(CP::collection(key)));
+  model.addConstraint(result == CP::min(CP::Collection(key)));
 
   CP::SCIPSolver solver(model);
   auto solution = solver.solve(model);
@@ -174,7 +174,7 @@ void test_element_of_constant_scip() {
   auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
 
   // Check if 20.0 is in collection(key)
-  model.addConstraint(result == CP::element_of(20.0, CP::collection(key)));
+  model.addConstraint(result == CP::element_of(20.0, CP::Collection(key)));
   model.addConstraint(key == 0.0);  // Force key to be 0
 
   CP::SCIPSolver solver(model);
@@ -201,7 +201,7 @@ void test_element_of_not_found_scip() {
   auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
 
   // Check if 25.0 is in collection(key) - should be 0
-  model.addConstraint(result == CP::element_of(25.0, CP::collection(key)));
+  model.addConstraint(result == CP::element_of(25.0, CP::Collection(key)));
 
   CP::SCIPSolver solver(model);
   auto solution = solver.solve(model);
@@ -227,7 +227,7 @@ void test_not_element_of_scip() {
   auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
 
   // Check if 25.0 is NOT in collection(key) - should be 1
-  model.addConstraint(result == CP::not_element_of(25.0, CP::collection(key)));
+  model.addConstraint(result == CP::not_element_of(25.0, CP::Collection(key)));
 
   CP::SCIPSolver solver(model);
   auto solution = solver.solve(model);
@@ -256,7 +256,7 @@ void test_at_constant_index_scip() {
   auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
 
   // Get element at index 2 (1-based indexing)
-  model.addConstraint(result == CP::at(2.0, CP::collection(key)));
+  model.addConstraint(result == CP::Collection(key)[2.0]);
   model.addConstraint(key == 0.0);  // Force key to be 0
 
   CP::SCIPSolver solver(model);
@@ -286,7 +286,7 @@ void test_at_different_keys_scip() {
   auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
 
   // Get element at index 2 from collection(key)
-  model.addConstraint(result == CP::at(2.0, CP::collection(key)));
+  model.addConstraint(result == CP::Collection(key)[2.0]);
 
   // Test with key=0: at(2, [10,20,30]) should be 20
   model.addConstraint(key == 0.0);
@@ -310,7 +310,7 @@ void test_at_different_keys_scip() {
   auto& key2 = model2.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 1.0);
   auto& result2 = model2.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
 
-  model2.addConstraint(result2 == CP::at(2.0, CP::collection(key2)));
+  model2.addConstraint(result2 == CP::Collection(key2)[2.0]);
   model2.addConstraint(key2 == 1.0);
 
   CP::SCIPSolver solver2(model2);
@@ -339,7 +339,7 @@ void test_element_of_variable_scip() {
   auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
 
   // Check if value is in collection(key)
-  model.addConstraint(result == CP::element_of(value, CP::collection(key)));
+  model.addConstraint(result == CP::element_of(value, CP::Collection(key)));
   model.addConstraint(value == 20.0);  // Force value to be 20
 
   CP::SCIPSolver solver(model);
@@ -366,7 +366,7 @@ void test_element_of_variable_not_found_scip() {
   auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
   auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
 
-  model.addConstraint(result == CP::element_of(value, CP::collection(key)));
+  model.addConstraint(result == CP::element_of(value, CP::Collection(key)));
   model.addConstraint(value == 25.0);  // 25 is NOT in [10, 20, 30]
 
   CP::SCIPSolver solver(model);
@@ -396,7 +396,7 @@ void test_element_of_variable_both_scip() {
   auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 60.0);
   auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
 
-  model.addConstraint(result == CP::element_of(value, CP::collection(key)));
+  model.addConstraint(result == CP::element_of(value, CP::Collection(key)));
   model.addConstraint(key == 1.0);    // Select collection 1: [40, 50, 60]
   model.addConstraint(value == 50.0); // 50 is in collection 1
 
@@ -424,7 +424,7 @@ void test_not_element_of_variable_found_scip() {
   auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
   auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
 
-  model.addConstraint(result == CP::not_element_of(value, CP::collection(key)));
+  model.addConstraint(result == CP::not_element_of(value, CP::Collection(key)));
   model.addConstraint(value == 20.0);  // 20 IS in [10, 20, 30]
 
   CP::SCIPSolver solver(model);
@@ -451,7 +451,7 @@ void test_not_element_of_variable_not_found_scip() {
   auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
   auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
 
-  model.addConstraint(result == CP::not_element_of(value, CP::collection(key)));
+  model.addConstraint(result == CP::not_element_of(value, CP::Collection(key)));
   model.addConstraint(value == 35.0);  // 35 is NOT in [10, 20, 30]
 
   CP::SCIPSolver solver(model);
@@ -479,7 +479,7 @@ void test_at_variable_index_scip() {
   auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 1.0, 3.0);
   auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
 
-  model.addConstraint(result == CP::at(index, CP::collection(key)));
+  model.addConstraint(result == CP::Collection(key)[index]);
   model.addConstraint(index == 2.0);  // Get element at index 2
 
   CP::SCIPSolver solver(model);
@@ -509,7 +509,7 @@ void test_at_variable_both_scip() {
   auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 1.0, 3.0);
   auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
 
-  model.addConstraint(result == CP::at(index, CP::collection(key)));
+  model.addConstraint(result == CP::Collection(key)[index]);
   model.addConstraint(key == 1.0);    // Select collection 1: [40, 50, 60]
   model.addConstraint(index == 3.0);  // Get element at index 3
 
@@ -523,7 +523,7 @@ void test_at_variable_both_scip() {
   std::cout << GREEN << "Test 17 PASSED: at(variable_index, collection(variable_key)) returns 60" << RESET << std::endl;
 }
 
-// Test 18: count(collection(constant_key)) - constant key
+// Test 18: count(Collection(constant_key)) - constant key
 void test_count_constant_key_scip() {
   CP::Model model;
 
@@ -536,7 +536,7 @@ void test_count_constant_key_scip() {
   auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 10.0);
 
   // Use constant key directly
-  model.addConstraint(result == CP::count(CP::collection(CP::Expression(0.0))));
+  model.addConstraint(result == CP::count(CP::Collection(0.0)));
 
   CP::SCIPSolver solver(model);
   auto solution = solver.solve(model);
@@ -545,10 +545,10 @@ void test_count_constant_key_scip() {
   double resultVal = solution->getVariableValue(result).value();
   assert(std::abs(resultVal - 3.0) < 1e-5);  // collection(0) has 3 elements
 
-  std::cout << GREEN << "Test 18 PASSED: count(collection(0.0)) with constant key returns 3" << RESET << std::endl;
+  std::cout << GREEN << "Test 18 PASSED: count(Collection(0.0)) with constant key returns 3" << RESET << std::endl;
 }
 
-// Test 19: at(constant_index, collection(constant_key)) - both constant
+// Test 19: Collection(constant_key)[constant_index] - both constant
 void test_at_both_constant_scip() {
   CP::Model model;
 
@@ -561,7 +561,7 @@ void test_at_both_constant_scip() {
   auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
 
   // Use constant key and constant index
-  model.addConstraint(result == CP::at(2.0, CP::collection(CP::Expression(0.0))));
+  model.addConstraint(result == CP::Collection(0.0)[2.0]);
 
   CP::SCIPSolver solver(model);
   auto solution = solver.solve(model);
@@ -570,46 +570,7 @@ void test_at_both_constant_scip() {
   double resultVal = solution->getVariableValue(result).value();
   assert(std::abs(resultVal - 20.0) < 1e-5);  // collection(0)[2] = 20
 
-  std::cout << GREEN << "Test 19 PASSED: at(2.0, collection(0.0)) with both constant returns 20" << RESET << std::endl;
-}
-
-// Test 20: count(collection(indexedVariable[index])) - IndexedVariable as key
-void test_count_indexed_variable_key_scip() {
-  CP::Model model;
-
-  // Set up collections
-  model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-    int k = (int)std::round(key);
-    if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
-    if (k == 1) return std::vector<double>{40.0, 50.0};
-    return std::unexpected("Collection key not found");
-  }, 2);
-
-  // Create an array of collection keys: collectionKeys[0], collectionKeys[1], etc.
-  auto& collectionKeys = model.addIndexedVariables(CP::Variable::Type::INTEGER, "collectionKeys");
-  collectionKeys.emplace_back(0.0, 1.0);  // collectionKeys[0] can be 0 or 1
-  collectionKeys.emplace_back(0.0, 1.0);  // collectionKeys[1] can be 0 or 1
-  collectionKeys.emplace_back(0.0, 1.0);  // collectionKeys[2] can be 0 or 1
-
-  // Create an index variable
-  auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 0.0, 2.0);
-
-  auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 10.0);
-
-  // Use indexed variable as collection key: count(collection(collectionKeys[index]))
-  // This creates a TRUE IndexedVariable: array[variable_index]
-  model.addConstraint(result == CP::count(CP::collection(collectionKeys[index])));
-  model.addConstraint(index == 1.0);  // Use collectionKeys[1]
-  model.addConstraint(collectionKeys[1] == 1.0);  // Force collectionKeys[1] to be 1
-
-  CP::SCIPSolver solver(model);
-  auto solution = solver.solve(model);
-
-  assert(solution.has_value());
-  double resultVal = solution->getVariableValue(result).value();
-  assert(std::abs(resultVal - 2.0) < 1e-5);  // collection(1) has 2 elements
-
-  std::cout << GREEN << "Test 20 PASSED: count(collection(indexedVariable)) returns 2" << RESET << std::endl;
+  std::cout << GREEN << "Test 19 PASSED: Collection(0.0)[2.0] with both constant returns 20" << RESET << std::endl;
 }
 
 int main() {
@@ -671,9 +632,6 @@ int main() {
     testNum++;
 
     test_at_both_constant_scip();
-    testNum++;
-
-    test_count_indexed_variable_key_scip();
     testNum++;
   }
   catch (const std::exception& e) {

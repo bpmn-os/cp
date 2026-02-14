@@ -13,6 +13,7 @@ A C++ constraint programming library for modeling constraint programming problem
 
 - Boolean, integer, and real variables
 - Indexed variables for array-like structures
+- Collections with indexed access and aggregate operations (count, sum, avg, min, max)
 - Permutation sequences
 - Expressions combining variables and constants using arithmetic, logical, and relational operators
 - Declarative constraint and objective specification
@@ -67,6 +68,37 @@ auto& a = model.addIndexedVariables(CP::Variable::Type::INTEGER, "a");
 a.emplace_back( 0, 5 );      // a[0] ∈ { 0, ..., 5 }
 a.emplace_back( x + 4 );     // a[1] := x + 4.00 ( x must have been added to the model before )
 a.emplace_back( a[1] + 5 );  // a[2] := a[1] + 5.00 ( only variables with lower index must be used )
+```
+
+### Collections
+
+The `Collection` struct provides access to static external data collections that can be looked up at runtime. A collection is identified by a key (variable or constant) and supports indexed access and aggregate operations.
+
+```cpp
+// Set up collection lookup function
+model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+  if (key == 0) return std::vector<double>{10.0, 20.0, 30.0};
+  if (key == 1) return std::vector<double>{40.0, 50.0};
+  return std::unexpected("Collection not found");
+}, 2);  // 2 collections
+
+auto& key = model.addIntegerVariable("key");
+
+// Indexed access
+CP::Collection(key)[1]       // first element of collection identified by key
+CP::Collection(key)[index]   // element at variable index
+CP::Collection(0.0)[2]       // second element of collection 0 (constant key)
+
+// Aggregate operations
+CP::count(CP::Collection(key))   // number of elements
+CP::sum(CP::Collection(key))     // sum of elements
+CP::avg(CP::Collection(key))     // average of elements
+CP::max(CP::Collection(key))     // maximum element
+CP::min(CP::Collection(key))     // minimum element
+
+// Membership operations
+CP::element_of(value, CP::Collection(key))       // true if value is in collection
+CP::not_element_of(value, CP::Collection(key))   // true if value is not in collection
 ```
 
 ### Sequences
