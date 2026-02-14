@@ -830,7 +830,7 @@ inline Expression min(const Collection& c) {
 
 using Cases = std::vector< std::pair<Expression, Expression> >;
 /**
- * @brief Creates an n-ary expression composed of a collection condition-expression pairs representing:
+ * @brief Creates an n-ary expression composed of condition-expression pairs representing:
  * ```
  * if condition_1 then 
  *   expression_1
