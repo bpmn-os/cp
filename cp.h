@@ -152,6 +152,8 @@ struct IndexedVariable {
 };
 
 struct IndexedVariables {
+  friend class Model;
+
   Variable::Type type;
   std::string name;
   inline IndexedVariables(Variable::Type type, std::string name) : type(type), name(std::move(name)) {}
@@ -164,13 +166,6 @@ struct IndexedVariables {
   inline IndexedVariable operator[](const Variable& index) const { return IndexedVariable(*this,index); }
   inline IndexedVariable operator[](const Expression& expression) const;
 
-  template <typename... Args>
-  inline const Variable& emplace_back(Args&&... args) {
-    _variables.emplace_back(type, name + "[" + std::to_string(_variables.size()) + "]", std::forward<Args>(args)...);
-    _references.emplace_back(_variables.back());
-    return _variables.back();
-  }
-
   inline size_t size() const { return _variables.size(); }
   inline bool empty() const { return _variables.empty(); }
   inline auto begin() { return _variables.begin(); }
@@ -181,6 +176,13 @@ struct IndexedVariables {
   inline std::string stringify() const;
 
 private:
+  template <typename... Args>
+  inline const Variable& emplace_back(Args&&... args) {
+    _variables.emplace_back(type, name + "[" + std::to_string(_variables.size()) + "]", std::forward<Args>(args)...);
+    _references.emplace_back(_variables.back());
+    return _variables.back();
+  }
+
   std::deque<Variable> _variables;
   reference_vector<Variable> _references;
 };
@@ -931,9 +933,9 @@ public:
 
   template <typename... Args>
   inline const Variable& addVariable( IndexedVariables& indexedVariables, Args&&... args ) {
-    const Variable& var = indexedVariables.emplace_back(std::forward<Args>(args)...);
-    allVariables.push_back(var);
-    return var;
+    const Variable& variable = indexedVariables.emplace_back(std::forward<Args>(args)...);
+    allVariables.push_back(variable);
+    return variable;
   }
 
   inline const Expression& addConstraint( Expression constraint) {

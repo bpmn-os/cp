@@ -159,7 +159,7 @@ void SCIPSolver::addSequenceConstraints(const std::string& sequenceName, const s
 
 void SCIPSolver::addVariables(const Model& model) {
   for (const auto& variable : model.getVariables()) {
-    SCIP_VARTYPE vartype;
+    SCIP_VARTYPE vartype = SCIP_VARTYPE_CONTINUOUS;
 
     switch (variable.type) {
       case Variable::Type::BOOLEAN:
@@ -189,7 +189,7 @@ void SCIPSolver::addVariables(const Model& model) {
 void SCIPSolver::addIndexedVariables(const Model& model) {
   for (const auto& indexedVariables : model.getIndexedVariables()) {
     for (const auto& indexedVariable : indexedVariables) {
-      SCIP_VARTYPE vartype;
+      SCIP_VARTYPE vartype = SCIP_VARTYPE_CONTINUOUS;
 
       switch (indexedVariable.type) {
         case Variable::Type::BOOLEAN:
@@ -1941,7 +1941,7 @@ SCIP_EXPR* SCIPSolver::resolveCollectionOperation(
     }
 
     const std::vector<double>& collection = collectionResult.value();
-    double result;
+    double result = 0.0;
 
     if (opName == "count") {
       result = (double)collection.size();
@@ -1966,6 +1966,9 @@ SCIP_EXPR* SCIPSolver::resolveCollectionOperation(
         throw std::runtime_error("SCIPSolver: min() is undefined for empty collection");
       }
       result = *std::min_element(collection.begin(), collection.end());
+    }
+    else {
+      throw std::runtime_error("SCIPSolver: unknown collection operation '" + opName + "'");
     }
 
     // Return constant value expression
