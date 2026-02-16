@@ -59,9 +59,9 @@ int main() {
     {
         CP::Model model;
         auto& vars = model.addIndexedVariables(CP::Variable::Type::INTEGER, "x");
-        model.addVariable(vars, 0, 10);
-        model.addVariable(vars, 5, 15);
-        model.addVariable(vars, -5, 5);
+        model.addIndexedVariable(vars, 0, 10);
+        model.addIndexedVariable(vars, 5, 15);
+        model.addIndexedVariable(vars, -5, 5);
 
         CP::SCIPSolver solver(model);
         SCIP* scip = solver.getScip();
@@ -849,9 +849,9 @@ int main() {
     {
         CP::Model model;
         auto& arr = model.addIndexedVariables(CP::Variable::Type::INTEGER, "arr");
-        model.addVariable(arr, 0, 10);  // arr[0]
-        model.addVariable(arr, 0, 10);  // arr[1]
-        model.addVariable(arr, 0, 10);  // arr[2]
+        model.addIndexedVariable(arr, 0, 10);  // arr[0]
+        model.addIndexedVariable(arr, 0, 10);  // arr[1]
+        model.addIndexedVariable(arr, 0, 10);  // arr[2]
 
         const auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 0, 2);
         const auto& result = model.addIntegerVariable("result");
@@ -1668,9 +1668,9 @@ int main() {
 
         // Create indexed variables
         auto& array = model.addIndexedVariables(CP::Variable::Type::REAL, "array");
-        model.addVariable(array, 5.0, 5.0);  // array[0] = 5
-        model.addVariable(array, 10.0, 10.0); // array[1] = 10
-        model.addVariable(array, 15.0, 15.0); // array[2] = 15
+        model.addIndexedVariable(array, 5.0, 5.0);  // array[0] = 5
+        model.addIndexedVariable(array, 10.0, 10.0); // array[1] = 10
+        model.addIndexedVariable(array, 15.0, 15.0); // array[2] = 15
 
         // Create index variable
         const auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 0.0, 2.0);
@@ -1703,7 +1703,7 @@ int main() {
 
         // Create indexed variables (like value_{Instance_1,Process_1},Instance)
         auto& processInstance = model.addIndexedVariables(CP::Variable::Type::REAL, "process_instance");
-        model.addVariable(processInstance, 2.0, 2.0);  // processInstance[0] = 2
+        model.addIndexedVariable(processInstance, 2.0, 2.0);  // processInstance[0] = 2
 
         // Create index variable (like data_index[Process_1]_{Instance_1,Activity_1,entry})
         const auto& dataIndex = model.addVariable(CP::Variable::Type::INTEGER, "data_index", 0.0, 0.0);

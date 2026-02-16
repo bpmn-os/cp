@@ -932,7 +932,7 @@ public:
   }
 
   template <typename... Args>
-  inline const Variable& addVariable( IndexedVariables& indexedVariables, Args&&... args ) {
+  inline const Variable& addIndexedVariable( IndexedVariables& indexedVariables, Args&&... args ) {
     const Variable& variable = indexedVariables.emplace_back(std::forward<Args>(args)...);
     allVariables.push_back(variable);
     return variable;
