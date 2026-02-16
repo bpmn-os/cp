@@ -14,10 +14,14 @@ if(CCACHE_PROGRAM)
 endif()
 
 # Options
-option(BUILD_SCIP_ADAPTER "Build SCIP solver adapter" ON)
+option(USE_SCIP "Build SCIP solver adapter" OFF)
+option(USE_HEXALY "Build Hexaly solver adapter" OFF)
 option(BUILD_LIMEX_TESTS "Build LIMEX integration tests" ON)
 option(BUILD_EXAMPLES "Build example programs" ON)
 option(BUILD_TESTS "Build test suite" ON)
+
+# Hexaly configuration
+set(HEXALY_DIR "/opt/hexaly_14_5" CACHE PATH "Hexaly installation directory")
 
 # Header-only interface library for cp.h
 add_library(cp INTERFACE)
@@ -27,7 +31,7 @@ target_include_directories(cp INTERFACE
 )
 
 # SCIP Adapter
-if(BUILD_SCIP_ADAPTER)
+if(USE_SCIP)
     find_package(SCIP QUIET)
     if(NOT SCIP_FOUND)
         message(STATUS "SCIP not found - downloading and building from source...")
@@ -47,6 +51,17 @@ if(BUILD_SCIP_ADAPTER)
         message(STATUS "SCIP found - using system installation")
     endif()
     add_subdirectory(scip)
+endif()
+
+# Hexaly Adapter
+if(USE_HEXALY)
+    if(EXISTS "${HEXALY_DIR}/include/optimizer/hexalyoptimizer.h")
+        message(STATUS "Hexaly found at ${HEXALY_DIR}")
+        add_subdirectory(hexaly)
+    else()
+        message(WARNING "Hexaly not found at ${HEXALY_DIR} - skipping hexaly adapter")
+        set(USE_HEXALY OFF)
+    endif()
 endif()
 
 # LIMEX (for tests)
