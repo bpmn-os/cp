@@ -231,7 +231,18 @@ struct Expression {
   inline Expression(Operator _operator, const std::vector< Operand >& operands) : _operator(_operator), operands(operands) {};
 
   inline Expression operator-() const { return Expression(Operator::negate, {*this}); };
-  inline Expression operator!() const { return Expression(Operator::logical_not, {*this}); };
+  inline Expression operator!() const {
+    // Avoid double negation: !!x = x
+    if (_operator == Operator::logical_not && operands.size() == 1) {
+      const auto& inner = operands[0];
+      if (std::holds_alternative<Expression>(inner)) {
+        return std::get<Expression>(inner);
+      }
+      // Inner operand is Variable, IndexedVariable, or constant - wrap in none-expression
+      return Expression(Operator::none, {inner});
+    }
+    return Expression(Operator::logical_not, {*this});
+  };
 
   inline Expression operator&&(const Expression& expression) const { return Expression(Operator::logical_and, {*this,expression}); };
   inline Expression operator||(const Expression& expression) const { return Expression(Operator::logical_or, {*this,expression}); };

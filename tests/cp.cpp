@@ -27,6 +27,8 @@ int main()
 
     assert( (!y && y).stringify() == "( !y ) && y");
     assert( (y || !y).stringify() == "y || ( !y )");
+    assert( ( !!y ).stringify() == "y");
+    assert( ( !(!y) ).stringify() == "y");
   
     assert( CP::max( 0.0, x, 3 * z ).stringify() == "max( 0.00, x, 3.00 * z )");
     assert( CP::min( 0, x, 3 * z ).stringify() == "min( 0.00, x, 3.00 * z )");
