@@ -62,9 +62,9 @@ int main()
     assert( s.stringify() == "( s[0], s[1], s[2] ) is permutation of { 1, ..., 3 }");
  
     auto& a = model.addIndexedVariables(CP::Variable::Type::INTEGER, "a");
-    a.emplace_back(0,5);
-    a.emplace_back( w + 4 );
-    a.emplace_back( a[1] + 5 );
+    model.addVariable(a, 0, 5);
+    model.addVariable(a, w + 4);
+    model.addVariable(a, a[1] + 5);
     assert( model.getIndexedVariables().back().stringify() == "a := { a[0] ∈ { 0, ..., 5 }, a[1] := w + 4.00, a[2] := a[1] + 5.00 }" );
     assert( a[1].stringify() == "a[1] := w + 4.00" );
     assert( a[z].stringify() == "a[z]" );

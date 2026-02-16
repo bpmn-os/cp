@@ -154,7 +154,7 @@ struct IndexedVariable {
 struct IndexedVariables {
   Variable::Type type;
   std::string name;
-  inline IndexedVariables(Variable::Type type, std::string name) : type(type), name(std::move(name)) {} 
+  inline IndexedVariables(Variable::Type type, std::string name) : type(type), name(std::move(name)) {}
   IndexedVariables(const IndexedVariables&) = delete; // Disable copy constructor
   IndexedVariables& operator=(const IndexedVariables&) = delete; // Disable copy assignment
   inline operator std::vector<Expression>() const; // Implicit cast
@@ -165,9 +165,10 @@ struct IndexedVariables {
   inline IndexedVariable operator[](const Expression& expression) const;
 
   template <typename... Args>
-  inline void emplace_back(Args&&... args) {
-    _variables.emplace_back(type, name + "[" + std::to_string(_variables.size()) + "]", std::forward<Args>(args)... );
+  inline const Variable& emplace_back(Args&&... args) {
+    _variables.emplace_back(type, name + "[" + std::to_string(_variables.size()) + "]", std::forward<Args>(args)...);
     _references.emplace_back(_variables.back());
+    return _variables.back();
   }
 
   inline size_t size() const { return _variables.size(); }
@@ -176,8 +177,9 @@ struct IndexedVariables {
   inline auto begin() const { return _variables.cbegin(); }
   inline auto end() { return _variables.end(); }
   inline auto end() const { return _variables.cend(); }
-    
+
   inline std::string stringify() const;
+
 private:
   std::deque<Variable> _variables;
   reference_vector<Variable> _references;
@@ -883,11 +885,13 @@ public:
   inline const std::deque< IndexedVariables >& getIndexedVariables() const { return indexedVariables; };
   inline const std::deque< Expression >& getConstraints() const { return constraints; };
   inline const std::deque< Sequence >& getSequences() const { return sequences; };
+  inline const reference_vector<const Variable>& getAllVariables() const { return allVariables; };
 
   inline const Expression& setObjective(Expression objective) { this->objective = std::move(objective); return this->objective; };
 
   inline const Variable& addVariable( Variable::Type type, std::string name, double lowerBound, double upperBound ) {
     variables.emplace_back(type, std::move(name), lowerBound, upperBound);
+    allVariables.push_back(variables.back());
     return variables.back();
   };
 
@@ -898,16 +902,19 @@ public:
 
   inline const Variable& addBinaryVariable(std::string name) {
     variables.emplace_back(Variable::Type::BOOLEAN, std::move(name), false, true);
+    allVariables.push_back(variables.back());
     return variables.back();
   };
 
   inline const Variable& addIntegerVariable(std::string name) {
     variables.emplace_back(Variable::Type::INTEGER, std::move(name), std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max());
+    allVariables.push_back(variables.back());
     return variables.back();
   };
 
   inline const Variable& addRealVariable(std::string name) {
     variables.emplace_back(Variable::Type::REAL, std::move(name), std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max());
+    allVariables.push_back(variables.back());
     return variables.back();
   };
 
@@ -918,7 +925,15 @@ public:
 
   inline const Variable& addVariable( Variable::Type type, std::string name, Expression expression ) {
     variables.emplace_back(type, std::move(name), std::move(expression));
+    allVariables.push_back(variables.back());
     return variables.back();
+  }
+
+  template <typename... Args>
+  inline const Variable& addVariable( IndexedVariables& indexedVariables, Args&&... args ) {
+    const Variable& var = indexedVariables.emplace_back(std::forward<Args>(args)...);
+    allVariables.push_back(var);
+    return var;
   }
 
   inline const Expression& addConstraint( Expression constraint) {
@@ -986,6 +1001,7 @@ private:
   std::deque< Variable > variables;
   std::deque< IndexedVariables > indexedVariables;
   std::deque< Expression > constraints;
+  reference_vector<const Variable> allVariables;
   std::function< std::expected<std::vector<double>, std::string>(double) > _collectionLookup;
   size_t _numberOfCollections = 0;
 };

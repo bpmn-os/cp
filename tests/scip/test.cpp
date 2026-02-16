@@ -15,16 +15,16 @@ int main() {
         CP::Model model;
         const auto& x = model.addIntegerVariable("x");
 
+        model.addConstraint(x == 42.0);
+
         CP::SCIPSolver solver(model);
-        SCIP* scip = solver.getScip();
-        const auto& varMap = solver.getVariableMap();
+        auto result = solver.solve(model);
 
-        assert(SCIPgetNVars(scip) == 1);
+        assert(result.has_value());
         assert(solver.getName() == "SCIP");
-
-        auto it = varMap.find(&x);
-        assert(it != varMap.end());
-        assert(SCIPvarGetType(it->second) == SCIP_VARTYPE_INTEGER);
+        auto xVal = result.value().getVariableValue(x);
+        assert(xVal.has_value());
+        assert(std::abs(xVal.value() - 42.0) < 1e-5);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Single integer variable" << RESET << std::endl;
     }
@@ -59,9 +59,9 @@ int main() {
     {
         CP::Model model;
         auto& vars = model.addIndexedVariables(CP::Variable::Type::INTEGER, "x");
-        vars.emplace_back(0, 10);
-        vars.emplace_back(5, 15);
-        vars.emplace_back(-5, 5);
+        model.addVariable(vars, 0, 10);
+        model.addVariable(vars, 5, 15);
+        model.addVariable(vars, -5, 5);
 
         CP::SCIPSolver solver(model);
         SCIP* scip = solver.getScip();
@@ -832,9 +832,9 @@ int main() {
     {
         CP::Model model;
         auto& arr = model.addIndexedVariables(CP::Variable::Type::INTEGER, "arr");
-        arr.emplace_back(0, 10);  // arr[0]
-        arr.emplace_back(0, 10);  // arr[1]
-        arr.emplace_back(0, 10);  // arr[2]
+        model.addVariable(arr, 0, 10);  // arr[0]
+        model.addVariable(arr, 0, 10);  // arr[1]
+        model.addVariable(arr, 0, 10);  // arr[2]
 
         const auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 0, 2);
         const auto& result = model.addIntegerVariable("result");
@@ -1241,6 +1241,29 @@ int main() {
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Unbounded variables" << RESET << std::endl;
     }
+    // Test: Logical OR constraint (!a || (x >= y))
+    {
+        CP::Model model;
+        const auto& a = model.addBinaryVariable("a");
+        const auto& x = model.addVariable(CP::Variable::Type::INTEGER, "x", 0, 10);
+        const auto& y = model.addVariable(CP::Variable::Type::INTEGER, "y", 0, 10);
+
+        model.addConstraint(!a || (x >= y));
+        model.addConstraint(a == 1.0);
+        model.addConstraint(y == 5.0);
+
+        CP::SCIPSolver solver(model);
+        auto result = solver.solve(model);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto xVal = solution.getVariableValue(x);
+        auto yVal = solution.getVariableValue(y);
+        assert(xVal.has_value() && yVal.has_value());
+        assert(xVal.value() >= yVal.value() - 1e-5);
+
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: Logical OR constraint (!a || (x >= y))" << RESET << std::endl;
+    }
     // Test: Logical OR constraint (!a || b)
     {
         CP::Model model;
@@ -1628,9 +1651,9 @@ int main() {
 
         // Create indexed variables
         auto& array = model.addIndexedVariables(CP::Variable::Type::REAL, "array");
-        array.emplace_back(5.0, 5.0);  // array[0] = 5
-        array.emplace_back(10.0, 10.0); // array[1] = 10
-        array.emplace_back(15.0, 15.0); // array[2] = 15
+        model.addVariable(array, 5.0, 5.0);  // array[0] = 5
+        model.addVariable(array, 10.0, 10.0); // array[1] = 10
+        model.addVariable(array, 15.0, 15.0); // array[2] = 15
 
         // Create index variable
         const auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 0.0, 2.0);
@@ -1663,7 +1686,7 @@ int main() {
 
         // Create indexed variables (like value_{Instance_1,Process_1},Instance)
         auto& processInstance = model.addIndexedVariables(CP::Variable::Type::REAL, "process_instance");
-        processInstance.emplace_back(2.0, 2.0);  // processInstance[0] = 2
+        model.addVariable(processInstance, 2.0, 2.0);  // processInstance[0] = 2
 
         // Create index variable (like data_index[Process_1]_{Instance_1,Activity_1,entry})
         const auto& dataIndex = model.addVariable(CP::Variable::Type::INTEGER, "data_index", 0.0, 0.0);
