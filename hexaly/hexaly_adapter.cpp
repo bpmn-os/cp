@@ -831,6 +831,7 @@ std::expected<Solution, std::string> HexalySolver::solve(const Model& model, dou
     if (std::isfinite(timeLimit)) {
         optimizer->getParam().setTimeLimit(static_cast<int>(timeLimit));
     }
+    optimizer->getParam().setVerbosity(0);  // Suppress output
 
     try {
         optimizer->solve();

@@ -160,18 +160,35 @@ int main() {
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Linear objective with subtraction" << RESET << std::endl;
     }
-    // Test: Negated variable (-x)
+    // Test: Negated variable (-x) - minimize -x with x in [0,10] should give x=10
     {
         CP::Model model(CP::Model::ObjectiveSense::MINIMIZE);
-        const auto& x = model.addIntegerVariable("x");
+        const auto& x = model.addVariable(CP::Variable::Type::INTEGER, "x", 0.0, 10.0);
         model.setObjective(-x);
 
         CP::SCIPSolver solver(model);
-        SCIP* scip = solver.getScip();
+        auto solution = solver.solve(model, 5.0);
 
-        assert(SCIPgetNVars(scip) >= 1);
+        assert(solution.has_value());
+        double xVal = solution->getVariableValue(x).value();
+        assert(std::abs(xVal - 10.0) < 1e-5);  // minimizing -x means maximizing x
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Negated variable objective" << RESET << std::endl;
+    }
+    // Test: Negate in constraint (-x == -5 means x == 5)
+    {
+        CP::Model model;
+        const auto& x = model.addVariable(CP::Variable::Type::INTEGER, "x", 0.0, 10.0);
+        model.addConstraint(-x == -5.0);
+
+        CP::SCIPSolver solver(model);
+        auto solution = solver.solve(model, 5.0);
+
+        assert(solution.has_value());
+        double xVal = solution->getVariableValue(x).value();
+        assert(std::abs(xVal - 5.0) < 1e-5);
+
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: Negate in constraint" << RESET << std::endl;
     }
     // Test: Feasibility (no objective)
     {
@@ -1827,6 +1844,431 @@ int main() {
         assert(std::abs(elemVal.value() - 20.0) < 1e-5);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Collection lookup with Model::setCollectionLookup" << RESET << std::endl;
+    }
+
+    // ==================== Collection Tests ====================
+
+    // Test: count(collection(key)) with variable key
+    {
+        CP::Model model;
+        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
+            if (k == 1) return std::vector<double>{40.0, 50.0};
+            if (k == 2) return std::vector<double>{60.0, 70.0, 80.0, 90.0};
+            return std::unexpected("Collection key not found");
+        }, 3);
+
+        auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 2.0);
+        auto& result = model.addVariable(CP::Variable::Type::INTEGER, "result", 0.0, 10.0);
+        model.addConstraint(result == CP::count(CP::Collection(key)));
+        model.addConstraint(key == 0.0);
+
+        CP::SCIPSolver solver(model);
+        auto solution = solver.solve(model);
+        assert(solution.has_value());
+        assert(std::abs(solution->getVariableValue(result).value() - 3.0) < 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: count(collection(key)) returns 3" << RESET << std::endl;
+    }
+    // Test: sum(collection(key))
+    {
+        CP::Model model;
+        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
+            if (k == 1) return std::vector<double>{5.0, 15.0};
+            return std::unexpected("Collection key not found");
+        }, 2);
+
+        auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 1.0);
+        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(result == CP::sum(CP::Collection(key)));
+        model.addConstraint(key == 1.0);
+
+        CP::SCIPSolver solver(model);
+        auto solution = solver.solve(model);
+        assert(solution.has_value());
+        assert(std::abs(solution->getVariableValue(result).value() - 20.0) < 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: sum(collection(key)) returns 20" << RESET << std::endl;
+    }
+    // Test: avg(collection(key))
+    {
+        CP::Model model;
+        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
+            return std::unexpected("Collection key not found");
+        }, 1);
+
+        auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
+        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 50.0);
+        model.addConstraint(result == CP::avg(CP::Collection(key)));
+
+        CP::SCIPSolver solver(model);
+        auto solution = solver.solve(model);
+        assert(solution.has_value());
+        assert(std::abs(solution->getVariableValue(result).value() - 20.0) < 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: avg(collection(key)) returns 20" << RESET << std::endl;
+    }
+    // Test: max(collection(key))
+    {
+        CP::Model model;
+        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 0) return std::vector<double>{10.0, 50.0, 30.0};
+            return std::unexpected("Collection key not found");
+        }, 1);
+
+        auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
+        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(result == CP::max(CP::Collection(key)));
+
+        CP::SCIPSolver solver(model);
+        auto solution = solver.solve(model);
+        assert(solution.has_value());
+        assert(std::abs(solution->getVariableValue(result).value() - 50.0) < 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: max(collection(key)) returns 50" << RESET << std::endl;
+    }
+    // Test: min(collection(key))
+    {
+        CP::Model model;
+        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 0) return std::vector<double>{30.0, 10.0, 50.0};
+            return std::unexpected("Collection key not found");
+        }, 1);
+
+        auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
+        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(result == CP::min(CP::Collection(key)));
+
+        CP::SCIPSolver solver(model);
+        auto solution = solver.solve(model);
+        assert(solution.has_value());
+        assert(std::abs(solution->getVariableValue(result).value() - 10.0) < 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: min(collection(key)) returns 10" << RESET << std::endl;
+    }
+    // Test: element_of(constant, collection) - found
+    {
+        CP::Model model;
+        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
+            return std::unexpected("Collection key not found");
+        }, 1);
+
+        auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
+        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(result == CP::element_of(20.0, CP::Collection(key)));
+
+        CP::SCIPSolver solver(model);
+        auto solution = solver.solve(model);
+        assert(solution.has_value());
+        assert(std::abs(solution->getVariableValue(result).value() - 1.0) < 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: element_of(20, collection) returns 1" << RESET << std::endl;
+    }
+    // Test: element_of(constant, collection) - not found
+    {
+        CP::Model model;
+        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
+            return std::unexpected("Collection key not found");
+        }, 1);
+
+        auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
+        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(result == CP::element_of(25.0, CP::Collection(key)));
+
+        CP::SCIPSolver solver(model);
+        auto solution = solver.solve(model);
+        assert(solution.has_value());
+        assert(std::abs(solution->getVariableValue(result).value() - 0.0) < 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: element_of(25, collection) returns 0" << RESET << std::endl;
+    }
+    // Test: not_element_of(constant, collection) - found (returns 0)
+    {
+        CP::Model model;
+        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
+            return std::unexpected("Collection key not found");
+        }, 1);
+
+        auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
+        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(result == CP::not_element_of(20.0, CP::Collection(key)));
+
+        CP::SCIPSolver solver(model);
+        auto solution = solver.solve(model);
+        assert(solution.has_value());
+        assert(std::abs(solution->getVariableValue(result).value() - 0.0) < 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: not_element_of(20, collection) returns 0" << RESET << std::endl;
+    }
+    // Test: not_element_of(constant, collection) - not found (returns 1)
+    {
+        CP::Model model;
+        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
+            return std::unexpected("Collection key not found");
+        }, 1);
+
+        auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
+        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(result == CP::not_element_of(25.0, CP::Collection(key)));
+
+        CP::SCIPSolver solver(model);
+        auto solution = solver.solve(model);
+        assert(solution.has_value());
+        assert(std::abs(solution->getVariableValue(result).value() - 1.0) < 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: not_element_of(25, collection) returns 1" << RESET << std::endl;
+    }
+    // Test: Collection[constant_index]
+    {
+        CP::Model model;
+        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
+            return std::unexpected("Collection key not found");
+        }, 1);
+
+        auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
+        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(result == CP::Collection(key)[2.0]);
+
+        CP::SCIPSolver solver(model);
+        auto solution = solver.solve(model);
+        assert(solution.has_value());
+        assert(std::abs(solution->getVariableValue(result).value() - 20.0) < 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: Collection[2] returns 20" << RESET << std::endl;
+    }
+    // Test: at with different collection keys
+    {
+        CP::Model model;
+        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
+            if (k == 1) return std::vector<double>{40.0, 50.0, 60.0};
+            return std::unexpected("Collection key not found");
+        }, 2);
+
+        // Test with key=0
+        auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
+        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(result == CP::Collection(key)[2.0]);
+
+        CP::SCIPSolver solver1(model);
+        auto solution1 = solver1.solve(model);
+        assert(solution1.has_value());
+        assert(std::abs(solution1->getVariableValue(result).value() - 20.0) < 1e-5);
+
+        // Test with key=1
+        CP::Model model2;
+        model2.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
+            if (k == 1) return std::vector<double>{40.0, 50.0, 60.0};
+            return std::unexpected("Collection key not found");
+        }, 2);
+
+        auto& key2 = model2.addVariable(CP::Variable::Type::INTEGER, "key", 1.0, 1.0);
+        auto& result2 = model2.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model2.addConstraint(result2 == CP::Collection(key2)[2.0]);
+
+        CP::SCIPSolver solver2(model2);
+        auto solution2 = solver2.solve(model2);
+        assert(solution2.has_value());
+        assert(std::abs(solution2->getVariableValue(result2).value() - 50.0) < 1e-5);
+
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: at with different collection keys" << RESET << std::endl;
+    }
+    // Test: element_of(variable, collection) - found
+    {
+        CP::Model model;
+        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
+            return std::unexpected("Collection key not found");
+        }, 1);
+
+        auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
+        auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
+        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(result == CP::element_of(value, CP::Collection(key)));
+        model.addConstraint(value == 20.0);
+
+        CP::SCIPSolver solver(model);
+        auto solution = solver.solve(model);
+        assert(solution.has_value());
+        assert(std::abs(solution->getVariableValue(result).value() - 1.0) < 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: element_of(variable=20, collection) returns 1" << RESET << std::endl;
+    }
+    // Test: element_of(variable, collection) - not found
+    {
+        CP::Model model;
+        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
+            return std::unexpected("Collection key not found");
+        }, 1);
+
+        auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
+        auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
+        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(result == CP::element_of(value, CP::Collection(key)));
+        model.addConstraint(value == 25.0);
+
+        CP::SCIPSolver solver(model);
+        auto solution = solver.solve(model);
+        assert(solution.has_value());
+        assert(std::abs(solution->getVariableValue(result).value() - 0.0) < 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: element_of(variable=25, collection) returns 0" << RESET << std::endl;
+    }
+    // Test: element_of(variable, collection(variable_key)) - both variable
+    {
+        CP::Model model;
+        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
+            if (k == 1) return std::vector<double>{40.0, 50.0, 60.0};
+            return std::unexpected("Collection key not found");
+        }, 2);
+
+        auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 1.0);
+        auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 60.0);
+        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(result == CP::element_of(value, CP::Collection(key)));
+        model.addConstraint(key == 1.0);
+        model.addConstraint(value == 50.0);
+
+        CP::SCIPSolver solver(model);
+        auto solution = solver.solve(model);
+        assert(solution.has_value());
+        assert(std::abs(solution->getVariableValue(result).value() - 1.0) < 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: element_of(variable, collection(variable_key))" << RESET << std::endl;
+    }
+    // Test: not_element_of(variable, collection) - found (returns 0)
+    {
+        CP::Model model;
+        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
+            return std::unexpected("Collection key not found");
+        }, 1);
+
+        auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
+        auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
+        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(result == CP::not_element_of(value, CP::Collection(key)));
+        model.addConstraint(value == 20.0);
+
+        CP::SCIPSolver solver(model);
+        auto solution = solver.solve(model);
+        assert(solution.has_value());
+        assert(std::abs(solution->getVariableValue(result).value() - 0.0) < 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: not_element_of(variable=20, collection) returns 0" << RESET << std::endl;
+    }
+    // Test: not_element_of(variable, collection) - not found (returns 1)
+    {
+        CP::Model model;
+        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
+            return std::unexpected("Collection key not found");
+        }, 1);
+
+        auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
+        auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
+        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(result == CP::not_element_of(value, CP::Collection(key)));
+        model.addConstraint(value == 35.0);
+
+        CP::SCIPSolver solver(model);
+        auto solution = solver.solve(model);
+        assert(solution.has_value());
+        assert(std::abs(solution->getVariableValue(result).value() - 1.0) < 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: not_element_of(variable=35, collection) returns 1" << RESET << std::endl;
+    }
+    // Test: Collection[variable_index]
+    {
+        CP::Model model;
+        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
+            return std::unexpected("Collection key not found");
+        }, 1);
+
+        auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
+        auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 1.0, 3.0);
+        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(result == CP::Collection(key)[index]);
+        model.addConstraint(index == 2.0);
+
+        CP::SCIPSolver solver(model);
+        auto solution = solver.solve(model);
+        assert(solution.has_value());
+        assert(std::abs(solution->getVariableValue(result).value() - 20.0) < 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: Collection[variable_index=2] returns 20" << RESET << std::endl;
+    }
+    // Test: Collection(variable_key)[variable_index]
+    {
+        CP::Model model;
+        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
+            if (k == 1) return std::vector<double>{40.0, 50.0, 60.0};
+            return std::unexpected("Collection key not found");
+        }, 2);
+
+        auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 1.0);
+        auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 1.0, 3.0);
+        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(result == CP::Collection(key)[index]);
+        model.addConstraint(key == 1.0);
+        model.addConstraint(index == 3.0);
+
+        CP::SCIPSolver solver(model);
+        auto solution = solver.solve(model);
+        assert(solution.has_value());
+        assert(std::abs(solution->getVariableValue(result).value() - 60.0) < 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: Collection(key=1)[index=3] returns 60" << RESET << std::endl;
+    }
+    // Test: count(Collection(constant_key))
+    {
+        CP::Model model;
+        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
+            return std::unexpected("Collection key not found");
+        }, 1);
+
+        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 10.0);
+        model.addConstraint(result == CP::count(CP::Collection(0.0)));
+
+        CP::SCIPSolver solver(model);
+        auto solution = solver.solve(model);
+        assert(solution.has_value());
+        assert(std::abs(solution->getVariableValue(result).value() - 3.0) < 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: count(Collection(0)) returns 3" << RESET << std::endl;
+    }
+    // Test: Collection(constant_key)[constant_index]
+    {
+        CP::Model model;
+        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
+            int k = (int)std::round(key);
+            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
+            return std::unexpected("Collection key not found");
+        }, 1);
+
+        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(result == CP::Collection(0.0)[2.0]);
+
+        CP::SCIPSolver solver(model);
+        auto solution = solver.solve(model);
+        assert(solution.has_value());
+        assert(std::abs(solution->getVariableValue(result).value() - 20.0) < 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: Collection(0)[2] returns 20" << RESET << std::endl;
     }
 
     std::cout << "\n" << GREEN << "All " << testNum << " SCIP adapter tests PASSED" << RESET << std::endl;
