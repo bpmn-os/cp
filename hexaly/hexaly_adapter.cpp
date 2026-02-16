@@ -12,6 +12,8 @@ HexalySolver::HexalySolver(const Model& model)
     : optimizer(std::make_unique<hexaly::HexalyOptimizer>())
     , hxModel(optimizer->getModel())
 {
+    optimizer->getParam().setVerbosity(0);  // Suppress output by default
+
     addSequences(model);
     addAllVariables(model);
     addObjective(model);
@@ -831,7 +833,6 @@ std::expected<Solution, std::string> HexalySolver::solve(const Model& model, dou
     if (std::isfinite(timeLimit)) {
         optimizer->getParam().setTimeLimit(static_cast<int>(timeLimit));
     }
-    optimizer->getParam().setVerbosity(0);  // Suppress output
 
     try {
         optimizer->solve();
