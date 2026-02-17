@@ -7,6 +7,7 @@ A C++ constraint programming library for modeling constraint programming problem
 - **cp.h** - Header-only CP modeling interface (no dependencies)
 - **solver.h** - Abstract solver interface
 - **scip/** - SCIP solver adapter (requires SCIP, see below)
+- **hexaly/** - Hexaly solver adapter (requires Hexaly, see below)
 - **limex_handle.h** - Custom operator support via [LIMEX](https://github.com/bpmn-os/limex)
 
 ## Features
@@ -64,10 +65,12 @@ The struct `IndexedVariables` is used to represent a collection of variables tha
 An indexed variable can be added to a model by specifying the type of the contained variables. Before an indexed variable can be used in expressions, the contained variables must be added. This can be done be either providing lower and upper bound or an expression.
 
 ```cpp
+// create container with item tyoes and name
 auto& a = model.addIndexedVariables(CP::Variable::Type::INTEGER, "a");
-a.emplace_back( 0, 5 );      // a[0] ∈ { 0, ..., 5 }
-a.emplace_back( x + 4 );     // a[1] := x + 4.00 ( x must have been added to the model before )
-a.emplace_back( a[1] + 5 );  // a[2] := a[1] + 5.00 ( only variables with lower index must be used )
+// create each item with bounds or expression
+model.addIndexedVariable( a, 0, 5 );      // a[0] ∈ { 0, ..., 5 }
+model.addIndexedVariable( a, x + 4 );     // a[1] := x + 4.00 ( x must have been added to the model before )
+model.addIndexedVariable( a, a[1] + 5 );  // a[2] := a[1] + 5.00 ( only variables with lower index must be used )
 ```
 
 ### Collections
@@ -75,30 +78,39 @@ a.emplace_back( a[1] + 5 );  // a[2] := a[1] + 5.00 ( only variables with lower 
 The `Collection` struct provides access to static external data collections that can be looked up at runtime. A collection is identified by a key (variable or constant) and supports indexed access and aggregate operations.
 
 ```cpp
-// Set up collection lookup function
-model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-  if (key == 0) return std::vector<double>{10.0, 20.0, 30.0};
-  if (key == 1) return std::vector<double>{40.0, 50.0};
-  return std::unexpected("Collection not found");
-}, 2);  // 2 collections
+std::vector< std::vector<double> > collections = {
+  {10.0, 20.0, 30.0},
+  {40.0, 50.0}
+};
 
-auto& key = model.addIntegerVariable("key");
+// Set up collection lookup function
+model.setCollectionLookup([&collections](double key) -> std::expected<std::vector<double>, std::string> {
+  auto index = (size_t)key;
+  if ( index >= collections.size() ) {
+    return std::unexpected("Collection not found");
+  }
+  return collections[index];
+}, collections.size());  // 2 collections
+
+auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0, 1);
+auto collection = CP::Collection(key);
 
 // Indexed access
-CP::Collection(key)[1]       // first element of collection identified by key
-CP::Collection(key)[index]   // element at variable index
-CP::Collection(0.0)[2]       // second element of collection 0 (constant key)
+auto x1 = collection[1];       // first element of collection identified by key (1-based indexing)
+auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 1, 2);
+auto x2 = collection[index];   // element at variable index
 
 // Aggregate operations
-CP::count(CP::Collection(key))   // number of elements
-CP::sum(CP::Collection(key))     // sum of elements
-CP::avg(CP::Collection(key))     // average of elements
-CP::max(CP::Collection(key))     // maximum element
-CP::min(CP::Collection(key))     // minimum element
+auto y1 = CP::count(collection);   // number of elements
+auto y2 = CP::sum(collection);     // sum of elements
+auto y3 = CP::avg(collection);     // average of elements
+auto y4 = CP::max(collection);     // maximum element
+auto y5 = CP::min(collection);     // minimum element
 
 // Membership operations
-CP::element_of(value, CP::Collection(key))       // true if value is in collection
-CP::not_element_of(value, CP::Collection(key))   // true if value is not in collection
+auto& value = model.addVariable(CP::Variable::Type::REAL, "value", 0.0, 100.0);
+auto z1 = CP::element_of(value, collection);       // true if value is in collection
+auto z2 = CP::not_element_of(value, collection);   // true if value is not in collection
 ```
 
 ### Sequences
@@ -153,7 +165,7 @@ Stores a concrete assignment to variables for a given model and allows evaluatio
 ```cpp
 CP::Solution solution(model);
 solution.setVariableValue(x, 3);
-solutionsolution.setVariableValue(y, 4);
+solution.setVariableValue(y, 4);
 auto result = solution.evaluate(3 * x + 5 * y == 29); // evaluates to 1 (true)
 ```
 
@@ -175,7 +187,7 @@ Simply include `cp.h` in your project - no build or linking required.
 #include "cp.h"
 
 CP::Model model;
-auto& x = model.addIntegerVariable("x", 0, 10);
+auto& x = model.addIntegerVariable("x");
 model.addConstraint(x >= 5);
 std::cout << model.stringify() << std::endl;
 ```
@@ -208,7 +220,7 @@ cmake .. -DBUILD_TESTS=OFF     # Skip tests
 #include "scip/scip_adapter.h"
 
 CP::Model model;
-auto& x = model.addIntegerVariable("x", 0, 10);
+auto& x = model.addIntegerVariable("x");
 model.addConstraint(x >= 5);
 
 CP::SCIPSolver solver(model);
@@ -227,6 +239,50 @@ find_package(cp-scip REQUIRED)
 
 add_executable(my_app main.cpp)
 target_link_libraries(my_app PRIVATE cp::cp cp::scip)
+```
+
+### With Hexaly solver
+
+**Prerequisites:** Install Hexaly from [hexaly.com](https://www.hexaly.com)
+
+**Build:**
+```bash
+mkdir build && cd build
+cmake ..
+make
+```
+
+This builds:
+- `libcp-hexaly.a` / `libcp-hexaly.so` - Hexaly adapter library
+- `test_hexaly` - Test suite
+
+### Using the Hexaly adapter
+
+**Code:**
+```cpp
+#include "cp.h"
+#include "hexaly/hexaly_adapter.h"
+
+CP::Model model;
+auto& x = model.addIntegerVariable("x");
+model.addConstraint(x >= 5);
+
+CP::HexalySolver solver(model);
+auto result = solver.solve(model);
+
+if (result.has_value()) {
+    auto& solution = result.value();
+    std::cout << solution.stringify() << std::endl;
+}
+```
+
+**CMakeLists.txt:**
+```cmake
+find_package(cp REQUIRED)
+find_package(cp-hexaly REQUIRED)
+
+add_executable(my_app main.cpp)
+target_link_libraries(my_app PRIVATE cp::cp cp::hexaly)
 ```
 
 
