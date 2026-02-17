@@ -426,13 +426,8 @@ hexaly::HxExpression HexalySolver::resolveCollectionOperation(
 
     // Case 1: Constant key - compute result directly
     if (std::holds_alternative<double>(keyOperand)) {
-        double constantKey = std::get<double>(keyOperand);
-        auto collectionResult = model.getCollection(constantKey);
-        if (!collectionResult) {
-            throw std::runtime_error("HexalySolver: Collection key " + std::to_string(constantKey) +
-                                     " not found: " + collectionResult.error());
-        }
-        const std::vector<double>& collection = collectionResult.value();
+        size_t constantKey = static_cast<size_t>(std::get<double>(keyOperand));
+        const std::vector<double>& collection = model.getCollection(constantKey);
 
         double result;
         if (opName == "count") {
@@ -500,13 +495,7 @@ hexaly::HxExpression HexalySolver::resolveCollectionOperation(
     // Pre-compute results for all collection keys
     std::vector<double> results(numberOfCollections);
     for (size_t i = 0; i < numberOfCollections; i++) {
-        double key = static_cast<double>(i);
-        auto collectionResult = model.getCollection(key);
-        if (!collectionResult) {
-            throw std::runtime_error("HexalySolver: Collection key " + std::to_string(key) +
-                                     " not found: " + collectionResult.error());
-        }
-        const std::vector<double>& collection = collectionResult.value();
+        const std::vector<double>& collection = model.getCollection(i);
 
         if (opName == "count") {
             results[i] = static_cast<double>(collection.size());
@@ -517,21 +506,21 @@ hexaly::HxExpression HexalySolver::resolveCollectionOperation(
         else if (opName == "avg") {
             if (collection.empty()) {
                 throw std::runtime_error("HexalySolver: avg() is undefined for empty collection at key " +
-                                         std::to_string(key));
+                                         std::to_string(i));
             }
             results[i] = std::accumulate(collection.begin(), collection.end(), 0.0) / collection.size();
         }
         else if (opName == "max") {
             if (collection.empty()) {
                 throw std::runtime_error("HexalySolver: max() is undefined for empty collection at key " +
-                                         std::to_string(key));
+                                         std::to_string(i));
             }
             results[i] = *std::max_element(collection.begin(), collection.end());
         }
         else if (opName == "min") {
             if (collection.empty()) {
                 throw std::runtime_error("HexalySolver: min() is undefined for empty collection at key " +
-                                         std::to_string(key));
+                                         std::to_string(i));
             }
             results[i] = *std::min_element(collection.begin(), collection.end());
         }
@@ -564,15 +553,10 @@ hexaly::HxExpression HexalySolver::resolveCollectionMembership(
 
     // Case 1: Constant key and constant value
     if (std::holds_alternative<double>(keyOperand) && std::holds_alternative<double>(valueOperand)) {
-        double constantKey = std::get<double>(keyOperand);
+        size_t constantKey = static_cast<size_t>(std::get<double>(keyOperand));
         double constantValue = std::get<double>(valueOperand);
 
-        auto collectionResult = model.getCollection(constantKey);
-        if (!collectionResult) {
-            throw std::runtime_error("HexalySolver: Collection key " + std::to_string(constantKey) +
-                                     " not found: " + collectionResult.error());
-        }
-        const std::vector<double>& collection = collectionResult.value();
+        const std::vector<double>& collection = model.getCollection(constantKey);
 
         bool found = std::find(collection.begin(), collection.end(), constantValue) != collection.end();
         bool result = isNegated ? !found : found;
@@ -581,13 +565,8 @@ hexaly::HxExpression HexalySolver::resolveCollectionMembership(
 
     // Case 2: Constant key, variable value
     if (std::holds_alternative<double>(keyOperand)) {
-        double constantKey = std::get<double>(keyOperand);
-        auto collectionResult = model.getCollection(constantKey);
-        if (!collectionResult) {
-            throw std::runtime_error("HexalySolver: Collection key " + std::to_string(constantKey) +
-                                     " not found: " + collectionResult.error());
-        }
-        const std::vector<double>& collection = collectionResult.value();
+        size_t constantKey = static_cast<size_t>(std::get<double>(keyOperand));
+        const std::vector<double>& collection = model.getCollection(constantKey);
 
         hexaly::HxExpression valueExpr = buildExpression(model, valueOperand);
 
@@ -636,12 +615,7 @@ hexaly::HxExpression HexalySolver::resolveCollectionMembership(
 
     std::vector<hexaly::HxExpression> membershipExprs;
     for (size_t i = 0; i < numberOfCollections; i++) {
-        auto collectionResult = model.getCollection(static_cast<double>(i));
-        if (!collectionResult) {
-            throw std::runtime_error("HexalySolver: Collection key " + std::to_string(i) +
-                                     " not found: " + collectionResult.error());
-        }
-        const std::vector<double>& collection = collectionResult.value();
+        const std::vector<double>& collection = model.getCollection(i);
 
         // Build OR of (value == element) for this collection
         hexaly::HxExpression membership = hxModel.createConstant(static_cast<hexaly::hxint>(0));
@@ -674,15 +648,10 @@ hexaly::HxExpression HexalySolver::resolveCollectionItem(const Model& model, con
 
     // Case 1: Both constant key and constant index
     if (std::holds_alternative<double>(keyOperand) && std::holds_alternative<double>(indexOperand)) {
-        double constantKey = std::get<double>(keyOperand);
+        size_t constantKey = static_cast<size_t>(std::get<double>(keyOperand));
         size_t index = static_cast<size_t>(std::get<double>(indexOperand));
 
-        auto collectionResult = model.getCollection(constantKey);
-        if (!collectionResult) {
-            throw std::runtime_error("HexalySolver: Collection key " + std::to_string(constantKey) +
-                                     " not found: " + collectionResult.error());
-        }
-        const std::vector<double>& collection = collectionResult.value();
+        const std::vector<double>& collection = model.getCollection(constantKey);
 
         // CP uses 1-based indexing
         if (index < 1 || index > collection.size()) {
@@ -695,13 +664,8 @@ hexaly::HxExpression HexalySolver::resolveCollectionItem(const Model& model, con
 
     // Case 2: Constant key, variable index
     if (std::holds_alternative<double>(keyOperand)) {
-        double constantKey = std::get<double>(keyOperand);
-        auto collectionResult = model.getCollection(constantKey);
-        if (!collectionResult) {
-            throw std::runtime_error("HexalySolver: Collection key " + std::to_string(constantKey) +
-                                     " not found: " + collectionResult.error());
-        }
-        const std::vector<double>& collection = collectionResult.value();
+        size_t constantKey = static_cast<size_t>(std::get<double>(keyOperand));
+        const std::vector<double>& collection = model.getCollection(constantKey);
 
         hexaly::HxExpression indexExpr = buildExpression(model, indexOperand);
 
@@ -749,12 +713,7 @@ hexaly::HxExpression HexalySolver::resolveCollectionItem(const Model& model, con
     // Then use nested at(): at(at(2DArray, key), index-1)
     std::vector<hexaly::HxExpression> collectionArrays;
     for (size_t i = 0; i < numberOfCollections; i++) {
-        auto collectionResult = model.getCollection(static_cast<double>(i));
-        if (!collectionResult) {
-            throw std::runtime_error("HexalySolver: Collection key " + std::to_string(i) +
-                                     " not found: " + collectionResult.error());
-        }
-        const std::vector<double>& collection = collectionResult.value();
+        const std::vector<double>& collection = model.getCollection(i);
 
         std::vector<hexaly::HxExpression> elements;
         for (double element : collection) {
@@ -796,15 +755,10 @@ hexaly::HxExpression HexalySolver::resolveCollectionAccess(const Model& model, c
 
     // Case 1: Both constant key and constant index
     if (std::holds_alternative<double>(keyOperand) && std::holds_alternative<double>(indexOperand)) {
-        double constantKey = std::get<double>(keyOperand);
+        size_t constantKey = static_cast<size_t>(std::get<double>(keyOperand));
         size_t index = static_cast<size_t>(std::get<double>(indexOperand));
 
-        auto collectionResult = model.getCollection(constantKey);
-        if (!collectionResult) {
-            throw std::runtime_error("HexalySolver: Collection key " + std::to_string(constantKey) +
-                                     " not found: " + collectionResult.error());
-        }
-        const std::vector<double>& collection = collectionResult.value();
+        const std::vector<double>& collection = model.getCollection(constantKey);
 
         if (index < 1 || index > collection.size()) {
             throw std::runtime_error("HexalySolver: Collection index out of bounds");
@@ -815,13 +769,8 @@ hexaly::HxExpression HexalySolver::resolveCollectionAccess(const Model& model, c
 
     // Case 2: Constant key, variable/constant index
     if (std::holds_alternative<double>(keyOperand)) {
-        double constantKey = std::get<double>(keyOperand);
-        auto collectionResult = model.getCollection(constantKey);
-        if (!collectionResult) {
-            throw std::runtime_error("HexalySolver: Collection key " + std::to_string(constantKey) +
-                                     " not found: " + collectionResult.error());
-        }
-        const std::vector<double>& collection = collectionResult.value();
+        size_t constantKey = static_cast<size_t>(std::get<double>(keyOperand));
+        const std::vector<double>& collection = model.getCollection(constantKey);
 
         std::vector<hexaly::HxExpression> elements;
         for (double element : collection) {
@@ -871,12 +820,7 @@ hexaly::HxExpression HexalySolver::resolveCollectionAccess(const Model& model, c
 
     std::vector<hexaly::HxExpression> collectionArrays;
     for (size_t i = 0; i < numberOfCollections; i++) {
-        auto collectionResult = model.getCollection(static_cast<double>(i));
-        if (!collectionResult) {
-            throw std::runtime_error("HexalySolver: Collection key " + std::to_string(i) +
-                                     " not found: " + collectionResult.error());
-        }
-        const std::vector<double>& collection = collectionResult.value();
+        const std::vector<double>& collection = model.getCollection(i);
 
         std::vector<hexaly::HxExpression> elements;
         for (double element : collection) {

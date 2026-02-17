@@ -529,14 +529,8 @@ SCIP_EXPR* SCIPSolver::buildExpression(const Model& model, const Operand& operan
         // Handle constant key
         auto constantKeyOpt = extractConstant(keyOperand);
         if (constantKeyOpt.has_value()) {
-          double constantKey = constantKeyOpt.value();
-          auto collectionResult = model.getCollection(constantKey);
-          if (!collectionResult) {
-            throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(constantKey) +
-                                     " not found in model");
-          }
-
-          const std::vector<double>& collection = collectionResult.value();
+          size_t constantKey = static_cast<size_t>(constantKeyOpt.value());
+          const std::vector<double>& collection = model.getCollection(constantKey);
           const Operand& indexOperand = expression.operands[1];
 
           // With constant key, just need to handle the index
@@ -596,14 +590,8 @@ SCIP_EXPR* SCIPSolver::buildExpression(const Model& model, const Operand& operan
           std::vector<double> elements(numKeys);
 
           for (int i = 0; i < numKeys; i++) {
-            int key = (int)std::ceil(keyLb) + i;
-            auto collectionResult = model.getCollection((double)key);
-            if (!collectionResult) {
-              throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(key) +
-                                       " not found in model");
-            }
-
-            const std::vector<double>& collection = collectionResult.value();
+            size_t key = static_cast<size_t>(std::ceil(keyLb)) + i;
+            const std::vector<double>& collection = model.getCollection(key);
 
             if (index > collection.size()) {
               throw std::runtime_error(
@@ -671,13 +659,8 @@ SCIP_EXPR* SCIPSolver::buildExpression(const Model& model, const Operand& operan
         std::vector<double> elements2D(numKeys * numIndices);
 
         for (int ki = 0; ki < numKeys; ki++) {
-          int key = (int)std::ceil(keyLb) + ki;
-          auto collectionResult = model.getCollection((double)key);
-          if (!collectionResult) {
-            throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(key) +
-                                     " not found in model");
-          }
-          const std::vector<double>& collection = collectionResult.value();
+          size_t key = static_cast<size_t>(std::ceil(keyLb)) + ki;
+          const std::vector<double>& collection = model.getCollection(key);
 
           for (int ii = 0; ii < numIndices; ii++) {
             size_t index = (size_t)std::ceil(indexLb) + ii;  // 1-based
@@ -1933,14 +1916,8 @@ SCIP_EXPR* SCIPSolver::resolveCollectionOperation(
   // Handle constant key - return constant result
   auto constantKeyOpt = extractConstant(keyOperand);
   if (constantKeyOpt.has_value()) {
-    double constantKey = constantKeyOpt.value();
-    auto collectionResult = model.getCollection(constantKey);
-    if (!collectionResult) {
-      throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(constantKey) +
-                               " not found in model");
-    }
-
-    const std::vector<double>& collection = collectionResult.value();
+    size_t constantKey = static_cast<size_t>(constantKeyOpt.value());
+    const std::vector<double>& collection = model.getCollection(constantKey);
     double result = 0.0;
 
     if (opName == "count") {
@@ -2078,15 +2055,8 @@ SCIP_EXPR* SCIPSolver::resolveCollectionOperation(
   std::vector<double> results(keys.size());
 
   for (size_t i = 0; i < keys.size(); i++) {
-    double key = keys[i];
-
-    auto collectionResult = model.getCollection(key);
-    if (!collectionResult) {
-      throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(key) +
-                               " not found in model");
-    }
-
-    const std::vector<double>& collection = collectionResult.value();
+    size_t key = static_cast<size_t>(keys[i]);
+    const std::vector<double>& collection = model.getCollection(key);
 
     // Compute only the requested operation
     if (opName == "count") {
@@ -2225,14 +2195,8 @@ SCIP_EXPR* SCIPSolver::resolveCollectionMembership(
   // Handle constant key
   auto constantKeyOpt = extractConstant(keyOperand);
   if (constantKeyOpt.has_value()) {
-    double constantKey = constantKeyOpt.value();
-    auto collectionResult = model.getCollection(constantKey);
-    if (!collectionResult) {
-      throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(constantKey) +
-                               " not found in model");
-    }
-
-    const std::vector<double>& collection = collectionResult.value();
+    size_t constantKey = static_cast<size_t>(constantKeyOpt.value());
+    const std::vector<double>& collection = model.getCollection(constantKey);
 
     // With constant key, just check membership for the value
     auto constantValueOpt = extractConstant(valueOperand);
@@ -2358,14 +2322,8 @@ SCIP_EXPR* SCIPSolver::resolveCollectionMembership(
     std::vector<double> membership(numKeys);
 
     for (int i = 0; i < numKeys; i++) {
-      double key = keys[i];
-      auto collectionResult = model.getCollection(key);
-      if (!collectionResult) {
-        throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(key) +
-                                 " not found in model");
-      }
-
-      const std::vector<double>& collection = collectionResult.value();
+      size_t key = static_cast<size_t>(keys[i]);
+      const std::vector<double>& collection = model.getCollection(key);
       bool found = std::find(collection.begin(), collection.end(), constantValue) != collection.end();
 
       membership[i] = (opName == "element_of") ? (found ? 1.0 : 0.0)
@@ -2422,14 +2380,8 @@ SCIP_EXPR* SCIPSolver::resolveCollectionMembership(
   std::vector<double> membership2D(numKeys * numValues);
 
   for (int ki = 0; ki < numKeys; ki++) {
-    double key = keys[ki];
-    auto collectionResult = model.getCollection(key);
-    if (!collectionResult) {
-      throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(key) +
-                               " not found in model");
-    }
-
-    const std::vector<double>& collection = collectionResult.value();
+    size_t key = static_cast<size_t>(keys[ki]);
+    const std::vector<double>& collection = model.getCollection(key);
 
     for (int vi = 0; vi < numValues; vi++) {
       int value = (int)std::ceil(valueLb) + vi;
@@ -2536,14 +2488,8 @@ SCIP_EXPR* SCIPSolver::resolveCollectionItem(
   // Handle constant key
   auto constantKeyOpt = extractConstant(keyOperand);
   if (constantKeyOpt.has_value()) {
-    double constantKey = constantKeyOpt.value();
-    auto collectionResult = model.getCollection(constantKey);
-    if (!collectionResult) {
-      throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(constantKey) +
-                               " not found in model");
-    }
-
-    const std::vector<double>& collection = collectionResult.value();
+    size_t constantKey = static_cast<size_t>(constantKeyOpt.value());
+    const std::vector<double>& collection = model.getCollection(constantKey);
 
     // With constant key, just get element at index
     auto constantIndexOpt = extractConstant(indexOperand);
@@ -2675,14 +2621,8 @@ SCIP_EXPR* SCIPSolver::resolveCollectionItem(
     std::vector<double> elements(numKeys);
 
     for (int i = 0; i < numKeys; i++) {
-      double key = keys[i];
-      auto collectionResult = model.getCollection((double)key);
-      if (!collectionResult) {
-        throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(key) +
-                                 " not found in model");
-      }
-
-      const std::vector<double>& collection = collectionResult.value();
+      size_t key = static_cast<size_t>(keys[i]);
+      const std::vector<double>& collection = model.getCollection(key);
 
       // Validate index (1-based)
       if (index > collection.size()) {
@@ -2749,14 +2689,8 @@ SCIP_EXPR* SCIPSolver::resolveCollectionItem(
 
   // Validate that all indices are within bounds for all collections
   for (int ki = 0; ki < numKeys; ki++) {
-    double key = keys[ki];
-    auto collectionResult = model.getCollection(key);
-    if (!collectionResult) {
-      throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(key) +
-                               " not found in model");
-    }
-
-    const std::vector<double>& collection = collectionResult.value();
+    size_t key = static_cast<size_t>(keys[ki]);
+    const std::vector<double>& collection = model.getCollection(key);
     size_t maxIndex = (size_t)std::ceil(indexUb);
 
     if (maxIndex > collection.size()) {
@@ -2775,13 +2709,8 @@ SCIP_EXPR* SCIPSolver::resolveCollectionItem(
   double maxElement = std::numeric_limits<double>::lowest();
 
   for (int ki = 0; ki < numKeys; ki++) {
-    double key = keys[ki];
-    auto collectionResult = model.getCollection(key);
-    if (!collectionResult) {
-      throw std::runtime_error("SCIPSolver: Collection key " + std::to_string(key) +
-                               " not found in model");
-    }
-    const std::vector<double>& collection = collectionResult.value();
+    size_t key = static_cast<size_t>(keys[ki]);
+    const std::vector<double>& collection = model.getCollection(key);
 
     for (int ii = 0; ii < numIndices; ii++) {
       size_t index = (size_t)std::ceil(indexLb) + ii;  // 1-based

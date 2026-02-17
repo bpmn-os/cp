@@ -1761,11 +1761,10 @@ int main() {
         CP::Model model;
 
         // Set up collection lookup
-        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
-            return std::unexpected("Collection key not found");
-        }, 1);
+        std::vector<std::vector<double>> collections1 = {{10.0, 20.0, 30.0}};
+        model.setCollectionLookup([&collections1](size_t key) -> const std::vector<double>& {
+            return collections1[key];
+        }, collections1.size());
 
         // Create collection(key)[index] using Expression::Operator::at directly
         const auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
@@ -1808,16 +1807,12 @@ int main() {
         CP::Model model;
 
         // Set collection lookup on model
-        model.setCollectionLookup([&mockCollections](double key) -> std::expected<std::vector<double>, std::string> {
-            size_t index = static_cast<size_t>(std::round(key));
-            if (index >= mockCollections.size()) {
-                return std::unexpected("Collection index out of bounds");
-            }
-            return mockCollections[index];
+        model.setCollectionLookup([&mockCollections](size_t key) -> const std::vector<double>& {
+            return mockCollections[key];
         }, mockCollections.size());
 
         // Use collection data to build constraints
-        auto collection = model.getCollection(1.0).value();
+        const auto& collection = model.getCollection(1);
 
         auto countExpr = CP::customOperator("count", collection[0], collection[1], collection[2]);
         auto& numElements = model.addVariable(CP::Variable::Type::INTEGER, "numElements", countExpr);
@@ -1851,13 +1846,12 @@ int main() {
     // Test: count(collection(key)) with variable key
     {
         CP::Model model;
-        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
-            if (k == 1) return std::vector<double>{40.0, 50.0};
-            if (k == 2) return std::vector<double>{60.0, 70.0, 80.0, 90.0};
-            return std::unexpected("Collection key not found");
-        }, 3);
+        std::vector<std::vector<double>> collections2 = {
+            {10.0, 20.0, 30.0}, {40.0, 50.0}, {60.0, 70.0, 80.0, 90.0}
+        };
+        model.setCollectionLookup([&collections2](size_t key) -> const std::vector<double>& {
+            return collections2[key];
+        }, collections2.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 2.0);
         auto& result = model.addVariable(CP::Variable::Type::INTEGER, "result", 0.0, 10.0);
@@ -1873,12 +1867,12 @@ int main() {
     // Test: sum(collection(key))
     {
         CP::Model model;
-        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
-            if (k == 1) return std::vector<double>{5.0, 15.0};
-            return std::unexpected("Collection key not found");
-        }, 2);
+        std::vector<std::vector<double>> collections3 = {
+            {10.0, 20.0, 30.0}, {5.0, 15.0}
+        };
+        model.setCollectionLookup([&collections3](size_t key) -> const std::vector<double>& {
+            return collections3[key];
+        }, collections3.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 1.0);
         auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
@@ -1894,11 +1888,10 @@ int main() {
     // Test: avg(collection(key))
     {
         CP::Model model;
-        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
-            return std::unexpected("Collection key not found");
-        }, 1);
+        std::vector<std::vector<double>> collections4 = {{10.0, 20.0, 30.0}};
+        model.setCollectionLookup([&collections4](size_t key) -> const std::vector<double>& {
+            return collections4[key];
+        }, collections4.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 50.0);
@@ -1913,11 +1906,10 @@ int main() {
     // Test: max(collection(key))
     {
         CP::Model model;
-        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{10.0, 50.0, 30.0};
-            return std::unexpected("Collection key not found");
-        }, 1);
+        std::vector<std::vector<double>> collections5 = {{10.0, 50.0, 30.0}};
+        model.setCollectionLookup([&collections5](size_t key) -> const std::vector<double>& {
+            return collections5[key];
+        }, collections5.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
@@ -1932,11 +1924,10 @@ int main() {
     // Test: min(collection(key))
     {
         CP::Model model;
-        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{30.0, 10.0, 50.0};
-            return std::unexpected("Collection key not found");
-        }, 1);
+        std::vector<std::vector<double>> collections6 = {{30.0, 10.0, 50.0}};
+        model.setCollectionLookup([&collections6](size_t key) -> const std::vector<double>& {
+            return collections6[key];
+        }, collections6.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
@@ -1951,11 +1942,10 @@ int main() {
     // Test: element_of(constant, collection) - found
     {
         CP::Model model;
-        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
-            return std::unexpected("Collection key not found");
-        }, 1);
+        std::vector<std::vector<double>> collections7 = {{10.0, 20.0, 30.0}};
+        model.setCollectionLookup([&collections7](size_t key) -> const std::vector<double>& {
+            return collections7[key];
+        }, collections7.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
@@ -1970,11 +1960,10 @@ int main() {
     // Test: element_of(constant, collection) - not found
     {
         CP::Model model;
-        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
-            return std::unexpected("Collection key not found");
-        }, 1);
+        std::vector<std::vector<double>> collections8 = {{10.0, 20.0, 30.0}};
+        model.setCollectionLookup([&collections8](size_t key) -> const std::vector<double>& {
+            return collections8[key];
+        }, collections8.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
@@ -1989,11 +1978,10 @@ int main() {
     // Test: not_element_of(constant, collection) - found (returns 0)
     {
         CP::Model model;
-        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
-            return std::unexpected("Collection key not found");
-        }, 1);
+        std::vector<std::vector<double>> collections9 = {{10.0, 20.0, 30.0}};
+        model.setCollectionLookup([&collections9](size_t key) -> const std::vector<double>& {
+            return collections9[key];
+        }, collections9.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
@@ -2008,11 +1996,10 @@ int main() {
     // Test: not_element_of(constant, collection) - not found (returns 1)
     {
         CP::Model model;
-        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
-            return std::unexpected("Collection key not found");
-        }, 1);
+        std::vector<std::vector<double>> collections10 = {{10.0, 20.0, 30.0}};
+        model.setCollectionLookup([&collections10](size_t key) -> const std::vector<double>& {
+            return collections10[key];
+        }, collections10.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
@@ -2027,11 +2014,10 @@ int main() {
     // Test: Collection[constant_index]
     {
         CP::Model model;
-        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
-            return std::unexpected("Collection key not found");
-        }, 1);
+        std::vector<std::vector<double>> collections11 = {{10.0, 20.0, 30.0}};
+        model.setCollectionLookup([&collections11](size_t key) -> const std::vector<double>& {
+            return collections11[key];
+        }, collections11.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
@@ -2046,12 +2032,12 @@ int main() {
     // Test: at with different collection keys
     {
         CP::Model model;
-        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
-            if (k == 1) return std::vector<double>{40.0, 50.0, 60.0};
-            return std::unexpected("Collection key not found");
-        }, 2);
+        std::vector<std::vector<double>> collections12 = {
+            {10.0, 20.0, 30.0}, {40.0, 50.0, 60.0}
+        };
+        model.setCollectionLookup([&collections12](size_t key) -> const std::vector<double>& {
+            return collections12[key];
+        }, collections12.size());
 
         // Test with key=0
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
@@ -2065,12 +2051,9 @@ int main() {
 
         // Test with key=1
         CP::Model model2;
-        model2.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
-            if (k == 1) return std::vector<double>{40.0, 50.0, 60.0};
-            return std::unexpected("Collection key not found");
-        }, 2);
+        model2.setCollectionLookup([&collections12](size_t key) -> const std::vector<double>& {
+            return collections12[key];
+        }, collections12.size());
 
         auto& key2 = model2.addVariable(CP::Variable::Type::INTEGER, "key", 1.0, 1.0);
         auto& result2 = model2.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
@@ -2086,11 +2069,10 @@ int main() {
     // Test: element_of(variable, collection) - found
     {
         CP::Model model;
-        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
-            return std::unexpected("Collection key not found");
-        }, 1);
+        std::vector<std::vector<double>> collections13 = {{10.0, 20.0, 30.0}};
+        model.setCollectionLookup([&collections13](size_t key) -> const std::vector<double>& {
+            return collections13[key];
+        }, collections13.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
@@ -2107,11 +2089,10 @@ int main() {
     // Test: element_of(variable, collection) - not found
     {
         CP::Model model;
-        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
-            return std::unexpected("Collection key not found");
-        }, 1);
+        std::vector<std::vector<double>> collections14 = {{10.0, 20.0, 30.0}};
+        model.setCollectionLookup([&collections14](size_t key) -> const std::vector<double>& {
+            return collections14[key];
+        }, collections14.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
@@ -2128,12 +2109,12 @@ int main() {
     // Test: element_of(variable, collection(variable_key)) - both variable
     {
         CP::Model model;
-        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
-            if (k == 1) return std::vector<double>{40.0, 50.0, 60.0};
-            return std::unexpected("Collection key not found");
-        }, 2);
+        std::vector<std::vector<double>> collections15 = {
+            {10.0, 20.0, 30.0}, {40.0, 50.0, 60.0}
+        };
+        model.setCollectionLookup([&collections15](size_t key) -> const std::vector<double>& {
+            return collections15[key];
+        }, collections15.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 1.0);
         auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 60.0);
@@ -2151,11 +2132,10 @@ int main() {
     // Test: not_element_of(variable, collection) - found (returns 0)
     {
         CP::Model model;
-        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
-            return std::unexpected("Collection key not found");
-        }, 1);
+        std::vector<std::vector<double>> collections16 = {{10.0, 20.0, 30.0}};
+        model.setCollectionLookup([&collections16](size_t key) -> const std::vector<double>& {
+            return collections16[key];
+        }, collections16.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
@@ -2172,11 +2152,10 @@ int main() {
     // Test: not_element_of(variable, collection) - not found (returns 1)
     {
         CP::Model model;
-        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
-            return std::unexpected("Collection key not found");
-        }, 1);
+        std::vector<std::vector<double>> collections17 = {{10.0, 20.0, 30.0}};
+        model.setCollectionLookup([&collections17](size_t key) -> const std::vector<double>& {
+            return collections17[key];
+        }, collections17.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
@@ -2193,11 +2172,10 @@ int main() {
     // Test: Collection[variable_index]
     {
         CP::Model model;
-        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
-            return std::unexpected("Collection key not found");
-        }, 1);
+        std::vector<std::vector<double>> collections18 = {{10.0, 20.0, 30.0}};
+        model.setCollectionLookup([&collections18](size_t key) -> const std::vector<double>& {
+            return collections18[key];
+        }, collections18.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 1.0, 3.0);
@@ -2214,12 +2192,12 @@ int main() {
     // Test: Collection(variable_key)[variable_index]
     {
         CP::Model model;
-        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
-            if (k == 1) return std::vector<double>{40.0, 50.0, 60.0};
-            return std::unexpected("Collection key not found");
-        }, 2);
+        std::vector<std::vector<double>> collections19 = {
+            {10.0, 20.0, 30.0}, {40.0, 50.0, 60.0}
+        };
+        model.setCollectionLookup([&collections19](size_t key) -> const std::vector<double>& {
+            return collections19[key];
+        }, collections19.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 1.0);
         auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 1.0, 3.0);
@@ -2237,11 +2215,10 @@ int main() {
     // Test: count(Collection(constant_key))
     {
         CP::Model model;
-        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
-            return std::unexpected("Collection key not found");
-        }, 1);
+        std::vector<std::vector<double>> collections20 = {{10.0, 20.0, 30.0}};
+        model.setCollectionLookup([&collections20](size_t key) -> const std::vector<double>& {
+            return collections20[key];
+        }, collections20.size());
 
         auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 10.0);
         model.addConstraint(result == CP::count(CP::Collection(0.0)));
@@ -2255,11 +2232,10 @@ int main() {
     // Test: Collection(constant_key)[constant_index]
     {
         CP::Model model;
-        model.setCollectionLookup([](double key) -> std::expected<std::vector<double>, std::string> {
-            int k = (int)std::round(key);
-            if (k == 0) return std::vector<double>{10.0, 20.0, 30.0};
-            return std::unexpected("Collection key not found");
-        }, 1);
+        std::vector<std::vector<double>> collections21 = {{10.0, 20.0, 30.0}};
+        model.setCollectionLookup([&collections21](size_t key) -> const std::vector<double>& {
+            return collections21[key];
+        }, collections21.size());
 
         auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
         model.addConstraint(result == CP::Collection(0.0)[2.0]);

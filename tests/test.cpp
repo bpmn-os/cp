@@ -190,13 +190,9 @@ int main()
       {5.0, 15.0}           // index 2: 2 elements
     };
 
-    // Create lookup lambda
-    auto collectionLookup = [&mockCollections](double key) -> std::expected<std::vector<double>, std::string> {
-      size_t index = static_cast<size_t>(std::round(key));
-      if (index >= mockCollections.size()) {
-        return std::unexpected("Collection index out of bounds");
-      }
-      return mockCollections[index];
+    // Create lookup lambda (caller responsible for bounds)
+    auto collectionLookup = [&mockCollections](size_t key) -> const std::vector<double>& {
+      return mockCollections[key];
     };
 
     CP::Model model;
@@ -206,26 +202,20 @@ int main()
     model.setCollectionLookup(collectionLookup, mockCollections.size());
 
     // Test Model::getCollection directly
-    auto coll0 = model.getCollection(0.0);
-    assert( coll0.has_value() );
-    assert( coll0.value().size() == 0 );
+    const auto& coll0 = model.getCollection(0);
+    assert( coll0.size() == 0 );
 
-    auto coll1 = model.getCollection(1.0);
-    assert( coll1.has_value() );
-    assert( coll1.value().size() == 3 );
-    assert( coll1.value()[0] == 10.0 );
-    assert( coll1.value()[1] == 20.0 );
-    assert( coll1.value()[2] == 30.0 );
+    const auto& coll1 = model.getCollection(1);
+    assert( coll1.size() == 3 );
+    assert( coll1[0] == 10.0 );
+    assert( coll1[1] == 20.0 );
+    assert( coll1[2] == 30.0 );
 
-    auto coll2 = model.getCollection(2.0);
-    assert( coll2.has_value() );
-    assert( coll2.value().size() == 2 );
-
-    auto collBad = model.getCollection(99.0);
-    assert( !collBad.has_value() );
+    const auto& coll2 = model.getCollection(2);
+    assert( coll2.size() == 2 );
 
     // Get collection data for use in constraints (collection at index 1)
-    auto collection = model.getCollection(1.0).value();
+    const auto& collection = model.getCollection(1);
 
     CP::Solution solution(model);
 

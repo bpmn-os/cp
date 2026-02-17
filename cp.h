@@ -944,17 +944,14 @@ public:
   };
 
   inline void setCollectionLookup(
-    std::function< std::expected<std::vector<double>, std::string>(double) > lookup,
+    std::function<const std::vector<double>&(size_t)> lookup,
     size_t numberOfCollections
   ) {
     _collectionLookup = std::move(lookup);
     _numberOfCollections = numberOfCollections;
   }
 
-  inline std::expected<std::vector<double>, std::string> getCollection(double key) const {
-    if (!_collectionLookup) {
-      return std::unexpected("Collection lookup not set in Model");
-    }
+  inline const std::vector<double>& getCollection(size_t key) const {
     return _collectionLookup(key);
   }
 
@@ -1004,7 +1001,7 @@ private:
   std::deque< IndexedVariables > indexedVariables;
   std::deque< Expression > constraints;
   reference_vector<const Variable> allVariables;
-  std::function< std::expected<std::vector<double>, std::string>(double) > _collectionLookup;
+  std::function<const std::vector<double>&(size_t)> _collectionLookup;
   size_t _numberOfCollections = 0;
 };
 
@@ -1058,7 +1055,7 @@ public:
   inline std::string stringify() const;
   inline std::string stringify(const Variable& variable) const;
 private:
-  inline std::expected<std::vector<double>, std::string> getCollection(const Operand& operand) const;
+  inline const std::vector<double>& getCollection(const Operand& operand) const;
   Status _status = Status::UNKNOWN;
   std::unordered_map< const Variable*, double > _variableValues;
   std::vector< std::function< std::expected<double, std::string>(const std::vector<double>&) > > _customEvaluators;
@@ -1248,18 +1245,15 @@ inline std::expected<double, std::string> Solution::evaluate(const Operand& term
   }
 };
 
-inline std::expected<std::vector<double>, std::string> Solution::getCollection(const Operand& operand) const {
+inline const std::vector<double>& Solution::getCollection(const Operand& operand) const {
   // aggregate function of collection represented by variable
   const Variable& variable = std::get<std::reference_wrapper<const Variable>> ( std::get<Expression>( std::get<Expression>(operand).operands[0] ).operands.front() );
 
-  // determine variable value
+  // determine variable value (caller ensures this succeeds)
   auto evaluation = evaluate(variable);
-  if ( !evaluation ) {
-    return std::unexpected( evaluation.error() );
-  }
 
   // delegate to model's collection lookup
-  return model.getCollection(evaluation.value());
+  return model.getCollection(static_cast<size_t>(evaluation.value()));
 }
 
 inline std::expected<double, std::string> Solution::evaluate(const Expression& expression) const {
@@ -1278,21 +1272,21 @@ inline std::expected<double, std::string> Solution::evaluate(const Expression& e
       throw std::logic_error("CP: first operand of at operator must be a collection");  
     }
 
-    auto collection = getCollection(operands[0]);
+    const auto& collection = getCollection(operands[0]);
 
     auto indexEvaluation = evaluate( std::get<Expression>(operands[1]) );
     if ( !indexEvaluation) {
       return std::unexpected( indexEvaluation.error() );
     }
     size_t index = (size_t)std::round(indexEvaluation.value());
-    if ( index < 1 || index > collection.value().size() ) {
+    if ( index < 1 || index > collection.size() ) {
       return std::unexpected( "illegal index" );
     }
-    return collection.value().at(index - 1);
+    return collection.at(index - 1);
   }
   else if ( expression._operator == custom ) {
     if ( operands.size() < 2 ) {
-      throw std::logic_error("CP: custom operator must have at least two operands");  
+      throw std::logic_error("CP: custom operator must have at least two operands");
     }
     auto index = std::get<size_t>(operands.front());
 
@@ -1300,8 +1294,8 @@ inline std::expected<double, std::string> Solution::evaluate(const Expression& e
       std::holds_alternative<Expression>(operands[1]) &&
       std::get<Expression>(operands[1])._operator == collection
     ) {
-      auto collection = getCollection(operands[1]);
-      return _customEvaluators.at(index)(collection.value());
+      const auto& coll = getCollection(operands[1]);
+      return _customEvaluators.at(index)(coll);
     }
     else {   
       auto evaluations = evaluate(operands | std::views::drop(1));

@@ -78,18 +78,14 @@ model.addIndexedVariable( a, a[1] + 5 );  // a[2] := a[1] + 5.00 ( only variable
 The `Collection` struct provides access to static external data collections that can be looked up at runtime. A collection is identified by a key (variable or constant) and supports indexed access and aggregate operations.
 
 ```cpp
-std::vector< std::vector<double> > collections = {
+std::vector<std::vector<double>> collections = {
   {10.0, 20.0, 30.0},
   {40.0, 50.0}
 };
 
-// Set up collection lookup function
-model.setCollectionLookup([&collections](double key) -> std::expected<std::vector<double>, std::string> {
-  auto index = (size_t)key;
-  if ( index >= collections.size() ) {
-    return std::unexpected("Collection not found");
-  }
-  return collections[index];
+// Set up collection lookup function (caller responsible for bounds)
+model.setCollectionLookup([&collections](size_t key) -> const std::vector<double>& {
+  return collections[key];
 }, collections.size());  // 2 collections
 
 auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0, 1);

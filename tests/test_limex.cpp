@@ -78,13 +78,12 @@ int main()
     std::vector<double> collection0{ 4, 3, 2, 1 };
     std::vector<double> collection1{ 0, 8, 15 };
 
+    std::vector<std::vector<double>> collectionData = {collection0, collection1};
     model.setCollectionLookup(
-      [&collection0,&collection1](double key) -> std::expected<std::vector<double>, std::string> {
-        if (key == 0.0) return collection0;
-        if (key == 1.0) return collection1;
-        return std::unexpected("Collection key not found");
+      [&collectionData](size_t key) -> const std::vector<double>& {
+        return collectionData[key];
       },
-      2  // 2 collections: 0 and 1
+      collectionData.size()
     );
 
     CP::Solution solution(model);
