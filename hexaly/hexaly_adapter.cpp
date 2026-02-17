@@ -352,7 +352,7 @@ hexaly::HxExpression HexalySolver::buildCustomOperator(const Model& model, const
         auto cond = buildExpression(model, expr.operands[1]);
         auto thenExpr = buildExpression(model, expr.operands[2]);
         auto elseExpr = buildExpression(model, expr.operands[3]);
-        return hxModel.iif(cond, thenExpr, elseExpr);
+        return hxModel.iif(boolify(cond), thenExpr, elseExpr);
     }
 
     if (opName == "n_ary_if") {
@@ -363,7 +363,7 @@ hexaly::HxExpression HexalySolver::buildCustomOperator(const Model& model, const
         for (int i = static_cast<int>(expr.operands.size()) - 3; i >= 1; i -= 2) {
             auto cond = buildExpression(model, expr.operands[i]);
             auto val = buildExpression(model, expr.operands[i + 1]);
-            result = hxModel.iif(cond, val, result);
+            result = hxModel.iif(boolify(cond), val, result);
         }
         return result;
     }
