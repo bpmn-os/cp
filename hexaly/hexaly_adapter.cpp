@@ -452,13 +452,27 @@ hexaly::HxExpression HexalySolver::resolveCollectionOperation(
         return hxModel.createConstant(result);
     }
 
-    // Case 2: Variable key - build iif chain
-    if (!std::holds_alternative<std::reference_wrapper<const Variable>>(keyOperand)) {
-        throw std::runtime_error("HexalySolver: collection() key must be a variable or constant");
+    // Unwrap Expression(none, {operand}) to get the actual operand
+    const Operand* actualKeyOperand = &keyOperand;
+    if (std::holds_alternative<Expression>(keyOperand)) {
+        const Expression& keyExpr = std::get<Expression>(keyOperand);
+        if (keyExpr._operator == Expression::Operator::none && keyExpr.operands.size() == 1) {
+            actualKeyOperand = &keyExpr.operands[0];
+        }
     }
 
-    const Variable& keyVar = std::get<std::reference_wrapper<const Variable>>(keyOperand);
-    hexaly::HxExpression keyExpr = expressionMap.at(&keyVar);
+    // Case 2: Variable or IndexedVariable key - build array lookup
+    hexaly::HxExpression keyExpr;
+    if (std::holds_alternative<std::reference_wrapper<const Variable>>(*actualKeyOperand)) {
+        const Variable& keyVar = std::get<std::reference_wrapper<const Variable>>(*actualKeyOperand);
+        keyExpr = expressionMap.at(&keyVar);
+    }
+    else if (std::holds_alternative<IndexedVariable>(*actualKeyOperand)) {
+        keyExpr = buildExpression(model, *actualKeyOperand);
+    }
+    else {
+        throw std::runtime_error("HexalySolver: collection() key must be a variable or constant");
+    }
 
     if (!model.hasCollections()) {
         throw std::runtime_error(
@@ -575,13 +589,27 @@ hexaly::HxExpression HexalySolver::resolveCollectionMembership(
         return result;
     }
 
-    // Case 3: Variable key - need to handle all possible collections
-    if (!std::holds_alternative<std::reference_wrapper<const Variable>>(keyOperand)) {
-        throw std::runtime_error("HexalySolver: collection() key must be a variable or constant");
+    // Unwrap Expression(none, {operand}) to get the actual operand
+    const Operand* actualKeyOperand = &keyOperand;
+    if (std::holds_alternative<Expression>(keyOperand)) {
+        const Expression& keyExprWrapper = std::get<Expression>(keyOperand);
+        if (keyExprWrapper._operator == Expression::Operator::none && keyExprWrapper.operands.size() == 1) {
+            actualKeyOperand = &keyExprWrapper.operands[0];
+        }
     }
 
-    const Variable& keyVar = std::get<std::reference_wrapper<const Variable>>(keyOperand);
-    hexaly::HxExpression keyExpr = expressionMap.at(&keyVar);
+    // Case 3: Variable or IndexedVariable key - need to handle all possible collections
+    hexaly::HxExpression keyExpr;
+    if (std::holds_alternative<std::reference_wrapper<const Variable>>(*actualKeyOperand)) {
+        const Variable& keyVar = std::get<std::reference_wrapper<const Variable>>(*actualKeyOperand);
+        keyExpr = expressionMap.at(&keyVar);
+    }
+    else if (std::holds_alternative<IndexedVariable>(*actualKeyOperand)) {
+        keyExpr = buildExpression(model, *actualKeyOperand);
+    }
+    else {
+        throw std::runtime_error("HexalySolver: collection() key must be a variable or constant");
+    }
 
     if (!model.hasCollections()) {
         throw std::runtime_error("HexalySolver: No collection keys provided to model.");
@@ -674,13 +702,27 @@ hexaly::HxExpression HexalySolver::resolveCollectionItem(const Model& model, con
                           round(indexExpr) - hxModel.createConstant(static_cast<hexaly::hxint>(1)));
     }
 
-    // Case 3: Variable key
-    if (!std::holds_alternative<std::reference_wrapper<const Variable>>(keyOperand)) {
-        throw std::runtime_error("HexalySolver: collection() key must be a variable or constant");
+    // Unwrap Expression(none, {operand}) to get the actual operand
+    const Operand* actualKeyOperand = &keyOperand;
+    if (std::holds_alternative<Expression>(keyOperand)) {
+        const Expression& keyExprWrapper = std::get<Expression>(keyOperand);
+        if (keyExprWrapper._operator == Expression::Operator::none && keyExprWrapper.operands.size() == 1) {
+            actualKeyOperand = &keyExprWrapper.operands[0];
+        }
     }
 
-    const Variable& keyVar = std::get<std::reference_wrapper<const Variable>>(keyOperand);
-    hexaly::HxExpression keyExpr = expressionMap.at(&keyVar);
+    // Case 3: Variable or IndexedVariable key
+    hexaly::HxExpression keyExpr;
+    if (std::holds_alternative<std::reference_wrapper<const Variable>>(*actualKeyOperand)) {
+        const Variable& keyVar = std::get<std::reference_wrapper<const Variable>>(*actualKeyOperand);
+        keyExpr = expressionMap.at(&keyVar);
+    }
+    else if (std::holds_alternative<IndexedVariable>(*actualKeyOperand)) {
+        keyExpr = buildExpression(model, *actualKeyOperand);
+    }
+    else {
+        throw std::runtime_error("HexalySolver: collection() key must be a variable or constant");
+    }
 
     if (!model.hasCollections()) {
         throw std::runtime_error("HexalySolver: No collection keys provided to model.");
@@ -785,13 +827,27 @@ hexaly::HxExpression HexalySolver::resolveCollectionAccess(const Model& model, c
                           round(indexExpr) - hxModel.createConstant(static_cast<hexaly::hxint>(1)));
     }
 
-    // Case 3: Variable key
-    if (!std::holds_alternative<std::reference_wrapper<const Variable>>(keyOperand)) {
-        throw std::runtime_error("HexalySolver: collection() key must be a variable or constant");
+    // Unwrap Expression(none, {operand}) to get the actual operand
+    const Operand* actualKeyOperand = &keyOperand;
+    if (std::holds_alternative<Expression>(keyOperand)) {
+        const Expression& keyExprWrapper = std::get<Expression>(keyOperand);
+        if (keyExprWrapper._operator == Expression::Operator::none && keyExprWrapper.operands.size() == 1) {
+            actualKeyOperand = &keyExprWrapper.operands[0];
+        }
     }
 
-    const Variable& keyVar = std::get<std::reference_wrapper<const Variable>>(keyOperand);
-    hexaly::HxExpression keyExpr = expressionMap.at(&keyVar);
+    // Case 3: Variable or IndexedVariable key
+    hexaly::HxExpression keyExpr;
+    if (std::holds_alternative<std::reference_wrapper<const Variable>>(*actualKeyOperand)) {
+        const Variable& keyVar = std::get<std::reference_wrapper<const Variable>>(*actualKeyOperand);
+        keyExpr = expressionMap.at(&keyVar);
+    }
+    else if (std::holds_alternative<IndexedVariable>(*actualKeyOperand)) {
+        keyExpr = buildExpression(model, *actualKeyOperand);
+    }
+    else {
+        throw std::runtime_error("HexalySolver: collection() key must be a variable or constant");
+    }
 
     if (!model.hasCollections()) {
         throw std::runtime_error("HexalySolver: No collection keys provided to model.");
