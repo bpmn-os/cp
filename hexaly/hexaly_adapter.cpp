@@ -120,6 +120,12 @@ hexaly::HxExpression HexalySolver::boolify(hexaly::HxExpression expr) {
     return (expr != hxModel.createConstant(0.0));
 }
 
+hexaly::HxExpression HexalySolver::round(hexaly::HxExpression expr) {
+    // Hexaly requires integer operands for at() indices
+    // Convert float to integer using round()
+    return hxModel.round(expr);
+}
+
 hexaly::HxExpression HexalySolver::buildExpression(const Model& model, const Operand& operand) {
     using Op = Expression::Operator;
 
@@ -148,7 +154,7 @@ hexaly::HxExpression HexalySolver::buildExpression(const Model& model, const Ope
         // Build index expression (CP uses 0-based indexing for IndexedVariables)
         hexaly::HxExpression indexExpr = expressionMap.at(&iv.index.get());
 
-        return hxModel.at(hxModel.array(arrayExprs.begin(), arrayExprs.end()), indexExpr);
+        return hxModel.at(hxModel.array(arrayExprs.begin(), arrayExprs.end()), round(indexExpr));
     }
 
     // Handle expression
@@ -379,7 +385,7 @@ hexaly::HxExpression HexalySolver::buildCustomOperator(const Model& model, const
         }
         else {
             auto index = buildExpression(model, expr.operands[1]);
-            zeroBasedIndex = index - hxModel.createConstant(static_cast<hexaly::hxint>(1));
+            zeroBasedIndex = round(index) - hxModel.createConstant(static_cast<hexaly::hxint>(1));
         }
         std::vector<hexaly::HxExpression> values;
         for (size_t i = 2; i < expr.operands.size(); i++) {
@@ -509,7 +515,7 @@ hexaly::HxExpression HexalySolver::resolveCollectionOperation(
         resultExprs.push_back(hxModel.createConstant(r));
     }
 
-    return hxModel.at(hxModel.array(resultExprs.begin(), resultExprs.end()), keyExpr);
+    return hxModel.at(hxModel.array(resultExprs.begin(), resultExprs.end()), round(keyExpr));
 }
 
 // Collection membership: element_of(value, Collection(key)) or not_element_of(...)
@@ -608,7 +614,7 @@ hexaly::HxExpression HexalySolver::resolveCollectionMembership(
         membershipExprs.push_back(membership);
     }
 
-    return hxModel.at(hxModel.array(membershipExprs.begin(), membershipExprs.end()), keyExpr);
+    return hxModel.at(hxModel.array(membershipExprs.begin(), membershipExprs.end()), round(keyExpr));
 }
 
 // Collection item access: at(index, Collection(key))
@@ -665,7 +671,7 @@ hexaly::HxExpression HexalySolver::resolveCollectionItem(const Model& model, con
 
         // CP uses 1-based indexing, so subtract 1
         return hxModel.at(hxModel.array(elements.begin(), elements.end()),
-                          indexExpr - hxModel.createConstant(static_cast<hexaly::hxint>(1)));
+                          round(indexExpr) - hxModel.createConstant(static_cast<hexaly::hxint>(1)));
     }
 
     // Case 3: Variable key
@@ -704,11 +710,11 @@ hexaly::HxExpression HexalySolver::resolveCollectionItem(const Model& model, con
     // Select collection by key, then element by index (1-based)
     hexaly::HxExpression selectedCollection = hxModel.at(
         hxModel.array(collectionArrays.begin(), collectionArrays.end()),
-        keyExpr
+        round(keyExpr)
     );
 
     return hxModel.at(selectedCollection,
-                      indexExpr - hxModel.createConstant(static_cast<hexaly::hxint>(1)));
+                      round(indexExpr) - hxModel.createConstant(static_cast<hexaly::hxint>(1)));
 }
 
 // Collection access via [] operator: Collection(key)[index]
@@ -776,7 +782,7 @@ hexaly::HxExpression HexalySolver::resolveCollectionAccess(const Model& model, c
         // Variable index - CP uses 1-based indexing
         hexaly::HxExpression indexExpr = buildExpression(model, indexOperand);
         return hxModel.at(hxModel.array(elements.begin(), elements.end()),
-                          indexExpr - hxModel.createConstant(static_cast<hexaly::hxint>(1)));
+                          round(indexExpr) - hxModel.createConstant(static_cast<hexaly::hxint>(1)));
     }
 
     // Case 3: Variable key
@@ -811,7 +817,7 @@ hexaly::HxExpression HexalySolver::resolveCollectionAccess(const Model& model, c
 
     hexaly::HxExpression selectedCollection = hxModel.at(
         hxModel.array(collectionArrays.begin(), collectionArrays.end()),
-        keyExpr
+        round(keyExpr)
     );
 
     // Handle constant index specially (needs integer for Hexaly at())
@@ -822,7 +828,7 @@ hexaly::HxExpression HexalySolver::resolveCollectionAccess(const Model& model, c
 
     hexaly::HxExpression indexExpr = buildExpression(model, indexOperand);
     return hxModel.at(selectedCollection,
-                      indexExpr - hxModel.createConstant(static_cast<hexaly::hxint>(1)));
+                      round(indexExpr) - hxModel.createConstant(static_cast<hexaly::hxint>(1)));
 }
 
 std::expected<Solution, std::string> HexalySolver::solve(const Model& model) {

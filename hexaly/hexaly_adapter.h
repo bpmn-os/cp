@@ -28,6 +28,7 @@ private:
     hexaly::HxExpression buildExpression(const Model& model, const Operand& operand);
     hexaly::HxExpression buildCustomOperator(const Model& model, const Expression& expr);
     hexaly::HxExpression boolify(hexaly::HxExpression expr);
+    hexaly::HxExpression round(hexaly::HxExpression expr);
 
     // Collection helpers
     hexaly::HxExpression resolveCollectionOperation(const Model& model, const Expression& expr, const std::string& opName);
