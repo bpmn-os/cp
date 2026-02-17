@@ -65,7 +65,7 @@ The struct `IndexedVariables` is used to represent a collection of variables tha
 An indexed variable can be added to a model by specifying the type of the contained variables. Before an indexed variable can be used in expressions, the contained variables must be added. This can be done be either providing lower and upper bound or an expression.
 
 ```cpp
-// create container with item tyoes and name
+// create container with item type and name
 auto& a = model.addIndexedVariables(CP::Variable::Type::INTEGER, "a");
 // create each item with bounds or expression
 model.addIndexedVariable( a, 0, 5 );      // a[0] ∈ { 0, ..., 5 }
