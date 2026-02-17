@@ -22,7 +22,10 @@ HexalySolver::HexalySolver(const Model& model)
     hxModel.close();
 }
 
-HexalySolver::~HexalySolver() = default;
+HexalySolver::~HexalySolver() {
+    // Explicitly reset optimizer to release Hexaly license token
+    optimizer.reset();
+}
 
 void HexalySolver::addSequences(const Model& model) {
     for (const auto& sequence : model.getSequences()) {
