@@ -964,7 +964,6 @@ std::expected<Solution, std::string> HexalySolver::solve(const Model& model, dou
         }
 
         // Round to precision decimal places for solution generation
-        // Hexaly is a metaheuristic that may return approximate values
         double factor = std::pow(10.0, precision);
         value = std::round(value * factor) / factor;
 
