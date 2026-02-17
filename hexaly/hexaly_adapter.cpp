@@ -64,7 +64,17 @@ void HexalySolver::addAllVariables(const Model& model) {
 
             switch (variable.type) {
                 case Variable::Type::BOOLEAN:
-                    expr = hxModel.boolVar();
+                    if (lb == 1 && ub == 1) {
+                        // Fixed to true
+                        expr = hxModel.createConstant(static_cast<hexaly::hxint>(1));
+                    }
+                    else if (lb == 0 && ub == 0) {
+                        // Fixed to false
+                        expr = hxModel.createConstant(static_cast<hexaly::hxint>(0));
+                    }
+                    else {
+                        expr = hxModel.boolVar();
+                    }
                     break;
                 case Variable::Type::INTEGER: {
                     hexaly::hxint intLb = (lb == std::numeric_limits<double>::lowest())
