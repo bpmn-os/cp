@@ -9,7 +9,7 @@ namespace CP {
 
 class HexalySolver : public Solver {
 public:
-    HexalySolver(const Model& model);
+    HexalySolver(const Model& model, unsigned int precision = 4);
     ~HexalySolver() override;
 
     std::expected<Solution, std::string> solve(const Model& model) override;
@@ -38,6 +38,7 @@ private:
 
     std::unique_ptr<hexaly::HexalyOptimizer> optimizer;
     hexaly::HxModel hxModel;
+    unsigned int precision;  // Number of decimal places for solution rounding
 
     // Maps CP variables to Hexaly expressions
     std::unordered_map<const Variable*, hexaly::HxExpression> expressionMap;

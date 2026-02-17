@@ -8,9 +8,10 @@
 
 namespace CP {
 
-HexalySolver::HexalySolver(const Model& model)
+HexalySolver::HexalySolver(const Model& model, unsigned int precision)
     : optimizer(std::make_unique<hexaly::HexalyOptimizer>())
     , hxModel(optimizer->getModel())
+    , precision(precision)
 {
     optimizer->getParam().setVerbosity(0);  // Suppress output by default
 
@@ -961,6 +962,11 @@ std::expected<Solution, std::string> HexalySolver::solve(const Model& model, dou
         else {
             value = hxSol.getDoubleValue(hxExpr);
         }
+
+        // Round to precision decimal places for solution generation
+        // Hexaly is a metaheuristic that may return approximate values
+        double factor = std::pow(10.0, precision);
+        value = std::round(value * factor) / factor;
 
         solution.setVariableValue(var, value);
     }
