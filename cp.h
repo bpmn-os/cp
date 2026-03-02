@@ -1296,6 +1296,33 @@ inline std::expected<double, std::string> Solution::evaluate(const Expression& e
     }
     auto index = std::get<size_t>(operands.front());
 
+    // Short-circuit evaluation for if_then_else
+    if ( index < Expression::customOperators.size() &&
+         Expression::customOperators[index] == "if_then_else" ) {
+      if ( operands.size() != 4 ) {  // index + condition + ifExpr + elseExpr
+        throw std::logic_error("CP: if_then_else requires exactly 3 arguments");
+      }
+      auto condition = evaluate(operands[1]);
+      if ( !condition ) return std::unexpected( condition.error() );
+      return condition.value() ? evaluate(operands[2]) : evaluate(operands[3]);
+    }
+
+    // Short-circuit evaluation for n_ary_if
+    if ( index < Expression::customOperators.size() &&
+         Expression::customOperators[index] == "n_ary_if" ) {
+      if ( (operands.size() - 1) % 2 != 1 ) {  // minus index, need odd number
+        throw std::logic_error("CP: n_ary_if requires an odd number of arguments");
+      }
+      for (size_t i = 1; i < operands.size() - 1; i += 2) {
+        auto condition = evaluate(operands[i]);
+        if ( !condition ) return std::unexpected( condition.error() );
+        if ( condition.value() ) {
+          return evaluate(operands[i + 1]);
+        }
+      }
+      return evaluate(operands.back());  // else case
+    }
+
     if (
       std::holds_alternative<Expression>(operands[1]) &&
       std::get<Expression>(operands[1])._operator == collection
@@ -1303,7 +1330,7 @@ inline std::expected<double, std::string> Solution::evaluate(const Expression& e
       const auto& coll = getCollection(operands[1]);
       return _customEvaluators.at(index)(coll);
     }
-    else {   
+    else {
       auto evaluations = evaluate(operands | std::views::drop(1));
       if ( !evaluations ) {
         return std::unexpected( evaluations.error() );
