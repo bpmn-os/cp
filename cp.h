@@ -1203,6 +1203,12 @@ inline std::expected<double, std::string> Solution::evaluate(const Operand& term
   }
   else if (std::holds_alternative<std::reference_wrapper<const Variable>>(term)) {
     auto& variable = std::get<std::reference_wrapper<const Variable>>(term).get();
+    // Return set value if given
+    auto it = _variableValues.find(&variable);
+    if (it != _variableValues.end()) {
+      return it->second;
+    }
+    
     using enum Variable::Type;
     switch ( variable.type ) {
       case BOOLEAN:
