@@ -221,6 +221,8 @@ struct Expression {
     at,
     collection,
     custom,
+    if_then_else,
+    n_ary_if,
     less_than,
     less_or_equal,
     greater_than,
@@ -290,7 +292,11 @@ inline std::string Expression::stringify(const Operand& term, bool parenthesize)
   }
   else if ( std::holds_alternative<Expression>(term) ) {
     auto& expression = std::get<Expression>(term);
-    if ( expression._operator != Operator::none && expression._operator != Operator::custom && parenthesize ) {
+    if ( expression._operator != Operator::none &&
+         expression._operator != Operator::custom &&
+         expression._operator != Operator::if_then_else &&
+         expression._operator != Operator::n_ary_if &&
+         parenthesize ) {
       result += "( " + expression.stringify() + " )";
     }
     else {
@@ -366,6 +372,28 @@ inline std::string Expression::stringify() const {
       auto index = std::get<size_t>(operands.front());
       std::string result = customOperators[index] + "( ";
       for ( size_t i = 1; i < operands.size(); i++) {
+        result += stringify(operands[i],false) + ", ";
+      }
+      result.pop_back();
+      result.back() = ' ';
+      result += ")";
+      return result;
+    }
+    case if_then_else:
+    {
+      std::string result = "if_then_else( ";
+      for ( size_t i = 0; i < operands.size(); i++) {
+        result += stringify(operands[i],false) + ", ";
+      }
+      result.pop_back();
+      result.back() = ' ';
+      result += ")";
+      return result;
+    }
+    case n_ary_if:
+    {
+      std::string result = "n_ary_if( ";
+      for ( size_t i = 0; i < operands.size(); i++) {
         result += stringify(operands[i],false) + ", ";
       }
       result.pop_back();
@@ -753,12 +781,11 @@ inline Expression min(std::vector<Expression> terms) {
 inline Expression if_then_else(Expression condition, Expression ifExpression, Expression elseExpression) {
   std::vector< Operand > operands;
 
-  operands.push_back( Expression::getCustomIndex("if_then_else") );
   operands.push_back(std::move(condition));
   operands.push_back(std::move(ifExpression));
   operands.push_back(std::move(elseExpression));
 
-  return Expression(Expression::Operator::custom,std::move(operands));
+  return Expression(Expression::Operator::if_then_else, std::move(operands));
 };
 
 /*******************************************
@@ -860,14 +887,13 @@ using Cases = std::vector< std::pair<Expression, Expression> >;
 inline Expression n_ary_if(Cases cases, Expression elseExpression) {
   std::vector< Operand > operands;
 
-  operands.push_back( Expression::getCustomIndex("n_ary_if") );
   for ( auto& [condition,expression] : cases ) {
     operands.push_back(std::move(condition));
     operands.push_back(std::move(expression));
   }
   operands.push_back(std::move(elseExpression));
 
-  return Expression(Expression::Operator::custom,std::move(operands));
+  return Expression(Expression::Operator::n_ary_if, std::move(operands));
 };
 
 /*******************************************
@@ -1012,8 +1038,6 @@ class Solution;
 
 inline std::expected<double, std::string> max(const std::vector<double>& operands);
 inline std::expected<double, std::string> min(const std::vector<double>& operands);
-inline std::expected<double, std::string> if_then_else(const std::vector<double>& operands);
-inline std::expected<double, std::string> n_ary_if(const std::vector<double>& operands);
 inline std::expected<double, std::string> sum(const std::vector<double>& operands);
 inline std::expected<double, std::string> avg(const std::vector<double>& operands);
 inline std::expected<double, std::string> pow(const std::vector<double>& operands);
@@ -1064,8 +1088,6 @@ private:
 inline Solution::Solution(const Model& model) : model(model) {
   addEvaluator("max", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(max));
   addEvaluator("min", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(min));
-  addEvaluator("if_then_else", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(if_then_else));
-  addEvaluator("n_ary_if", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(n_ary_if));
   addEvaluator("sum", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(sum));
   addEvaluator("avg", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(avg));
   addEvaluator("count", [](const std::vector<double>& operands) -> std::expected<double, std::string> {
@@ -1296,33 +1318,6 @@ inline std::expected<double, std::string> Solution::evaluate(const Expression& e
     }
     auto index = std::get<size_t>(operands.front());
 
-    // Short-circuit evaluation for if_then_else
-    if ( index < Expression::customOperators.size() &&
-         Expression::customOperators[index] == "if_then_else" ) {
-      if ( operands.size() != 4 ) {  // index + condition + ifExpr + elseExpr
-        throw std::logic_error("CP: if_then_else requires exactly 3 arguments");
-      }
-      auto condition = evaluate(operands[1]);
-      if ( !condition ) return std::unexpected( condition.error() );
-      return condition.value() ? evaluate(operands[2]) : evaluate(operands[3]);
-    }
-
-    // Short-circuit evaluation for n_ary_if
-    if ( index < Expression::customOperators.size() &&
-         Expression::customOperators[index] == "n_ary_if" ) {
-      if ( (operands.size() - 1) % 2 != 1 ) {  // minus index, need odd number
-        throw std::logic_error("CP: n_ary_if requires an odd number of arguments");
-      }
-      for (size_t i = 1; i < operands.size() - 1; i += 2) {
-        auto condition = evaluate(operands[i]);
-        if ( !condition ) return std::unexpected( condition.error() );
-        if ( condition.value() ) {
-          return evaluate(operands[i + 1]);
-        }
-      }
-      return evaluate(operands.back());  // else case
-    }
-
     if (
       std::holds_alternative<Expression>(operands[1]) &&
       std::get<Expression>(operands[1])._operator == collection
@@ -1337,6 +1332,27 @@ inline std::expected<double, std::string> Solution::evaluate(const Expression& e
       }
       return _customEvaluators.at(index)(evaluations.value());
     }
+  }
+  else if ( expression._operator == if_then_else ) {
+    if ( operands.size() != 3 ) {
+      throw std::logic_error("CP: if_then_else requires exactly 3 arguments");
+    }
+    auto condition = evaluate(operands[0]);
+    if ( !condition ) return std::unexpected( condition.error() );
+    return condition.value() ? evaluate(operands[1]) : evaluate(operands[2]);
+  }
+  else if ( expression._operator == n_ary_if ) {
+    if ( operands.size() % 2 != 1 ) {
+      throw std::logic_error("CP: n_ary_if requires an odd number of arguments");
+    }
+    for (size_t i = 0; i < operands.size() - 1; i += 2) {
+      auto condition = evaluate(operands[i]);
+      if ( !condition ) return std::unexpected( condition.error() );
+      if ( condition.value() ) {
+        return evaluate(operands[i + 1]);
+      }
+    }
+    return evaluate(operands.back());  // else case
   }
   else if ( expression._operator == logical_and ) {
     if ( operands.size() != 2 ) {
@@ -1540,25 +1556,6 @@ inline std::expected<double, std::string> min(const std::vector<double>& operand
     }
   }
   return value;
-}
-
-inline std::expected<double, std::string> if_then_else(const std::vector<double>& operands) {
-  if ( operands.size() != 3 ) {
-    return std::unexpected("if_then_else() requires exactly three arguments");
-  }
-  return operands[0] ? operands[1] : operands[2];
-};
-
-inline std::expected<double, std::string> n_ary_if(const std::vector<double>& operands) {
-  if ( operands.size() % 2 != 1  ) {
-    return std::unexpected("n_ary_if() requires an uneven number of arguments");
-  }
-  for (size_t index = 0; index < operands.size()-2; index += 2) {
-    if ( operands[index] ) {
-      return operands[index+1];
-    }
-  }
-  return operands.back();
 }
 
 inline std::expected<double, std::string> sum(const std::vector<double>& operands) {

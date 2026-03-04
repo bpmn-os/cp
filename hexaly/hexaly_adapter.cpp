@@ -272,6 +272,27 @@ hexaly::HxExpression HexalySolver::buildExpression(const Model& model, const Ope
             // Collection access: Collection(key)[index]
             return resolveCollectionAccess(model, expr);
 
+        case Op::if_then_else: {
+            auto cond = buildExpression(model, expr.operands[0]);
+            auto thenExpr = buildExpression(model, expr.operands[1]);
+            auto elseExpr = buildExpression(model, expr.operands[2]);
+            return hxModel.iif(boolify(cond), thenExpr, elseExpr);
+        }
+
+        case Op::n_ary_if: {
+            // Use native iif() - more efficient for Hexaly's metaheuristic search
+            // Build nested iif - last operand is default
+            hexaly::HxExpression result = buildExpression(model, expr.operands.back());
+
+            // Process pairs (condition, value) from back to front
+            for (int i = static_cast<int>(expr.operands.size()) - 3; i >= 0; i -= 2) {
+                auto cond = buildExpression(model, expr.operands[i]);
+                auto val = buildExpression(model, expr.operands[i + 1]);
+                result = hxModel.iif(boolify(cond), val, result);
+            }
+            return result;
+        }
+
         default:
             throw std::runtime_error("Unsupported operator in Hexaly adapter");
     }
@@ -366,26 +387,6 @@ hexaly::HxExpression HexalySolver::buildCustomOperator(const Model& model, const
         // count simply returns the number of arguments (as integer)
         hexaly::hxint count = static_cast<hexaly::hxint>(expr.operands.size() - 1);
         return hxModel.createConstant(count);
-    }
-
-    if (opName == "if_then_else") {
-        auto cond = buildExpression(model, expr.operands[1]);
-        auto thenExpr = buildExpression(model, expr.operands[2]);
-        auto elseExpr = buildExpression(model, expr.operands[3]);
-        return hxModel.iif(boolify(cond), thenExpr, elseExpr);
-    }
-
-    if (opName == "n_ary_if") {
-        // Build nested iif - last operand is default
-        hexaly::HxExpression result = buildExpression(model, expr.operands.back());
-
-        // Process pairs (condition, value) from back to front
-        for (int i = static_cast<int>(expr.operands.size()) - 3; i >= 1; i -= 2) {
-            auto cond = buildExpression(model, expr.operands[i]);
-            auto val = buildExpression(model, expr.operands[i + 1]);
-            result = hxModel.iif(boolify(cond), val, result);
-        }
-        return result;
     }
 
     if (opName == "at") {

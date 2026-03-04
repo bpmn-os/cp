@@ -23,31 +23,30 @@ inline CP::Expression LIMEX::Handle<CP::Expression,CP::Expression>::aggregateEva
 template <>
 void LIMEX::Handle<CP::Expression,CP::Expression>::initialize() {
   add(
-    std::string("if_then_else"), 
+    std::string("if_then_else"),
     [](const std::vector<CP::Expression>& args) -> CP::Expression
     {
-      if (args.size() != 3) throw std::runtime_error("LIMEX: if_then_else() requires exactly two arguments");
-      return CP::Expression( CP::Expression::Operator::custom, { CP::Expression::getCustomIndex("if_then_else"), args[0], args[1], args[2] } );
+      if (args.size() != 3) throw std::runtime_error("LIMEX: if_then_else() requires exactly three arguments");
+      return CP::Expression( CP::Expression::Operator::if_then_else, { args[0], args[1], args[2] } );
     }
   );
 
   add(
-    std::string("n_ary_if"), 
+    std::string("n_ary_if"),
     [](const std::vector<CP::Expression>& args) -> CP::Expression
     {
       if (args.empty()) throw std::runtime_error("LIMEX: n_ary_if() requires at least one argument");
-      std::vector<CP::Operand> operands = { CP::Expression::getCustomIndex("n_ary_if") };
-      operands.insert(operands.end(), args.begin(), args.end());
-      return CP::Expression(CP::Expression::Operator::custom, std::move(operands));
+      std::vector<CP::Operand> operands(args.begin(), args.end());
+      return CP::Expression(CP::Expression::Operator::n_ary_if, std::move(operands));
     }
   );
 
   add(
-    std::string("abs"), 
+    std::string("abs"),
     [](const std::vector<CP::Expression>& args) -> CP::Expression
     {
       if (args.size() != 1) throw std::runtime_error("LIMEX: abs() requires exactly one argument");
-      return CP::Expression( CP::Expression::Operator::custom, { CP::Expression::getCustomIndex("if_then_else"), args[0] >= 0, args[0], -args[0] } );
+      return CP::Expression( CP::Expression::Operator::if_then_else, { args[0] >= 0, args[0], -args[0] } );
     }
   );
 

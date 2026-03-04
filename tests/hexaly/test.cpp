@@ -709,7 +709,7 @@ int main() {
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Custom operator max" << RESET << std::endl;
     }
-    // Test: Custom operator n_ary_if
+    // Test: n_ary_if operator
     {
         CP::Model model(CP::Model::ObjectiveSense::MINIMIZE);
         const auto& x = model.addVariable(CP::Variable::Type::INTEGER, "x", 0, 100);
@@ -734,9 +734,78 @@ int main() {
         assert(std::abs(selectorVal.value() - 1.0) < 1e-5);
         assert(std::abs(xVal.value() - 10.0) < 1e-5);
 
-        std::cout << GREEN << "Test " << ++testNum << " PASSED: Custom operator n_ary_if" << RESET << std::endl;
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: n_ary_if operator" << RESET << std::endl;
     }
-    // Test: Custom operator if_then_else
+    // Test: n_ary_if with multiple mutually exclusive conditions
+    {
+        CP::Model model(CP::Model::ObjectiveSense::MINIMIZE);
+        const auto& x = model.addVariable(CP::Variable::Type::INTEGER, "x", 0, 500);
+        const auto& c1 = model.addBinaryVariable("c1");
+        const auto& c2 = model.addBinaryVariable("c2");
+        const auto& c3 = model.addBinaryVariable("c3");
+
+        // if c1 then 100, else if c2 then 200, else if c3 then 300, else 400
+        CP::Cases cases = {
+            {c1, 100.0},
+            {c2, 200.0},
+            {c3, 300.0}
+        };
+        auto ifExpr = CP::n_ary_if(cases, 400.0);
+        model.addConstraint(x == ifExpr);
+        model.setObjective(x);
+
+        // Test case: c2 is true, others false (mutually exclusive)
+        model.addConstraint(c1 == 0.0);
+        model.addConstraint(c2 == 1.0);
+        model.addConstraint(c3 == 0.0);
+
+        CP::HexalySolver solver(model);
+        auto result = solver.solve(model, 5.0);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto xVal = solution.getVariableValue(x);
+        assert(xVal.has_value());
+
+        // c2=1, so x should be 200
+        assert(std::abs(xVal.value() - 200.0) < 1e-5);
+
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: n_ary_if with multiple conditions" << RESET << std::endl;
+    }
+    // Test: n_ary_if else case (no condition true)
+    {
+        CP::Model model(CP::Model::ObjectiveSense::MINIMIZE);
+        const auto& x = model.addVariable(CP::Variable::Type::INTEGER, "x", 0, 500);
+        const auto& c1 = model.addBinaryVariable("c1");
+        const auto& c2 = model.addBinaryVariable("c2");
+
+        // if c1 then 100, else if c2 then 200, else 300
+        CP::Cases cases = {
+            {c1, 100.0},
+            {c2, 200.0}
+        };
+        auto ifExpr = CP::n_ary_if(cases, 300.0);
+        model.addConstraint(x == ifExpr);
+        model.setObjective(x);
+
+        // Test case: no condition true (else case)
+        model.addConstraint(c1 == 0.0);
+        model.addConstraint(c2 == 0.0);
+
+        CP::HexalySolver solver(model);
+        auto result = solver.solve(model, 5.0);
+
+        assert(result.has_value());
+        auto& solution = result.value();
+        auto xVal = solution.getVariableValue(x);
+        assert(xVal.has_value());
+
+        // No condition true, so x should be 300 (else value)
+        assert(std::abs(xVal.value() - 300.0) < 1e-5);
+
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: n_ary_if else case" << RESET << std::endl;
+    }
+    // Test: if_then_else operator
     {
         CP::Model model(CP::Model::ObjectiveSense::MINIMIZE);
         const auto& x = model.addVariable(CP::Variable::Type::INTEGER, "x", 0, 100);
@@ -758,7 +827,7 @@ int main() {
         assert(std::abs(conditionVal.value() - 0.0) < 1e-5);
         assert(std::abs(xVal.value() - 8.0) < 1e-5);
 
-        std::cout << GREEN << "Test " << ++testNum << " PASSED: Custom operator if_then_else" << RESET << std::endl;
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: if_then_else operator" << RESET << std::endl;
     }
     // Test: Sequence with specific ordering
     {

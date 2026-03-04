@@ -128,7 +128,9 @@ Expressions can be intuitively written using the variable references previously 
 - Comparisons using operators `<`, `>`, `<=`, `>=`, `==`, `!=`, e.g. `x < a[i]`
 - Implications, e.g. `x.implies(y < 5)`
 - Min/max expressions, e.g `CP::min( 0, x, 3 * z )`, `CP::max( 0.0, x, 3 * z )`
-- If-then-else expressions, e.g. `CP::if_then_else( y, x, 3 * z )`, `CP::n_ary_if( {{y, x}, {!y, 5}}, 3 * z )`
+- Conditional expressions:
+  - `CP::if_then_else( condition, thenExpr, elseExpr )`
+  - `CP::n_ary_if( {{condition_1, expression_1}, {condition_2, expression_2}, ...}, expression_n )` (assumes that at most one condition_i is true)
 - Custom expressions, e.g. those provided by LIMEX (see below)
 
 ```cpp

@@ -753,6 +753,135 @@ SCIP_EXPR* SCIPSolver::buildExpression(const Model& model, const Operand& operan
       );
     }
 
+    // if_then_else: c * v1 + (1 - c) * v2
+    if (expression._operator == if_then_else && expression.operands.size() == 3) {
+      SCIP_EXPR* condition = buildExpression(model, expression.operands[0]);
+      SCIP_EXPR* ifValue = buildExpression(model, expression.operands[1]);
+      SCIP_EXPR* elseValue = buildExpression(model, expression.operands[2]);
+
+      // Create c * v1
+      SCIP_EXPR* term1;
+      SCIP_EXPR* factors1[] = { condition, ifValue };
+      SCIPcreateExprProduct(scip, &term1, 2, factors1, 1.0, nullptr, nullptr);
+
+      // Create (1 - c)
+      SCIP_EXPR* conditionCopy;
+      SCIPduplicateExpr(scip, condition, &conditionCopy, nullptr, nullptr, nullptr, nullptr);
+      SCIP_EXPR* oneMinusC;
+      double coeff = -1.0;
+      SCIPcreateExprSum(scip, &oneMinusC, 1, &conditionCopy, &coeff, 1.0, nullptr, nullptr);
+      SCIPreleaseExpr(scip, &conditionCopy);
+
+      // Create (1 - c) * v2
+      SCIP_EXPR* term2;
+      SCIP_EXPR* factors2[] = { oneMinusC, elseValue };
+      SCIPcreateExprProduct(scip, &term2, 2, factors2, 1.0, nullptr, nullptr);
+      SCIPreleaseExpr(scip, &oneMinusC);
+
+      // Create term1 + term2
+      SCIP_EXPR* scipExpr;
+      SCIP_EXPR* terms[] = { term1, term2 };
+      double coeffs[] = { 1.0, 1.0 };
+      SCIPcreateExprSum(scip, &scipExpr, 2, terms, coeffs, 0.0, nullptr, nullptr);
+
+      SCIPreleaseExpr(scip, &condition);
+      SCIPreleaseExpr(scip, &ifValue);
+      SCIPreleaseExpr(scip, &elseValue);
+      SCIPreleaseExpr(scip, &term1);
+      SCIPreleaseExpr(scip, &term2);
+
+      return scipExpr;
+    }
+
+    // n_ary_if: Assumes mutually exclusive conditions (exactly one is true)
+    // Formulation: result = sum(c_i * v_i) + c_else * v_else
+    // Constraint: sum(c_i) + c_else = 1
+    if (expression._operator == n_ary_if && expression.operands.size() % 2 == 1) {
+      size_t numConditions = expression.operands.size() / 2;
+      size_t auxId = auxiliaryCounter++;
+
+      // Build condition and value expressions
+      std::vector<SCIP_EXPR*> conditions;
+      std::vector<SCIP_EXPR*> values;
+      for (size_t i = 0; i < numConditions; i++) {
+        conditions.push_back(buildExpression(model, expression.operands[2*i]));
+        values.push_back(buildExpression(model, expression.operands[2*i + 1]));
+      }
+      SCIP_EXPR* elseValue = buildExpression(model, expression.operands.back());
+
+      // Create auxiliary variable c_else for the else case
+      SCIP_VAR* cElseVar;
+      std::string cElseName = "n_ary_if_else_" + std::to_string(auxId);
+      SCIPcreateVarBasic(scip, &cElseVar, cElseName.c_str(), 0.0, 1.0, 0.0, SCIP_VARTYPE_BINARY);
+      SCIPaddVar(scip, cElseVar);
+
+      // Build terms: c_i * v_i for each condition
+      std::vector<SCIP_EXPR*> terms;
+      for (size_t i = 0; i < numConditions; i++) {
+        SCIP_EXPR* termFactors[] = { conditions[i], values[i] };
+        SCIP_EXPR* term;
+        SCIPcreateExprProduct(scip, &term, 2, termFactors, 1.0, nullptr, nullptr);
+        terms.push_back(term);
+      }
+
+      // Build else term: c_else * v_else
+      SCIP_EXPR* cElseExpr;
+      SCIPcreateExprVar(scip, &cElseExpr, cElseVar, nullptr, nullptr);
+      SCIP_EXPR* elseTermFactors[] = { cElseExpr, elseValue };
+      SCIP_EXPR* elseTerm;
+      SCIPcreateExprProduct(scip, &elseTerm, 2, elseTermFactors, 1.0, nullptr, nullptr);
+      terms.push_back(elseTerm);
+
+      // Build result = sum(c_i * v_i) + c_else * v_else
+      std::vector<double> termCoeffs(terms.size(), 1.0);
+      SCIP_EXPR* scipExpr;
+      SCIPcreateExprSum(scip, &scipExpr, terms.size(), terms.data(), termCoeffs.data(), 0.0, nullptr, nullptr);
+
+      // Add constraint: sum(c_i) + c_else = 1
+      {
+        std::vector<SCIP_EXPR*> allConditions;
+        for (size_t i = 0; i < numConditions; i++) {
+          SCIP_EXPR* condCopy;
+          SCIPduplicateExpr(scip, conditions[i], &condCopy, nullptr, nullptr, nullptr, nullptr);
+          allConditions.push_back(condCopy);
+        }
+        SCIP_EXPR* cElseCopy;
+        SCIPcreateExprVar(scip, &cElseCopy, cElseVar, nullptr, nullptr);
+        allConditions.push_back(cElseCopy);
+
+        std::vector<double> condCoeffs(allConditions.size(), 1.0);
+        SCIP_EXPR* condSum;
+        SCIPcreateExprSum(scip, &condSum, allConditions.size(), allConditions.data(), condCoeffs.data(), 0.0, nullptr, nullptr);
+
+        SCIP_CONS* exclusivityCons;
+        std::string consName = "n_ary_if_exactly_one_" + std::to_string(auxId);
+        SCIPcreateConsBasicNonlinear(scip, &exclusivityCons, consName.c_str(), condSum, 1.0, 1.0);
+        SCIPaddCons(scip, exclusivityCons);
+        SCIPreleaseCons(scip, &exclusivityCons);
+        SCIPreleaseExpr(scip, &condSum);
+
+        for (auto& cond : allConditions) {
+          SCIPreleaseExpr(scip, &cond);
+        }
+      }
+
+      // Release variables and expressions
+      SCIPreleaseVar(scip, &cElseVar);
+      SCIPreleaseExpr(scip, &cElseExpr);
+      for (auto& cond : conditions) {
+        SCIPreleaseExpr(scip, &cond);
+      }
+      for (auto& val : values) {
+        SCIPreleaseExpr(scip, &val);
+      }
+      SCIPreleaseExpr(scip, &elseValue);
+      for (auto& term : terms) {
+        SCIPreleaseExpr(scip, &term);
+      }
+
+      return scipExpr;
+    }
+
     // Custom operators: max, min, sum, pow, etc.
     if (expression._operator == custom && expression.operands.size() >= 2) {
       // First operand is the operator index
@@ -928,46 +1057,6 @@ SCIP_EXPR* SCIPSolver::buildExpression(const Model& model, const Operand& operan
         double count = static_cast<double>(children.size());
         SCIPcreateExprValue(scip, &scipExpr, count, nullptr, nullptr);
       }
-      else if (opName == "if_then_else") {
-        // if_then_else(c, v1, v2) = c * v1 + (1 - c) * v2
-        if (children.size() != 3) {
-          for (auto child : children) {
-            SCIPreleaseExpr(scip, &child);
-          }
-          throw std::runtime_error("SCIPSolver: if_then_else requires exactly 3 operands");
-        }
-
-        SCIP_EXPR* condition = children[0];
-        SCIP_EXPR* ifValue = children[1];
-        SCIP_EXPR* elseValue = children[2];
-
-        // Create c * v1
-        SCIP_EXPR* term1;
-        SCIP_EXPR* factors1[] = { condition, ifValue };
-        SCIPcreateExprProduct(scip, &term1, 2, factors1, 1.0, nullptr, nullptr);
-
-        // Create (1 - c)
-        SCIP_EXPR* conditionCopy;
-        SCIPduplicateExpr(scip, condition, &conditionCopy, nullptr, nullptr, nullptr, nullptr);
-        SCIP_EXPR* oneMinusC;
-        double coeff = -1.0;
-        SCIPcreateExprSum(scip, &oneMinusC, 1, &conditionCopy, &coeff, 1.0, nullptr, nullptr);
-        SCIPreleaseExpr(scip, &conditionCopy);
-
-        // Create (1 - c) * v2
-        SCIP_EXPR* term2;
-        SCIP_EXPR* factors2[] = { oneMinusC, elseValue };
-        SCIPcreateExprProduct(scip, &term2, 2, factors2, 1.0, nullptr, nullptr);
-        SCIPreleaseExpr(scip, &oneMinusC);
-
-        // Create term1 + term2
-        SCIP_EXPR* terms[] = { term1, term2 };
-        double coeffs[] = { 1.0, 1.0 };
-        SCIPcreateExprSum(scip, &scipExpr, 2, terms, coeffs, 0.0, nullptr, nullptr);
-
-        SCIPreleaseExpr(scip, &term1);
-        SCIPreleaseExpr(scip, &term2);
-      }
       else if (opName == "at") {
         // at(index, val1, val2, val3, ...) returns val[index]
         // First child is index, remaining children are array values
@@ -1054,105 +1143,6 @@ SCIP_EXPR* SCIPSolver::buildExpression(const Model& model, const Operand& operan
         }
 
         return resultExpr;
-      }
-      else if (opName == "n_ary_if") {
-        // n_ary_if(c1, v1, c2, v2, ..., cN, vN, vElse)
-        // result = c1*v1 + (1-c1)*c2*v2 + (1-c1)*(1-c2)*c3*v3 + ... + (1-c1)*...*(1-cN)*vElse
-
-        if (children.size() % 2 != 1) {
-          for (auto child : children) {
-            SCIPreleaseExpr(scip, &child);
-          }
-          throw std::runtime_error("SCIPSolver: n_ary_if requires an odd number of operands");
-        }
-
-        // Build terms: each term is (product of (1-cj) for j<i) * ci * vi
-        std::vector<SCIP_EXPR*> terms;
-
-        size_t numConditions = children.size() / 2;
-        for (size_t i = 0; i < numConditions; i++) {
-          SCIP_EXPR* condition = children[2*i];
-          SCIP_EXPR* value = children[2*i + 1];
-
-          // Build product of (1 - cj) for all j < i
-          SCIP_EXPR* prefix = nullptr;
-          if (i == 0) {
-            // First term: just c1 * v1
-            SCIP_EXPR* factors[] = { condition, value };
-            SCIPcreateExprProduct(scip, &prefix, 2, factors, 1.0, nullptr, nullptr);
-          }
-          else {
-            // Build (1-c1) * (1-c2) * ... * (1-c_{i-1}) * ci * vi
-            std::vector<SCIP_EXPR*> factors;
-
-            // Add (1 - cj) for j < i
-            for (size_t j = 0; j < i; j++) {
-              SCIP_EXPR* cj = children[2*j];
-              SCIP_EXPR* cjCopy;
-              SCIPduplicateExpr(scip, cj, &cjCopy, nullptr, nullptr, nullptr, nullptr);
-
-              // Create (1 - cj)
-              SCIP_EXPR* oneMinus;
-              double coeff = -1.0;
-              SCIPcreateExprSum(scip, &oneMinus, 1, &cjCopy, &coeff, 1.0, nullptr, nullptr);
-              factors.push_back(oneMinus);
-              SCIPreleaseExpr(scip, &cjCopy);
-            }
-
-            // Add ci
-            factors.push_back(condition);
-
-            // Add vi
-            factors.push_back(value);
-
-            // Create product
-            SCIPcreateExprProduct(scip, &prefix, factors.size(), factors.data(), 1.0, nullptr, nullptr);
-
-            // Release (1-cj) expressions
-            for (size_t j = 0; j < i; j++) {
-              SCIPreleaseExpr(scip, &factors[j]);
-            }
-          }
-
-          terms.push_back(prefix);
-        }
-
-        // Add else term: (1-c1) * (1-c2) * ... * (1-cN) * vElse
-        SCIP_EXPR* elseValue = children.back();
-        std::vector<SCIP_EXPR*> elseFactors;
-
-        for (size_t j = 0; j < numConditions; j++) {
-          SCIP_EXPR* cj = children[2*j];
-          SCIP_EXPR* cjCopy;
-          SCIPduplicateExpr(scip, cj, &cjCopy, nullptr, nullptr, nullptr, nullptr);
-
-          // Create (1 - cj)
-          SCIP_EXPR* oneMinus;
-          double coeff = -1.0;
-          SCIPcreateExprSum(scip, &oneMinus, 1, &cjCopy, &coeff, 1.0, nullptr, nullptr);
-          elseFactors.push_back(oneMinus);
-          SCIPreleaseExpr(scip, &cjCopy);
-        }
-
-        elseFactors.push_back(elseValue);
-
-        SCIP_EXPR* elseTerm;
-        SCIPcreateExprProduct(scip, &elseTerm, elseFactors.size(), elseFactors.data(), 1.0, nullptr, nullptr);
-        terms.push_back(elseTerm);
-
-        // Release (1-cj) expressions
-        for (size_t j = 0; j < numConditions; j++) {
-          SCIPreleaseExpr(scip, &elseFactors[j]);
-        }
-
-        // Sum all terms
-        std::vector<double> coeffs(terms.size(), 1.0);
-        SCIPcreateExprSum(scip, &scipExpr, terms.size(), terms.data(), coeffs.data(), 0.0, nullptr, nullptr);
-
-        // Release terms
-        for (auto term : terms) {
-          SCIPreleaseExpr(scip, &term);
-        }
       }
       else {
         // Unsupported custom operator
