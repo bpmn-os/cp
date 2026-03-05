@@ -278,6 +278,31 @@ int main()
     std::cout << GREEN << "Collection count() test PASSED" << RESET << std::endl;
   }
 
+  // Test that deduced variables are recomputed after dependency changes
+  {
+    CP::Model model;
+    auto& x = model.addRealVariable("x");
+    auto& y = model.addVariable(CP::Variable::Type::REAL, "y", x * 2.0);  // y := x * 2
+
+    CP::Solution solution(model);
+    solution.setVariableValue(x, 5.0);
+
+    // First evaluation
+    auto yVal1 = solution.evaluate(y);
+    assert( yVal1.has_value() );
+    assert( yVal1.value() == 10.0 );
+
+    // Change x - deduced y must be recomputed
+    solution.setVariableValue(x, 7.0);
+
+    // If cache wasn't cleared, this would incorrectly return 10.0
+    auto yVal2 = solution.evaluate(y);
+    assert( yVal2.has_value() );
+    assert( yVal2.value() == 14.0 );
+
+    std::cout << GREEN << "Deduced variable recomputation test PASSED" << RESET << std::endl;
+  }
+
   std::cout << GREEN << "All CP tests passed." << RESET << std::endl;
   return 0;
 }

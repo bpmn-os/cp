@@ -158,7 +158,7 @@ model.setObjective(3 * x + 5 * y);
 
 ### Solution
 
-Stores a concrete assignment to variables for a given model and allows evaluation of expressions and constraints.
+Stores a concrete assignment to variables for a given model and allows evaluation of expressions and constraints. Deduced variable values are cached for performance - repeated evaluations return the cached result. The cache is automatically invalidated when a dependency changes via `setVariableValue()`.
 
 ```cpp
 CP::Solution solution(model);

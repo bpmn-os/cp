@@ -18,6 +18,7 @@
 #include <variant>
 #include <optional>
 #include <unordered_map>
+#include <unordered_set>
 #include <functional>
 #include <cmath>
 #include <expected>
@@ -1083,6 +1084,8 @@ private:
   Status _status = Status::UNKNOWN;
   std::unordered_map< const Variable*, double > _variableValues;
   std::vector< std::function< std::expected<double, std::string>(const std::vector<double>&) > > _customEvaluators;
+  mutable std::unordered_map< const Variable*, double > _deducedCache;
+  mutable std::unordered_set< const Variable* > _triggersCacheReset;
 };
 
 inline Solution::Solution(const Model& model) : model(model) {
@@ -1121,6 +1124,12 @@ inline void Solution::setSequenceValues(const Sequence& sequence, std::vector<T>
     throw std::invalid_argument("CP: illegal number of sequence values");
   }
   for (size_t i = 0; i < values.size(); i++) {
+    if ( _triggersCacheReset.contains(&sequence.variables[i]) ) {
+      _deducedCache.clear();
+      break;
+    }
+  }
+  for (size_t i = 0; i < values.size(); i++) {
     _variableValues[&sequence.variables[i]] = (double)(int)(values[i]);
   }
 }
@@ -1145,6 +1154,9 @@ inline void Solution::setVariableValue(const Variable& variable, double value) {
   }
   else if ( variable.type == Variable::Type::INTEGER ) {
     value = std::round(value);
+  }
+  if ( _triggersCacheReset.contains(&variable) ) {
+    _deducedCache.clear();
   }
   _variableValues[&variable] = value;
 };
@@ -1228,16 +1240,25 @@ inline std::expected<double, std::string> Solution::evaluate(const Operand& term
     // Return set value if given
     auto it = _variableValues.find(&variable);
     if (it != _variableValues.end()) {
+      _triggersCacheReset.insert(&variable);
       return it->second;
     }
-    
+
+    // Check deduced cache
+    auto cacheIt = _deducedCache.find(&variable);
+    if (cacheIt != _deducedCache.end()) {
+      return cacheIt->second;
+    }
+
     using enum Variable::Type;
     switch ( variable.type ) {
       case BOOLEAN:
         if ( variable.deducedFrom ) {
           auto evaluation = evaluate(*variable.deducedFrom);
           if ( !evaluation ) return std::unexpected(evaluation.error());
-          return (double)(bool)evaluation.value();
+          double result = (double)(bool)evaluation.value();
+          _deducedCache[&variable] = result;
+          return result;
         }
         else if ( (bool)variable.lowerBound == (bool)variable.upperBound ) {
           return (double)(bool)variable.lowerBound;
@@ -1247,7 +1268,9 @@ inline std::expected<double, std::string> Solution::evaluate(const Operand& term
         if ( variable.deducedFrom ) {
           auto evaluation = evaluate(*variable.deducedFrom);
           if ( !evaluation ) return std::unexpected(evaluation.error());
-          return (double)(int)evaluation.value();
+          double result = (double)(int)evaluation.value();
+          _deducedCache[&variable] = result;
+          return result;
         }
         else if ( std::ceil(variable.lowerBound) == std::floor(variable.upperBound) ) {
           return (double)std::ceil(variable.lowerBound);
@@ -1255,7 +1278,10 @@ inline std::expected<double, std::string> Solution::evaluate(const Operand& term
       break;
       case REAL:
         if ( variable.deducedFrom ) {
-          return evaluate(*variable.deducedFrom);
+          auto evaluation = evaluate(*variable.deducedFrom);
+          if ( !evaluation ) return std::unexpected(evaluation.error());
+          _deducedCache[&variable] = evaluation.value();
+          return evaluation.value();
         }
         else if ( variable.lowerBound == variable.upperBound ) {
           return variable.lowerBound;
