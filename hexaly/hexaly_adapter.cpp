@@ -1,3 +1,6 @@
+// Generated with Claude Code
+// https://claude.ai/claude-code
+
 #include "hexaly_adapter.h"
 #include <cmath>
 #include <limits>
@@ -7,6 +10,20 @@
 #include <unordered_set>
 
 namespace CP {
+
+// Callback class for iteration and solution notifications
+class IterationCallback : public hexaly::HxCallback {
+public:
+    explicit IterationCallback(HexalySolver* solver) : solver_(solver) {}
+
+    void callback(hexaly::HexalyOptimizer& /*optimizer*/, hexaly::HxCallbackType /*type*/) override {
+        solver_->notifyIteration();
+        solver_->checkForNewSolution();
+    }
+
+private:
+    HexalySolver* solver_;
+};
 
 HexalySolver::HexalySolver(const Model& model, unsigned int precision)
     : Solver(model)
@@ -27,6 +44,69 @@ HexalySolver::HexalySolver(const Model& model, unsigned int precision)
 HexalySolver::~HexalySolver() {
     // Explicitly reset optimizer to release Hexaly license token
     optimizer.reset();
+}
+
+void HexalySolver::stop() {
+    stopped_ = true;
+    if (optimizer) {
+        optimizer->stop();
+    }
+}
+
+void HexalySolver::notifyIteration() {
+    if (onIteration) {
+        onIteration();
+    }
+}
+
+void HexalySolver::checkForNewSolution() {
+    if (!onSolution) return;
+
+    hexaly::HxSolution hxSol = optimizer->getSolution();
+    hexaly::HxSolutionStatus status = hxSol.getStatus();
+    if (status != hexaly::SS_Feasible && status != hexaly::SS_Optimal) {
+        return;
+    }
+
+    // Check if objective improved (skip for feasibility-only problems)
+    if (model_.getObjectiveSense() != Model::ObjectiveSense::FEASIBLE) {
+        double currentObj = hxSol.getDoubleValue(objectiveExpr_);
+        if (!std::isnan(lastBestObjective_) && currentObj == lastBestObjective_) {
+            return;  // No improvement
+        }
+        lastBestObjective_ = currentObj;
+    }
+
+    // Build solution
+    Solution solution(model_);
+
+    // Extract sequence values
+    for (const auto& sequence : model_.getSequences()) {
+        hexaly::HxExpression listVar = sequenceMap.at(&sequence);
+        hexaly::HxCollection listVal = hxSol.getCollectionValue(listVar);
+
+        std::vector<int> values;
+        for (int i = 0; i < static_cast<int>(sequence.variables.size()); i++) {
+            values.push_back(static_cast<int>(listVal.get(i)) + 1);
+        }
+        solution.setSequenceValues(sequence, values);
+    }
+
+    // Extract variable values
+    for (const Variable& var : model_.getAllVariables()) {
+        hexaly::HxExpression hxExpr = expressionMap.at(&var);
+        double value;
+        if (hxExpr.isInt()) {
+            value = static_cast<double>(hxSol.getIntValue(hxExpr));
+        } else {
+            value = hxSol.getDoubleValue(hxExpr);
+        }
+        double factor = std::pow(10.0, precision);
+        value = std::round(value * factor) / factor;
+        solution.setVariableValue(var, value);
+    }
+
+    onSolution(solution);
 }
 
 void HexalySolver::addSequences(const Model& model) {
@@ -108,14 +188,14 @@ void HexalySolver::addObjective(const Model& model) {
         return;
     }
 
-    hexaly::HxExpression objExpr = buildExpression(model, model.getObjective());
+    objectiveExpr_ = buildExpression(model, model.getObjective());
 
     switch (model.getObjectiveSense()) {
         case Model::ObjectiveSense::MINIMIZE:
-            hxModel.minimize(objExpr);
+            hxModel.minimize(objectiveExpr_);
             break;
         case Model::ObjectiveSense::MAXIMIZE:
-            hxModel.maximize(objExpr);
+            hxModel.maximize(objectiveExpr_);
             break;
         default:
             break;
@@ -847,11 +927,19 @@ hexaly::HxExpression HexalySolver::resolveCollectionAccess(const Model& model, c
                       round(indexExpr) - hxModel.createConstant(static_cast<hexaly::hxint>(1)));
 }
 
-Solver::Result HexalySolver::solve_(double timeLimit) {
+Solver::Result HexalySolver::solve(double timeLimit) {
     Result result;
+    stopped_ = false;
+    lastBestObjective_ = std::numeric_limits<double>::quiet_NaN();
 
     if (std::isfinite(timeLimit)) {
         optimizer->getParam().setTimeLimit(static_cast<int>(timeLimit));
+    }
+
+    // Register iteration callback if any listener is set
+    if ((onSolution || onIteration) && !solutionCallback_) {
+        solutionCallback_ = std::make_unique<IterationCallback>(this);
+        optimizer->addCallback(hexaly::HxCallbackType::CT_IterationTicked, solutionCallback_.get());
     }
 
     // Warmstart: use existing solution as starting point
@@ -901,12 +989,12 @@ Solver::Result HexalySolver::solve_(double timeLimit) {
         case hexaly::SS_Optimal:
             result.problem = Result::PROBLEM::FEASIBLE;
             result.status = Result::SOLUTION::OPTIMAL;
-            result.termination = Result::TERMINATION::COMPLETED;
+            result.termination = stopped_ ? Result::TERMINATION::INTERRUPTED : Result::TERMINATION::COMPLETED;
             break;
         case hexaly::SS_Feasible:
             result.problem = Result::PROBLEM::FEASIBLE;
             result.status = Result::SOLUTION::FEASIBLE;
-            result.termination = Result::TERMINATION::TIMEOUT;
+            result.termination = stopped_ ? Result::TERMINATION::INTERRUPTED : Result::TERMINATION::TIMEOUT;
             break;
         case hexaly::SS_Infeasible:
             result.problem = Result::PROBLEM::INFEASIBLE;
@@ -923,7 +1011,7 @@ Solver::Result HexalySolver::solve_(double timeLimit) {
         default:
             result.problem = Result::PROBLEM::UNKNOWN;
             result.status = Result::SOLUTION::NONE;
-            result.termination = Result::TERMINATION::OTHER;
+            result.termination = stopped_ ? Result::TERMINATION::INTERRUPTED : Result::TERMINATION::OTHER;
             return result;
     }
 

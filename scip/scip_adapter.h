@@ -3,8 +3,11 @@
 #include "../solver.h"
 #include <scip/scip.h>
 #include <unordered_map>
+#include <memory>
 
 namespace CP {
+
+struct SolEventData;  // Forward declaration
 
 class SCIPSolver : public Solver {
 public:
@@ -13,12 +16,20 @@ public:
 
   std::string getName() const override { return "SCIP"; }
 
+  Result solve(double timeLimit = std::numeric_limits<double>::infinity()) override;
+  void stop() override;
+
+  // Called by event handler when new best solution is found
+  void notifyNewSolution();
+  // Called by event handler on each iteration (node)
+  void notifyIteration();
+  // Check if listeners are registered (for event handler init)
+  bool hasSolutionListener() const { return static_cast<bool>(onSolution); }
+  bool hasIterationListener() const { return static_cast<bool>(onIteration); }
+
   // For testing: expose SCIP state
   SCIP* getScip() const { return scip; }
   const std::unordered_map<const Variable*, SCIP_VAR*>& getVariableMap() const { return variableMap; }
-
-protected:
-  Result solve_(double timeLimit) override;
 
 private:
   void addSequences(const Model& model);
@@ -64,6 +75,12 @@ private:
   unsigned int precision;  // Number of decimal places for CP solution rounding
   double epsilon;      // SCIP's feasibility tolerance (numerics/feastol) for constraint formulations
   size_t auxiliaryCounter = 0;
+
+  // Event handlers for callbacks
+  std::unique_ptr<SolEventData> solutionEventData_;
+  std::unique_ptr<SolEventData> iterationEventData_;
+  SCIP_EVENTHDLR* solEventhdlr_ = nullptr;
+  SCIP_EVENTHDLR* iterEventhdlr_ = nullptr;
 };
 
 } // namespace CP

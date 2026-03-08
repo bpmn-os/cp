@@ -118,30 +118,19 @@ public:
    * @param timeLimit Maximum solving time in seconds (default: no limit).
    * @return Result status indicating problem feasibility, solution quality, and termination reason.
    */
-  Result solve(double timeLimit = std::numeric_limits<double>::infinity()) {
-    interrupted_ = false;
-    return solve_(timeLimit);
-  }
+  virtual Result solve(double timeLimit = std::numeric_limits<double>::infinity()) = 0;
 
   /**
    * @brief Requests the solver to stop as soon as possible.
    *
-   * Can be called from callbacks. The solve() method will return with
+   * Can be called from another thread or callbacks. The solve() method will return with
    * termination == INTERRUPTED.
    */
-  void stop() { interrupted_ = true; }
+  virtual void stop() = 0;
 
 protected:
-  /**
-   * @brief Implementation of solve(), to be overridden by derived classes.
-   * @param timeLimit Maximum solving time in seconds.
-   * @return Result status.
-   */
-  virtual Result solve_(double timeLimit) = 0;
-
   const Model& model_;                       ///< The model being solved.
   mutable std::atomic<std::shared_ptr<const Solution>> solution_; ///< Current best / warmstart solution (thread-safe).
-  std::atomic<bool> interrupted_{false};     ///< Interruption flag.
   SolutionListener onSolution;               ///< Solution callback.
   IterationListener onIteration;             ///< Iteration callback.
 };

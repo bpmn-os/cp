@@ -2157,6 +2157,99 @@ int main() {
         assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 20.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Collection(0)[2] returns 20" << RESET << std::endl;
     }
+    // Test: onIteration callback is called during solving
+    {
+        CP::Model model(CP::Model::ObjectiveSense::MAXIMIZE);
+        auto& x = model.addVariable(CP::Variable::Type::INTEGER, "x", 0.0, 100.0);
+        auto& y = model.addVariable(CP::Variable::Type::INTEGER, "y", 0.0, 100.0);
+        model.addConstraint(x + y <= 50.0);
+        model.setObjective(x + y);
+
+        CP::HexalySolver solver(model);
+        int iterationCount = 0;
+        solver.registerListener(CP::Solver::IterationListener([&iterationCount]() {
+            iterationCount++;
+        }));
+
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(iterationCount >= 1);  // At least one iteration callback
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: onIteration callback" << RESET << std::endl;
+    }
+    // Test: onSolution callback is called when new best solution is found
+    {
+        CP::Model model(CP::Model::ObjectiveSense::MAXIMIZE);
+        auto& x = model.addVariable(CP::Variable::Type::INTEGER, "x", 0.0, 100.0);
+        auto& y = model.addVariable(CP::Variable::Type::INTEGER, "y", 0.0, 100.0);
+        model.addConstraint(x + y <= 50.0);
+        model.setObjective(x + y);
+
+        CP::HexalySolver solver(model);
+        int solutionCount = 0;
+        solver.registerListener(CP::Solver::SolutionListener([&solutionCount](const CP::Solution&) {
+            solutionCount++;
+        }));
+
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(solutionCount >= 1);  // At least one solution callback
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: onSolution callback" << RESET << std::endl;
+    }
+    // Test: Warmstart - first solution found should be at least as good as warmstart
+    {
+        CP::Model model(CP::Model::ObjectiveSense::MAXIMIZE);
+        auto& x = model.addVariable(CP::Variable::Type::INTEGER, "x", 0.0, 100.0);
+        auto& y = model.addVariable(CP::Variable::Type::INTEGER, "y", 0.0, 100.0);
+        model.addConstraint(x + y <= 100.0);
+        model.setObjective(x + y);
+
+        // Warmstart with a good solution: x=40, y=40 (objective = 80)
+        auto initialSolution = std::make_shared<CP::Solution>(model);
+        initialSolution->setVariableValue(x, 40.0);
+        initialSolution->setVariableValue(y, 40.0);
+        double warmstartObjective = 80.0;
+
+        CP::HexalySolver solver(model);
+        solver.setSolution(initialSolution);
+
+        double firstSolutionObjective = 0.0;
+        bool gotFirstSolution = false;
+        solver.registerListener(CP::Solver::SolutionListener([&](const CP::Solution& sol) {
+            if (!gotFirstSolution) {
+                firstSolutionObjective = sol.getVariableValue(x).value() + sol.getVariableValue(y).value();
+                gotFirstSolution = true;
+            }
+        }));
+
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(gotFirstSolution);
+        // First solution should be at least as good as warmstart
+        assert(firstSolutionObjective >= warmstartObjective - 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: Warmstart with solution callback" << RESET << std::endl;
+    }
+    // Test: stop() called from iteration callback terminates solving
+    {
+        CP::Model model(CP::Model::ObjectiveSense::MAXIMIZE);
+        auto& x = model.addVariable(CP::Variable::Type::INTEGER, "x", 0.0, 100.0);
+        auto& y = model.addVariable(CP::Variable::Type::INTEGER, "y", 0.0, 100.0);
+        model.addConstraint(x + y <= 100.0);
+        model.setObjective(x + y);
+
+        CP::HexalySolver solver(model);
+        int iterationCount = 0;
+        solver.registerListener(CP::Solver::IterationListener([&]() {
+            iterationCount++;
+            if (iterationCount >= 2) {
+                solver.stop();
+            }
+        }));
+
+        auto result = solver.solve(60.0);  // Long timeout, should be interrupted before
+        assert(result.termination == CP::Solver::Result::TERMINATION::INTERRUPTED);
+        assert(iterationCount >= 2);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: stop() from iteration callback" << RESET << std::endl;
+    }
 
     std::cout << "\n" << GREEN << "All " << testNum << " Hexaly adapter tests PASSED" << RESET << std::endl;
     return 0;

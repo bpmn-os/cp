@@ -1,3 +1,6 @@
+// Generated with Claude Code
+// https://claude.ai/claude-code
+
 #include "scip_adapter.h"
 #include <scip/scip.h>
 #include <scip/scipdefplugins.h>
@@ -18,6 +21,75 @@
 #include <unordered_set>
 
 namespace CP {
+
+// Event handler data for callbacks
+struct SolEventData {
+  SCIPSolver* solver;
+};
+
+// Event handler init callback - called when entering solving stage
+static SCIP_DECL_EVENTINITSOL(eventInitsolBestSol) {
+  [[maybe_unused]] auto* _scip = scip;
+  auto* data = reinterpret_cast<SolEventData*>(SCIPeventhdlrGetData(eventhdlr));
+  if (data && data->solver && data->solver->hasSolutionListener()) {
+    SCIPcatchEvent(scip, SCIP_EVENTTYPE_BESTSOLFOUND, eventhdlr, nullptr, nullptr);
+  }
+  return SCIP_OKAY;
+}
+
+// Event handler exit callback - called when leaving solving stage
+static SCIP_DECL_EVENTEXITSOL(eventExitsolBestSol) {
+  [[maybe_unused]] auto* _scip = scip;
+  auto* data = reinterpret_cast<SolEventData*>(SCIPeventhdlrGetData(eventhdlr));
+  if (data && data->solver && data->solver->hasSolutionListener()) {
+    SCIPdropEvent(scip, SCIP_EVENTTYPE_BESTSOLFOUND, eventhdlr, nullptr, -1);
+  }
+  return SCIP_OKAY;
+}
+
+// Event handler callback for new best solution
+static SCIP_DECL_EVENTEXEC(eventExecBestSol) {
+  [[maybe_unused]] auto* _scip = scip;
+  [[maybe_unused]] auto* _event = event;
+  [[maybe_unused]] auto* _eventdata = eventdata;
+  auto* data = reinterpret_cast<SolEventData*>(SCIPeventhdlrGetData(eventhdlr));
+  if (data && data->solver) {
+    data->solver->notifyNewSolution();
+  }
+  return SCIP_OKAY;
+}
+
+// Event handler init callback for iteration
+static SCIP_DECL_EVENTINITSOL(eventInitsolIteration) {
+  [[maybe_unused]] auto* _scip = scip;
+  auto* data = reinterpret_cast<SolEventData*>(SCIPeventhdlrGetData(eventhdlr));
+  if (data && data->solver && data->solver->hasIterationListener()) {
+    SCIPcatchEvent(scip, SCIP_EVENTTYPE_NODEFOCUSED, eventhdlr, nullptr, nullptr);
+  }
+  return SCIP_OKAY;
+}
+
+// Event handler exit callback for iteration
+static SCIP_DECL_EVENTEXITSOL(eventExitsolIteration) {
+  [[maybe_unused]] auto* _scip = scip;
+  auto* data = reinterpret_cast<SolEventData*>(SCIPeventhdlrGetData(eventhdlr));
+  if (data && data->solver && data->solver->hasIterationListener()) {
+    SCIPdropEvent(scip, SCIP_EVENTTYPE_NODEFOCUSED, eventhdlr, nullptr, -1);
+  }
+  return SCIP_OKAY;
+}
+
+// Event handler callback for iteration (node focused)
+static SCIP_DECL_EVENTEXEC(eventExecIteration) {
+  [[maybe_unused]] auto* _scip = scip;
+  [[maybe_unused]] auto* _event = event;
+  [[maybe_unused]] auto* _eventdata = eventdata;
+  auto* data = reinterpret_cast<SolEventData*>(SCIPeventhdlrGetData(eventhdlr));
+  if (data && data->solver) {
+    data->solver->notifyIteration();
+  }
+  return SCIP_OKAY;
+}
 
 // Helper to extract constant value from operand (handles direct double or Expression(none, {double}))
 static std::optional<double> extractConstant(const Operand& operand) {
@@ -47,6 +119,21 @@ SCIPSolver::SCIPSolver(const Model& model, unsigned int precision)
   // Query SCIP's feasibility tolerance for constraint formulations
   // This ensures our epsilon-based constraints use SCIP's feasibility tolerance
   SCIPgetRealParam(scip, "numerics/feastol", &epsilon);
+
+  // Set up event handlers for callbacks with init/exit callbacks to catch events at correct stage
+  solutionEventData_ = std::make_unique<SolEventData>(SolEventData{this});
+  SCIPincludeEventhdlr(scip, "bestsol", "best solution event handler",
+                       nullptr, nullptr, nullptr, nullptr,
+                       eventInitsolBestSol, eventExitsolBestSol, nullptr,
+                       eventExecBestSol, reinterpret_cast<SCIP_EVENTHDLRDATA*>(solutionEventData_.get()));
+  solEventhdlr_ = SCIPfindEventhdlr(scip, "bestsol");
+
+  iterationEventData_ = std::make_unique<SolEventData>(SolEventData{this});
+  SCIPincludeEventhdlr(scip, "iteration", "iteration event handler",
+                       nullptr, nullptr, nullptr, nullptr,
+                       eventInitsolIteration, eventExitsolIteration, nullptr,
+                       eventExecIteration, reinterpret_cast<SCIP_EVENTHDLRDATA*>(iterationEventData_.get()));
+  iterEventhdlr_ = SCIPfindEventhdlr(scip, "iteration");
 
   addSequences(model);
   addVariables(model);
@@ -1773,7 +1860,36 @@ SCIP_EXPR* SCIPSolver::addIndexingConstraints(const std::string& name, const std
   return resultExpr;
 }
 
-Solver::Result SCIPSolver::solve_(double timeLimit) {
+void SCIPSolver::stop() {
+  if (scip) {
+    SCIPinterruptSolve(scip);
+  }
+}
+
+void SCIPSolver::notifyNewSolution() {
+  if (!onSolution) return;
+
+  SCIP_SOL* sol = SCIPgetBestSol(scip);
+  if (!sol) return;
+
+  Solution solution(model_);
+  for (const auto& [variable, scipVar] : variableMap) {
+    double value = SCIPgetSolVal(scip, sol, scipVar);
+    double factor = std::pow(10.0, precision);
+    value = std::round(value * factor) / factor;
+    solution.setVariableValue(*variable, value);
+  }
+
+  onSolution(solution);
+}
+
+void SCIPSolver::notifyIteration() {
+  if (onIteration) {
+    onIteration();
+  }
+}
+
+Solver::Result SCIPSolver::solve(double timeLimit) {
   Result result;
 
   // Set or unset time limit
@@ -1784,30 +1900,38 @@ Solver::Result SCIPSolver::solve_(double timeLimit) {
   }
 
   // Warmstart: use existing solution as starting point
+  // Note: Must add solution at correct SCIP stage
   auto warmstart = solution_.load();
   if (warmstart) {
-    SCIP_SOL* sol = nullptr;
-    if (SCIPcreateSol(scip, &sol, nullptr) == SCIP_OKAY) {
-      bool valid = true;
-      for (const auto& [variable, scipVar] : variableMap) {
-        auto value = warmstart->getVariableValue(*variable);
-        if (value.has_value()) {
-          SCIPsetSolVal(scip, sol, scipVar, value.value());
-        } else {
-          valid = false;
-          break;
+    // In SCIP_STAGE_PROBLEM, we can only create original solutions
+    // SCIPtrySolFree requires SCIP_STAGE_PRESOLVING/PRESOLVED/SOLVING
+    // Solution will be passed during presolving via SCIPaddSol
+    SCIP_STAGE stage = SCIPgetStage(scip);
+    if (stage == SCIP_STAGE_PROBLEM) {
+      // Create solution with original variables
+      SCIP_SOL* sol = nullptr;
+      if (SCIPcreateSol(scip, &sol, nullptr) == SCIP_OKAY) {
+        bool valid = true;
+        for (const auto& [variable, scipVar] : variableMap) {
+          auto value = warmstart->getVariableValue(*variable);
+          if (value.has_value()) {
+            SCIPsetSolVal(scip, sol, scipVar, value.value());
+          } else {
+            valid = false;
+            break;
+          }
         }
-      }
-      if (valid) {
-        SCIP_Bool stored;
-        SCIPtrySolFree(scip, &sol, FALSE, FALSE, FALSE, FALSE, FALSE, &stored);
-      } else {
+        if (valid) {
+          // Add solution without checking feasibility (will be checked during presolve)
+          SCIP_Bool stored;
+          SCIPaddSol(scip, sol, &stored);
+        }
         SCIPfreeSol(scip, &sol);
       }
     }
   }
 
-  // Solve the problem
+  // Solve the problem (events are caught in event handler init callbacks)
   SCIP_RETCODE retcode = SCIPsolve(scip);
   if (retcode != SCIP_OKAY) {
     result.termination = Result::TERMINATION::OTHER;
@@ -1884,7 +2008,7 @@ Solver::Result SCIPSolver::solve_(double timeLimit) {
       solution->setVariableValue(*variable, value);
     }
 
-    std::atomic_store(&solution_, std::shared_ptr<const Solution>(std::move(solution)));
+    solution_.store(std::move(solution));
   }
 
   return result;
