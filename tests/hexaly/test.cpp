@@ -1817,7 +1817,7 @@ int main() {
         CP::HexalySolver solver(model);
         auto result = solver.solve(5.0);
         assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 20.0) < 1e-5);
+        assert(std::abs(solver.getSolution()->getVariableValue(resultVar).value() - 20.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: avg(collection(key)) returns 20" << RESET << std::endl;
     }
     // Test: max(collection(key))
@@ -1835,7 +1835,7 @@ int main() {
         CP::HexalySolver solver(model);
         auto result = solver.solve(5.0);
         assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 50.0) < 1e-5);
+        assert(std::abs(solver.getSolution()->getVariableValue(resultVar).value() - 50.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: max(collection(key)) returns 50" << RESET << std::endl;
     }
     // Test: min(collection(key))
@@ -1853,7 +1853,7 @@ int main() {
         CP::HexalySolver solver(model);
         auto result = solver.solve(5.0);
         assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 10.0) < 1e-5);
+        assert(std::abs(solver.getSolution()->getVariableValue(resultVar).value() - 10.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: min(collection(key)) returns 10" << RESET << std::endl;
     }
     // Test: element_of(constant, collection) - found
@@ -1871,7 +1871,7 @@ int main() {
         CP::HexalySolver solver(model);
         auto result = solver.solve(5.0);
         assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 1.0) < 1e-5);
+        assert(std::abs(solver.getSolution()->getVariableValue(resultVar).value() - 1.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: element_of(20, collection) returns 1" << RESET << std::endl;
     }
     // Test: element_of(constant, collection) - not found
@@ -1889,7 +1889,7 @@ int main() {
         CP::HexalySolver solver(model);
         auto result = solver.solve(5.0);
         assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 0.0) < 1e-5);
+        assert(std::abs(solver.getSolution()->getVariableValue(resultVar).value() - 0.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: element_of(25, collection) returns 0" << RESET << std::endl;
     }
     // Test: not_element_of(constant, collection) - found (returns 0)
@@ -1907,7 +1907,7 @@ int main() {
         CP::HexalySolver solver(model);
         auto result = solver.solve(5.0);
         assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 0.0) < 1e-5);
+        assert(std::abs(solver.getSolution()->getVariableValue(resultVar).value() - 0.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: not_element_of(20, collection) returns 0" << RESET << std::endl;
     }
     // Test: not_element_of(constant, collection) - not found (returns 1)
@@ -1925,7 +1925,7 @@ int main() {
         CP::HexalySolver solver(model);
         auto result = solver.solve(5.0);
         assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 1.0) < 1e-5);
+        assert(std::abs(solver.getSolution()->getVariableValue(resultVar).value() - 1.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: not_element_of(25, collection) returns 1" << RESET << std::endl;
     }
     // Test: Collection[constant_index]
@@ -1943,7 +1943,7 @@ int main() {
         CP::HexalySolver solver(model);
         auto result = solver.solve(5.0);
         assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 20.0) < 1e-5);
+        assert(std::abs(solver.getSolution()->getVariableValue(resultVar).value() - 20.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Collection[2] returns 20" << RESET << std::endl;
     }
     // Test: at with different collection keys
@@ -1962,7 +1962,7 @@ int main() {
         CP::HexalySolver solver1(model);
         auto result1 = solver1.solve(5.0);
         assert(result1.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(std::abs(solver1.getSolution()->getVariableValue(result).value() - 20.0) < 1e-5);
+        assert(std::abs(solver1.getSolution()->getVariableValue(resultVar).value() - 20.0) < 1e-5);
 
         // Test with key=1
         CP::Model model2;
@@ -1998,7 +1998,7 @@ int main() {
         CP::HexalySolver solver(model);
         auto result = solver.solve(5.0);
         assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 1.0) < 1e-5);
+        assert(std::abs(solver.getSolution()->getVariableValue(resultVar).value() - 1.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: element_of(variable=20, collection) returns 1" << RESET << std::endl;
     }
     // Test: element_of(variable, collection) - not found
@@ -2018,7 +2018,7 @@ int main() {
         CP::HexalySolver solver(model);
         auto result = solver.solve(5.0);
         assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 0.0) < 1e-5);
+        assert(std::abs(solver.getSolution()->getVariableValue(resultVar).value() - 0.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: element_of(variable=25, collection) returns 0" << RESET << std::endl;
     }
     // Test: element_of(variable, collection(variable_key)) - both variable
@@ -2039,7 +2039,7 @@ int main() {
         CP::HexalySolver solver(model);
         auto result = solver.solve(5.0);
         assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 1.0) < 1e-5);
+        assert(std::abs(solver.getSolution()->getVariableValue(resultVar).value() - 1.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: element_of(variable, collection(variable_key))" << RESET << std::endl;
     }
     // Test: not_element_of(variable, collection) - found (returns 0)
@@ -2059,7 +2059,7 @@ int main() {
         CP::HexalySolver solver(model);
         auto result = solver.solve(5.0);
         assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 0.0) < 1e-5);
+        assert(std::abs(solver.getSolution()->getVariableValue(resultVar).value() - 0.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: not_element_of(variable=20, collection) returns 0" << RESET << std::endl;
     }
     // Test: not_element_of(variable, collection) - not found (returns 1)
@@ -2079,7 +2079,7 @@ int main() {
         CP::HexalySolver solver(model);
         auto result = solver.solve(5.0);
         assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 1.0) < 1e-5);
+        assert(std::abs(solver.getSolution()->getVariableValue(resultVar).value() - 1.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: not_element_of(variable=35, collection) returns 1" << RESET << std::endl;
     }
     // Test: Collection[variable_index]
@@ -2099,7 +2099,7 @@ int main() {
         CP::HexalySolver solver(model);
         auto result = solver.solve(5.0);
         assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 20.0) < 1e-5);
+        assert(std::abs(solver.getSolution()->getVariableValue(resultVar).value() - 20.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Collection[variable_index=2] returns 20" << RESET << std::endl;
     }
     // Test: Collection(variable_key)[variable_index]
@@ -2120,7 +2120,7 @@ int main() {
         CP::HexalySolver solver(model);
         auto result = solver.solve(5.0);
         assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 60.0) < 1e-5);
+        assert(std::abs(solver.getSolution()->getVariableValue(resultVar).value() - 60.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Collection(key=1)[index=3] returns 60" << RESET << std::endl;
     }
     // Test: count(Collection(constant_key))
@@ -2137,7 +2137,7 @@ int main() {
         CP::HexalySolver solver(model);
         auto result = solver.solve(5.0);
         assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 3.0) < 1e-5);
+        assert(std::abs(solver.getSolution()->getVariableValue(resultVar).value() - 3.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: count(Collection(0)) returns 3" << RESET << std::endl;
     }
     // Test: Collection(constant_key)[constant_index]
@@ -2154,7 +2154,7 @@ int main() {
         CP::HexalySolver solver(model);
         auto result = solver.solve(5.0);
         assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 20.0) < 1e-5);
+        assert(std::abs(solver.getSolution()->getVariableValue(resultVar).value() - 20.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Collection(0)[2] returns 20" << RESET << std::endl;
     }
     // Test: onIteration callback is called during solving
