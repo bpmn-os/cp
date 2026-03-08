@@ -958,8 +958,9 @@ Solver::Result HexalySolver::solve(double timeLimit) {
                 }
             }
         }
-        // Set variable values (only non-deduced decision variables)
-        for (const Variable& var : model_.getVariables()) {
+        // Set variable values (all decision variables including indexed)
+        for (const Variable& var : model_.getAllVariables()) {
+            if (var.deducedFrom) continue;  // Skip deduced variables
             auto value = warmstart->getVariableValue(var);
             if (value.has_value()) {
                 hexaly::HxExpression hxExpr = expressionMap.at(&var);
