@@ -1872,6 +1872,15 @@ void SCIPSolver::notifyNewSolution() {
   SCIP_SOL* sol = SCIPgetBestSol(scip);
   if (!sol) return;
 
+  // Check if objective improved (skip for feasibility-only problems)
+  if (model_.getObjectiveSense() != Model::ObjectiveSense::FEASIBLE) {
+    double currentObj = SCIPgetSolOrigObj(scip, sol);
+    if (!std::isnan(lastBestObjective_) && currentObj == lastBestObjective_) {
+      return;  // No improvement
+    }
+    lastBestObjective_ = currentObj;
+  }
+
   Solution solution(model_);
   for (const auto& [variable, scipVar] : variableMap) {
     double value = SCIPgetSolVal(scip, sol, scipVar);
@@ -1891,6 +1900,7 @@ void SCIPSolver::notifyIteration() {
 
 Solver::Result SCIPSolver::solve(double timeLimit) {
   Result result;
+  lastBestObjective_ = std::numeric_limits<double>::quiet_NaN();
 
   // Set or unset time limit
   if (std::isfinite(timeLimit)) {
@@ -2009,6 +2019,24 @@ Solver::Result SCIPSolver::solve(double timeLimit) {
     }
 
     solution_.store(std::move(solution));
+
+    // Notify solution listener of final solution if not already notified
+    if (onSolution) {
+      bool shouldNotify = false;
+      if (model_.getObjectiveSense() == Model::ObjectiveSense::FEASIBLE) {
+        // For feasibility problems, notify if we haven't notified yet
+        shouldNotify = std::isnan(lastBestObjective_);
+        if (shouldNotify) lastBestObjective_ = 0.0;  // Mark as notified
+      } else {
+        // For optimization problems, notify if objective differs from last notified
+        double finalObj = SCIPgetSolOrigObj(scip, sol);
+        shouldNotify = std::isnan(lastBestObjective_) || finalObj != lastBestObjective_;
+        if (shouldNotify) lastBestObjective_ = finalObj;
+      }
+      if (shouldNotify) {
+        onSolution(*solution_.load());
+      }
+    }
   }
 
   return result;
@@ -2916,6 +2944,88 @@ SCIP_EXPR* SCIPSolver::resolveCollectionItem(
   }
 
   return result;
+}
+
+void SCIPSolver::ensureProblemStage() {
+  SCIP_STAGE stage = SCIPgetStage(scip);
+  if (stage != SCIP_STAGE_PROBLEM) {
+    SCIPfreeTransform(scip);
+  }
+}
+
+void SCIPSolver::fix(const Variable& variable, double value) {
+  // Validate variable exists in model
+  auto it = variableMap.find(&variable);
+  if (it == variableMap.end()) {
+    throw std::invalid_argument("Variable not found in model: " + variable.name);
+  }
+
+  // Cannot fix deduced variables
+  if (variable.deducedFrom) {
+    throw std::invalid_argument("Cannot fix deduced variable: " + variable.name);
+  }
+
+  // Validate value is within original bounds
+  if (value < variable.lowerBound || value > variable.upperBound) {
+    throw std::out_of_range("Fix value " + std::to_string(value) +
+                            " outside bounds [" + std::to_string(variable.lowerBound) +
+                            ", " + std::to_string(variable.upperBound) + "] for " + variable.name);
+  }
+
+  // Round value appropriately for variable type
+  double fixedValue = value;
+  if (variable.type == Variable::Type::BOOLEAN) {
+    fixedValue = std::round(value);
+    if (fixedValue != 0.0 && fixedValue != 1.0) {
+      throw std::out_of_range("Boolean variable must be fixed to 0 or 1");
+    }
+  } else if (variable.type == Variable::Type::INTEGER) {
+    fixedValue = std::round(value);
+  }
+
+  // Ensure we're in PROBLEM stage to modify bounds
+  ensureProblemStage();
+
+  SCIP_VAR* scipVar = it->second;
+
+  // Set both bounds to the fixed value
+  SCIPchgVarLbGlobal(scip, scipVar, fixedValue);
+  SCIPchgVarUbGlobal(scip, scipVar, fixedValue);
+
+  // Store in fixedVariables_
+  fixedVariables_.emplace_back(&variable, fixedValue);
+}
+
+void SCIPSolver::fix(const Sequence& sequence, const std::vector<int>& values) {
+  if (values.size() != sequence.variables.size()) {
+    throw std::invalid_argument("Values size does not match sequence size");
+  }
+
+  for (size_t i = 0; i < sequence.variables.size(); ++i) {
+    fix(sequence.variables[i], static_cast<double>(values[i]));
+  }
+}
+
+void SCIPSolver::unfix() {
+  // Ensure we're in PROBLEM stage to modify bounds
+  ensureProblemStage();
+
+  // Restore original bounds for all fixed variables
+  for (const auto& [variable, fixedValue] : fixedVariables_) {
+    auto it = variableMap.find(variable);
+    if (it != variableMap.end()) {
+      SCIP_VAR* scipVar = it->second;
+      // Restore original bounds from the Variable
+      double lb = (variable->lowerBound == std::numeric_limits<double>::lowest())
+                  ? -SCIPinfinity(scip) : variable->lowerBound;
+      double ub = (variable->upperBound == std::numeric_limits<double>::max())
+                  ? SCIPinfinity(scip) : variable->upperBound;
+      SCIPchgVarLbGlobal(scip, scipVar, lb);
+      SCIPchgVarUbGlobal(scip, scipVar, ub);
+    }
+  }
+
+  fixedVariables_.clear();
 }
 
 } // namespace CP

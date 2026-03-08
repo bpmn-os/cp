@@ -1,3 +1,6 @@
+# Enable assertions for all tests (remove NDEBUG if set)
+add_compile_options($<$<CONFIG:Release>:-UNDEBUG>)
+
 # CP interface test (always built - header-only)
 add_executable(test_cp test.cpp)
 target_link_libraries(test_cp PRIVATE cp)

@@ -70,7 +70,9 @@ void HexalySolver::checkForNewSolution() {
 
     // Check if objective improved (skip for feasibility-only problems)
     if (model_.getObjectiveSense() != Model::ObjectiveSense::FEASIBLE) {
-        double currentObj = hxSol.getDoubleValue(objectiveExpr_);
+        double currentObj = objectiveExpr_.isInt()
+            ? static_cast<double>(hxSol.getIntValue(objectiveExpr_))
+            : hxSol.getDoubleValue(objectiveExpr_);
         if (!std::isnan(lastBestObjective_) && currentObj == lastBestObjective_) {
             return;  // No improvement
         }
@@ -942,6 +944,62 @@ Solver::Result HexalySolver::solve(double timeLimit) {
         optimizer->addCallback(hexaly::HxCallbackType::CT_IterationTicked, solutionCallback_.get());
     }
 
+    // Sync fix constraints if needed
+    bool needsSync = pendingUnfix_ ||
+                     appliedVarFixCount_ < fixedVariables_.size() ||
+                     appliedSeqFixCount_ < fixedSequences_.size();
+
+    if (needsSync) {
+        hxModel.open();
+
+        // Remove all fix constraints if unfix() was called
+        if (pendingUnfix_) {
+            for (auto& constraint : fixConstraints_) {
+                hxModel.removeConstraint(constraint);
+            }
+            fixConstraints_.clear();
+            pendingUnfix_ = false;
+        }
+
+        // Add constraints for newly fixed variables
+        for (size_t i = appliedVarFixCount_; i < fixedVariables_.size(); ++i) {
+            const Variable* variable = fixedVariables_[i].first;
+            double value = fixedVariables_[i].second;
+
+            hexaly::HxExpression varExpr = expressionMap.at(variable);
+            hexaly::HxExpression valueExpr;
+            if (variable->type == Variable::Type::REAL) {
+                valueExpr = hxModel.createConstant(value);
+            } else {
+                valueExpr = hxModel.createConstant(static_cast<hexaly::hxint>(value));
+            }
+
+            hexaly::HxExpression constraint = (varExpr == valueExpr);
+            hxModel.addConstraint(constraint);
+            fixConstraints_.push_back(constraint);
+        }
+        appliedVarFixCount_ = fixedVariables_.size();
+
+        // Add constraints for newly fixed sequences
+        for (size_t i = appliedSeqFixCount_; i < fixedSequences_.size(); ++i) {
+            const Sequence* sequence = fixedSequences_[i].first;
+            const std::vector<int>& values = fixedSequences_[i].second;
+
+            for (size_t j = 0; j < sequence->variables.size(); ++j) {
+                const Variable& var = sequence->variables[j];
+                hexaly::HxExpression varExpr = expressionMap.at(&var);
+                hexaly::HxExpression valueExpr = hxModel.createConstant(static_cast<hexaly::hxint>(values[j]));
+
+                hexaly::HxExpression constraint = (varExpr == valueExpr);
+                hxModel.addConstraint(constraint);
+                fixConstraints_.push_back(constraint);
+            }
+        }
+        appliedSeqFixCount_ = fixedSequences_.size();
+
+        hxModel.close();
+    }
+
     // Warmstart: use existing solution as starting point
     auto warmstart = solution_.load();
     if (warmstart) {
@@ -970,6 +1028,24 @@ Solver::Result HexalySolver::solve(double timeLimit) {
                     hxExpr.setDoubleValue(value.value());
                 }
             }
+        }
+    }
+
+    // Set initial values for fixed variables/sequences (helps Hexaly start from feasible point)
+    for (const auto& [variable, value] : fixedVariables_) {
+        hexaly::HxExpression hxExpr = expressionMap.at(variable);
+        if (hxExpr.isInt()) {
+            hxExpr.setIntValue(static_cast<long long>(value));
+        } else {
+            hxExpr.setDoubleValue(value);
+        }
+    }
+    for (const auto& [sequence, values] : fixedSequences_) {
+        hexaly::HxExpression listVar = sequenceMap.at(sequence);
+        hexaly::HxCollection listVal = listVar.getCollectionValue();
+        listVal.clear();
+        for (int val : values) {
+            listVal.add(static_cast<long long>(val) - 1);  // 1-based to 0-based
         }
     }
 
@@ -1054,7 +1130,79 @@ Solver::Result HexalySolver::solve(double timeLimit) {
 
     std::atomic_store(&solution_, std::shared_ptr<const Solution>(std::move(solution)));
 
+    // Notify solution listener of final solution if not already notified
+    if (onSolution) {
+        bool shouldNotify = false;
+        if (model_.getObjectiveSense() == Model::ObjectiveSense::FEASIBLE) {
+            // For feasibility problems, notify if we haven't notified yet
+            shouldNotify = std::isnan(lastBestObjective_);
+            if (shouldNotify) lastBestObjective_ = 0.0;  // Mark as notified
+        } else {
+            // For optimization problems, notify if objective differs from last notified
+            double finalObj = objectiveExpr_.isInt()
+                ? static_cast<double>(hxSol.getIntValue(objectiveExpr_))
+                : hxSol.getDoubleValue(objectiveExpr_);
+            shouldNotify = std::isnan(lastBestObjective_) || finalObj != lastBestObjective_;
+            if (shouldNotify) lastBestObjective_ = finalObj;
+        }
+        if (shouldNotify) {
+            onSolution(*solution_.load());
+        }
+    }
+
     return result;
+}
+
+void HexalySolver::fix(const Variable& variable, double value) {
+    // Validate variable exists in model
+    auto it = expressionMap.find(&variable);
+    if (it == expressionMap.end()) {
+        throw std::invalid_argument("Variable not found in model: " + variable.name);
+    }
+
+    // Cannot fix deduced variables
+    if (variable.deducedFrom) {
+        throw std::invalid_argument("Cannot fix deduced variable: " + variable.name);
+    }
+
+    // Validate value is within original bounds
+    if (value < variable.lowerBound || value > variable.upperBound) {
+        throw std::out_of_range("Fix value " + std::to_string(value) +
+                                " outside bounds [" + std::to_string(variable.lowerBound) +
+                                ", " + std::to_string(variable.upperBound) + "] for " + variable.name);
+    }
+
+    // Round value appropriately for variable type
+    double fixedValue = value;
+    if (variable.type == Variable::Type::BOOLEAN) {
+        fixedValue = std::round(value);
+        if (fixedValue != 0.0 && fixedValue != 1.0) {
+            throw std::out_of_range("Boolean variable must be fixed to 0 or 1");
+        }
+    } else if (variable.type == Variable::Type::INTEGER) {
+        fixedValue = std::round(value);
+    }
+
+    // Store in fixedVariables_ - will be synced to solver in solve()
+    fixedVariables_.emplace_back(&variable, fixedValue);
+}
+
+void HexalySolver::fix(const Sequence& sequence, const std::vector<int>& values) {
+    if (values.size() != sequence.variables.size()) {
+        throw std::invalid_argument("Values size does not match sequence size");
+    }
+
+    fixedSequences_.emplace_back(&sequence, values);
+}
+
+void HexalySolver::unfix() {
+    // Clear desired fixes - actual constraint removal happens in solve()
+    fixedVariables_.clear();
+    fixedSequences_.clear();
+    // Don't clear fixConstraints_ - solve() needs it to remove constraints
+    appliedVarFixCount_ = 0;
+    appliedSeqFixCount_ = 0;
+    pendingUnfix_ = true;
 }
 
 } // namespace CP

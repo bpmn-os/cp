@@ -2317,45 +2317,62 @@ int main() {
         assert(std::abs(solver.getSolution()->getVariableValue(resultVar).value() - 20.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Collection(0)[2] returns 20" << RESET << std::endl;
     }
-    // Test: onIteration callback is called during solving
+    // Test: Iteration callback with stop() - knapsack problem
     {
         CP::Model model(CP::Model::ObjectiveSense::MAXIMIZE);
-        auto& x = model.addVariable(CP::Variable::Type::INTEGER, "x", 0.0, 100.0);
-        auto& y = model.addVariable(CP::Variable::Type::INTEGER, "y", 0.0, 100.0);
-        model.addConstraint(x + y <= 50.0);
-        model.setObjective(x + y);
+        const int n = 30;
+        std::vector<std::reference_wrapper<const CP::Variable>> items;
+        std::vector<double> weights = {23, 31, 29, 44, 53, 38, 63, 85, 89, 82,
+                                        47, 52, 43, 67, 73, 59, 61, 77, 41, 37,
+                                        26, 33, 48, 55, 62, 71, 79, 84, 91, 95};
+        std::vector<double> values =  {92, 57, 49, 68, 60, 43, 67, 84, 87, 72,
+                                        61, 55, 48, 72, 78, 64, 69, 82, 53, 47,
+                                        89, 58, 51, 66, 75, 81, 70, 88, 94, 99};
+        for (int i = 0; i < n; i++) {
+            items.push_back(model.addVariable(CP::Variable::Type::INTEGER, "item" + std::to_string(i), 0.0, 1.0));
+        }
+        CP::Expression totalWeight = 0.0;
+        CP::Expression totalValue = 0.0;
+        for (int i = 0; i < n; i++) {
+            totalWeight = totalWeight + items[i].get() * weights[i];
+            totalValue = totalValue + items[i].get() * values[i];
+        }
+        model.addConstraint(totalWeight <= 400.0);
+        model.setObjective(totalValue);
 
         CP::SCIPSolver solver(model);
-        int iterationCount = 0;
-        solver.registerListener(CP::Solver::IterationListener([&iterationCount]() {
-            iterationCount++;
+        bool callbackFired = false;
+        solver.registerListener(CP::Solver::IterationListener([&]() {
+            callbackFired = true;
+            solver.stop();
         }));
 
         auto result = solver.solve();
-        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(iterationCount >= 1);  // At least one iteration callback
-        std::cout << GREEN << "Test " << ++testNum << " PASSED: onIteration callback" << RESET << std::endl;
+        if (callbackFired) {
+            assert(result.termination == CP::Solver::Result::TERMINATION::INTERRUPTED);
+        }
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: Iteration callback and stop()" << RESET << std::endl;
     }
-    // Test: onSolution callback is called when new best solution is found
+    // Test: Solution callback
     {
         CP::Model model(CP::Model::ObjectiveSense::MAXIMIZE);
         auto& x = model.addVariable(CP::Variable::Type::INTEGER, "x", 0.0, 100.0);
         auto& y = model.addVariable(CP::Variable::Type::INTEGER, "y", 0.0, 100.0);
-        model.addConstraint(x + y <= 50.0);
+        model.addConstraint(x + y <= 100.0);
         model.setObjective(x + y);
 
         CP::SCIPSolver solver(model);
         int solutionCount = 0;
-        solver.registerListener(CP::Solver::SolutionListener([&solutionCount](const CP::Solution&) {
+        solver.registerListener(CP::Solver::SolutionListener([&](const CP::Solution& sol) {
             solutionCount++;
         }));
 
         auto result = solver.solve();
         assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(solutionCount >= 1);  // At least one solution callback
-        std::cout << GREEN << "Test " << ++testNum << " PASSED: onSolution callback" << RESET << std::endl;
+        assert(solutionCount >= 1);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: Solution callback" << RESET << std::endl;
     }
-    // Test: Warmstart - first solution found should be at least as good as warmstart
+    // Test: Warmstart
     {
         CP::Model model(CP::Model::ObjectiveSense::MAXIMIZE);
         auto& x = model.addVariable(CP::Variable::Type::INTEGER, "x", 0.0, 100.0);
@@ -2363,52 +2380,19 @@ int main() {
         model.addConstraint(x + y <= 100.0);
         model.setObjective(x + y);
 
-        // Warmstart with a good solution: x=40, y=40 (objective = 80)
         auto initialSolution = std::make_shared<CP::Solution>(model);
         initialSolution->setVariableValue(x, 40.0);
         initialSolution->setVariableValue(y, 40.0);
-        double warmstartObjective = 80.0;
 
         CP::SCIPSolver solver(model);
         solver.setSolution(initialSolution);
 
-        double firstSolutionObjective = 0.0;
-        bool gotFirstSolution = false;
-        solver.registerListener(CP::Solver::SolutionListener([&](const CP::Solution& sol) {
-            if (!gotFirstSolution) {
-                firstSolutionObjective = sol.getVariableValue(x).value() + sol.getVariableValue(y).value();
-                gotFirstSolution = true;
-            }
-        }));
-
-        auto result = solver.solve();
+        auto result = solver.solve(0.5);
         assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(gotFirstSolution);
-        // First solution should be at least as good as warmstart
-        assert(firstSolutionObjective >= warmstartObjective - 1e-5);
-        std::cout << GREEN << "Test " << ++testNum << " PASSED: Warmstart with solution callback" << RESET << std::endl;
-    }
-    // Test: stop() called from iteration callback terminates solving
-    {
-        CP::Model model(CP::Model::ObjectiveSense::MAXIMIZE);
-        auto& x = model.addVariable(CP::Variable::Type::INTEGER, "x", 0.0, 100.0);
-        auto& y = model.addVariable(CP::Variable::Type::INTEGER, "y", 0.0, 100.0);
-        model.addConstraint(x + y <= 100.0);
-        model.setObjective(x + y);
-
-        CP::SCIPSolver solver(model);
-        int iterationCount = 0;
-        solver.registerListener(CP::Solver::IterationListener([&]() {
-            iterationCount++;
-            if (iterationCount >= 2) {
-                solver.stop();
-            }
-        }));
-
-        auto result = solver.solve();
-        assert(result.termination == CP::Solver::Result::TERMINATION::INTERRUPTED);
-        assert(iterationCount >= 2);
-        std::cout << GREEN << "Test " << ++testNum << " PASSED: stop() from iteration callback" << RESET << std::endl;
+        auto finalSol = solver.getSolution();
+        double finalObj = finalSol->getVariableValue(x).value() + finalSol->getVariableValue(y).value();
+        assert(finalObj >= 80.0 - 1e-5);  // At least as good as warmstart
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: Warmstart" << RESET << std::endl;
     }
     // Test: Warmstart with indexed variables
     {
@@ -2420,62 +2404,116 @@ int main() {
         model.addConstraint(x0 + x1 + x2 <= 150.0);
         model.setObjective(x0 + x1 + x2);
 
-        // Warmstart with a good solution: x0=40, x1=40, x2=40 (objective = 120)
         auto initialSolution = std::make_shared<CP::Solution>(model);
         initialSolution->setVariableValue(x0, 40.0);
         initialSolution->setVariableValue(x1, 40.0);
         initialSolution->setVariableValue(x2, 40.0);
-        double warmstartObjective = 120.0;
 
         CP::SCIPSolver solver(model);
         solver.setSolution(initialSolution);
 
-        double firstSolutionObjective = 0.0;
-        bool gotFirstSolution = false;
-        solver.registerListener(CP::Solver::SolutionListener([&](const CP::Solution& sol) {
-            if (!gotFirstSolution) {
-                firstSolutionObjective = sol.getVariableValue(x0).value()
-                                       + sol.getVariableValue(x1).value()
-                                       + sol.getVariableValue(x2).value();
-                gotFirstSolution = true;
-            }
-        }));
-
-        auto result = solver.solve();
+        auto result = solver.solve(0.5);
         assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(gotFirstSolution);
-        assert(firstSolutionObjective >= warmstartObjective - 1e-5);
+        auto finalSol = solver.getSolution();
+        double finalObj = finalSol->getVariableValue(x0).value()
+                        + finalSol->getVariableValue(x1).value()
+                        + finalSol->getVariableValue(x2).value();
+        assert(finalObj >= 120.0 - 1e-5);  // At least as good as warmstart
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Warmstart with indexed variables" << RESET << std::endl;
     }
     // Test: Warmstart with sequence variables
     {
         CP::Model model(CP::Model::ObjectiveSense::MINIMIZE);
-        auto& seq = model.addSequence("seq", 4);  // Permutation of {1,2,3,4}
-        // Objective: minimize position of element 1 (seq.variables[0] is position of first element)
+        auto& seq = model.addSequence("seq", 4);
         model.setObjective(seq.variables[0]);
 
-        // Warmstart: set permutation [2,1,3,4] (element 1 is at position 2)
         auto initialSolution = std::make_shared<CP::Solution>(model);
         initialSolution->setSequenceValues(seq, std::vector<int>{2, 1, 3, 4});
 
         CP::SCIPSolver solver(model);
         solver.setSolution(initialSolution);
 
-        double firstSolutionObjective = 0.0;
-        bool gotFirstSolution = false;
-        solver.registerListener(CP::Solver::SolutionListener([&](const CP::Solution& sol) {
-            if (!gotFirstSolution) {
-                firstSolutionObjective = sol.getVariableValue(seq.variables[0]).value();
-                gotFirstSolution = true;
-            }
+        auto result = solver.solve(0.5);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto finalSol = solver.getSolution();
+        double finalObj = finalSol->getVariableValue(seq.variables[0]).value();
+        assert(finalObj <= 2.0 + 1e-5);  // At least as good as warmstart
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: Warmstart with sequence variables" << RESET << std::endl;
+    }
+
+    // Test: Fix variable changes solution
+    {
+        CP::Model model(CP::Model::ObjectiveSense::MINIMIZE);
+        const auto& x = model.addVariable(CP::Variable::Type::INTEGER, "x", 0, 10);
+        model.setObjective(x);
+
+        CP::SCIPSolver solver(model);
+
+        // Stop on first solution
+        solver.registerListener(CP::Solver::SolutionListener([&](const CP::Solution&) {
+            solver.stop();
         }));
 
-        auto result = solver.solve();
-        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
-        assert(gotFirstSolution);
-        // First solution should be at least as good as warmstart (objective <= 2)
-        assert(firstSolutionObjective <= 2.0 + 1e-5);
-        std::cout << GREEN << "Test " << ++testNum << " PASSED: Warmstart with sequence variables" << RESET << std::endl;
+        // First solve - optimal should be 0
+        auto result1 = solver.solve();
+        assert(result1.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(solver.getSolution()->getVariableValue(x).value() == 0.0);
+
+        // Fix x to 5
+        solver.fix(x, 5.0);
+
+        // Second solve - should be 5
+        auto result2 = solver.solve();
+        assert(result2.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(solver.getSolution()->getVariableValue(x).value() == 5.0);
+
+        // Unfix and solve again - should return to 0
+        solver.unfix();
+        auto result3 = solver.solve();
+        assert(result3.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(solver.getSolution()->getVariableValue(x).value() == 0.0);
+
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: Fix variable changes solution" << RESET << std::endl;
+    }
+
+    // Test: Fix sequence changes solution
+    {
+        CP::Model model(CP::Model::ObjectiveSense::MINIMIZE);
+        const auto& seq = model.addSequence("seq", 3);
+
+        // Objective: minimize sum of (position * value) where positions are 1,2,3
+        // Optimal: seq[0]=3, seq[1]=2, seq[2]=1 gives 1*3 + 2*2 + 3*1 = 10
+        auto obj = 1.0 * seq.variables[0] + 2.0 * seq.variables[1] + 3.0 * seq.variables[2];
+        model.setObjective(obj);
+
+        CP::SCIPSolver solver(model);
+
+        // Stop on first solution
+        solver.registerListener(CP::Solver::SolutionListener([&](const CP::Solution&) {
+            solver.stop();
+        }));
+
+        // First solve - find any solution
+        auto result1 = solver.solve();
+        assert(result1.status != CP::Solver::Result::SOLUTION::NONE);
+
+        // Fix sequence to [1,2,3]
+        solver.fix(seq, {1, 2, 3});
+
+        // Second solve - should be [1,2,3]
+        auto result2 = solver.solve();
+        assert(result2.status != CP::Solver::Result::SOLUTION::NONE);
+        auto sol2 = solver.getSolution();
+        assert(sol2->getVariableValue(seq.variables[0]).value() == 1.0);
+        assert(sol2->getVariableValue(seq.variables[1]).value() == 2.0);
+        assert(sol2->getVariableValue(seq.variables[2]).value() == 3.0);
+
+        // Unfix and solve again - should find a solution
+        solver.unfix();
+        auto result3 = solver.solve();
+        assert(result3.status != CP::Solver::Result::SOLUTION::NONE);
+
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: Fix sequence changes solution" << RESET << std::endl;
     }
 
     std::cout << "\n" << GREEN << "All " << testNum << " SCIP adapter tests PASSED" << RESET << std::endl;

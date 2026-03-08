@@ -17,6 +17,10 @@ public:
     Result solve(double timeLimit = std::numeric_limits<double>::infinity()) override;
     void stop() override;
 
+    void fix(const Variable& variable, double value) override;
+    void fix(const Sequence& sequence, const std::vector<int>& values) override;
+    void unfix() override;
+
     // For testing
     hexaly::HexalyOptimizer& getOptimizer() { return *optimizer; }
 
@@ -57,6 +61,14 @@ private:
 
     // Maps sequences to list expressions
     std::unordered_map<const Sequence*, hexaly::HxExpression> sequenceMap;
+
+    // Fix/unfix state
+    std::vector<std::pair<const Variable*, double>> fixedVariables_;
+    std::vector<std::pair<const Sequence*, std::vector<int>>> fixedSequences_;
+    std::vector<hexaly::HxExpression> fixConstraints_;  // Constraints to remove on unfix
+    size_t appliedVarFixCount_ = 0;   // How many variable fixes have been applied to solver
+    size_t appliedSeqFixCount_ = 0;   // How many sequence fixes have been applied to solver
+    bool pendingUnfix_ = false;       // True if unfix() called, constraints need removal
 };
 
 } // namespace CP

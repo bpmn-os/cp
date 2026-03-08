@@ -128,6 +128,33 @@ public:
    */
   virtual void stop() = 0;
 
+  /**
+   * @brief Fixes a variable to a specific value for subsequent solve() calls.
+   *
+   * The variable will be constrained to equal exactly this value.
+   *
+   * @param variable The variable to fix (must exist in model_).
+   * @param value The value to fix the variable to.
+   * @throws std::invalid_argument if variable not in model or is a deduced variable.
+   * @throws std::out_of_range if value is outside variable's bounds.
+   */
+  virtual void fix(const Variable& variable, double value) = 0;
+
+  /**
+   * @brief Fixes all variables in a sequence to specific values.
+   *
+   * @param sequence The sequence to fix.
+   * @param values The values to fix each sequence position to.
+   * @throws std::invalid_argument if values size doesn't match sequence size.
+   * @throws std::out_of_range if any value is outside the variable's bounds.
+   */
+  virtual void fix(const Sequence& sequence, const std::vector<int>& values) = 0;
+
+  /**
+   * @brief Removes all variable and sequence fixes.
+   */
+  virtual void unfix() = 0;
+
 protected:
   const Model& model_;                       ///< The model being solved.
   mutable std::atomic<std::shared_ptr<const Solution>> solution_; ///< Current best / warmstart solution (thread-safe).

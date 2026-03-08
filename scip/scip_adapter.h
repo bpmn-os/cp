@@ -19,6 +19,10 @@ public:
   Result solve(double timeLimit = std::numeric_limits<double>::infinity()) override;
   void stop() override;
 
+  void fix(const Variable& variable, double value) override;
+  void fix(const Sequence& sequence, const std::vector<int>& values) override;
+  void unfix() override;
+
   // Called by event handler when new best solution is found
   void notifyNewSolution();
   // Called by event handler on each iteration (node)
@@ -32,6 +36,7 @@ public:
   const std::unordered_map<const Variable*, SCIP_VAR*>& getVariableMap() const { return variableMap; }
 
 private:
+  void ensureProblemStage();  // Returns SCIP to PROBLEM stage if needed
   void addSequences(const Model& model);
   void addVariables(const Model& model);
   void addIndexedVariables(const Model& model);
@@ -81,6 +86,12 @@ private:
   std::unique_ptr<SolEventData> iterationEventData_;
   SCIP_EVENTHDLR* solEventhdlr_ = nullptr;
   SCIP_EVENTHDLR* iterEventhdlr_ = nullptr;
+
+  // Track last notified solution objective to avoid duplicate notifications
+  double lastBestObjective_ = std::numeric_limits<double>::quiet_NaN();
+
+  // Fix/unfix state - track fixed variables to restore bounds on unfix
+  std::vector<std::pair<const Variable*, double>> fixedVariables_;
 };
 
 } // namespace CP

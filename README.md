@@ -260,6 +260,29 @@ if (result.termination == CP::Solver::Result::TERMINATION::INTERRUPTED) {
 }
 ```
 
+#### Fixing variables
+
+Fix variables to specific values for incremental solving:
+
+```cpp
+CP::SCIPSolver solver(model);
+
+// First solve
+auto result1 = solver.solve();
+
+// Fix variable and solve again
+solver.fix(x, 5.0);
+auto result2 = solver.solve();  // x constrained to 5
+
+// Fix sequence
+solver.fix(sequence, {1, 2, 3});
+auto result3 = solver.solve();
+
+// Remove all fixes
+solver.unfix();
+auto result4 = solver.solve();  // Back to original problem
+```
+
 #### Result status
 
 The `Result` struct provides information about the solving process:
