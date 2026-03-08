@@ -2250,6 +2250,73 @@ int main() {
         assert(iterationCount >= 2);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: stop() from iteration callback" << RESET << std::endl;
     }
+    // Test: Warmstart with indexed variables
+    {
+        CP::Model model(CP::Model::ObjectiveSense::MAXIMIZE);
+        auto& indexedVars = model.addIndexedVariables(CP::Variable::Type::INTEGER, "x");
+        auto& x0 = model.addIndexedVariable(indexedVars, 0.0, 100.0);
+        auto& x1 = model.addIndexedVariable(indexedVars, 0.0, 100.0);
+        auto& x2 = model.addIndexedVariable(indexedVars, 0.0, 100.0);
+        model.addConstraint(x0 + x1 + x2 <= 150.0);
+        model.setObjective(x0 + x1 + x2);
+
+        // Warmstart with a good solution: x0=40, x1=40, x2=40 (objective = 120)
+        auto initialSolution = std::make_shared<CP::Solution>(model);
+        initialSolution->setVariableValue(x0, 40.0);
+        initialSolution->setVariableValue(x1, 40.0);
+        initialSolution->setVariableValue(x2, 40.0);
+        double warmstartObjective = 120.0;
+
+        CP::HexalySolver solver(model);
+        solver.setSolution(initialSolution);
+
+        double firstSolutionObjective = 0.0;
+        bool gotFirstSolution = false;
+        solver.registerListener(CP::Solver::SolutionListener([&](const CP::Solution& sol) {
+            if (!gotFirstSolution) {
+                firstSolutionObjective = sol.getVariableValue(x0).value()
+                                       + sol.getVariableValue(x1).value()
+                                       + sol.getVariableValue(x2).value();
+                gotFirstSolution = true;
+            }
+        }));
+
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(gotFirstSolution);
+        assert(firstSolutionObjective >= warmstartObjective - 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: Warmstart with indexed variables" << RESET << std::endl;
+    }
+    // Test: Warmstart with sequence variables
+    {
+        CP::Model model(CP::Model::ObjectiveSense::MINIMIZE);
+        auto& seq = model.addSequence("seq", 4);  // Permutation of {1,2,3,4}
+        // Objective: minimize position of element 1 (seq.variables[0] is position of first element)
+        model.setObjective(seq.variables[0]);
+
+        // Warmstart: set permutation [2,1,3,4] (element 1 is at position 2)
+        auto initialSolution = std::make_shared<CP::Solution>(model);
+        initialSolution->setSequenceValues(seq, std::vector<int>{2, 1, 3, 4});
+
+        CP::HexalySolver solver(model);
+        solver.setSolution(initialSolution);
+
+        double firstSolutionObjective = 0.0;
+        bool gotFirstSolution = false;
+        solver.registerListener(CP::Solver::SolutionListener([&](const CP::Solution& sol) {
+            if (!gotFirstSolution) {
+                firstSolutionObjective = sol.getVariableValue(seq.variables[0]).value();
+                gotFirstSolution = true;
+            }
+        }));
+
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(gotFirstSolution);
+        // First solution should be at least as good as warmstart (objective <= 2)
+        assert(firstSolutionObjective <= 2.0 + 1e-5);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: Warmstart with sequence variables" << RESET << std::endl;
+    }
 
     std::cout << "\n" << GREEN << "All " << testNum << " Hexaly adapter tests PASSED" << RESET << std::endl;
     return 0;
