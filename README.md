@@ -167,6 +167,119 @@ solution.setVariableValue(y, 4);
 auto result = solution.evaluate(3 * x + 5 * y == 29); // evaluates to 1 (true)
 ```
 
+### Solver
+
+The `Solver` class provides an abstract interface for optimization solvers. Concrete implementations include `SCIPSolver` and `HexalySolver`.
+
+#### Basic solving
+
+```cpp
+CP::SCIPSolver solver(model);
+auto result = solver.solve();  // Solve without time limit
+
+if (result.status != CP::Solver::Result::SOLUTION::NONE) {
+    auto solution = solver.getSolution();
+    std::cout << solution->stringify() << std::endl;
+}
+```
+
+#### Solving with time limit
+
+```cpp
+auto result = solver.solve(60.0);  // 60 second time limit
+
+if (result.termination == CP::Solver::Result::TERMINATION::TIMEOUT) {
+    std::cout << "Time limit reached" << std::endl;
+}
+```
+
+#### Warmstart
+
+By default, `solve()` uses the current solution (from a previous solve or `setSolution()`) as a starting point. You can provide an initial solution to speed up solving:
+
+```cpp
+// Create and set initial solution
+auto initialSolution = std::make_shared<CP::Solution>(model);
+initialSolution->setSequenceValues(sequence, std::vector<int>{2, 1, 3, 4});
+initialSolution->setVariableValue(x, 10.0);
+initialSolution->setVariableValue(y, 20.0);
+
+solver.setSolution(initialSolution);
+auto result = solver.solve();  // Solver starts from initial solution
+```
+
+#### Cold start
+
+To start fresh without a previous solution:
+
+```cpp
+solver.setSolution(nullptr);  // Clear any previous solution
+auto result = solver.solve();
+```
+
+#### Solution callback
+
+Register a callback to be notified when a new best solution is found:
+
+```cpp
+solver.registerListener(CP::Solver::SolutionListener([](const CP::Solution& solution) {
+    std::cout << "New solution found: " << solution.stringify() << std::endl;
+}));
+
+auto result = solver.solve();
+```
+
+#### Iteration callback
+
+Register a callback to be notified at each solver iteration:
+
+```cpp
+int iterations = 0;
+solver.registerListener(CP::Solver::IterationListener([&iterations]() {
+    iterations++;
+}));
+
+auto result = solver.solve();
+std::cout << "Iterations: " << iterations << std::endl;
+```
+
+#### Stopping the solver
+
+Stop the solver from a callback:
+
+```cpp
+solver.registerListener(CP::Solver::IterationListener([&solver]() {
+    if (/* some condition */) {
+        solver.stop();  // Terminates solving
+    }
+}));
+
+auto result = solver.solve();
+if (result.termination == CP::Solver::Result::TERMINATION::INTERRUPTED) {
+    std::cout << "Solver was stopped" << std::endl;
+}
+```
+
+#### Result status
+
+The `Result` struct provides information about the solving process:
+
+```cpp
+auto result = solver.solve();
+
+// Problem feasibility
+result.problem;  // FEASIBLE, INFEASIBLE, UNBOUNDED, UNKNOWN
+
+// Solution quality
+result.status;  // NONE, FEASIBLE, OPTIMAL
+
+// Termination reason
+result.termination;  // TIMEOUT, COMPLETED, INTERRUPTED, OTHER
+
+// Optional info message
+result.info;
+```
+
 ### LIMEX
 
 [LIMEX](https://github.com/bpmn-os/limex) is a C++ library for passing mathematical expressions. The library can be used to add user provided expressions to a constraint program allowing custom operators like `abs`, `pow`, `sqrt`, `cbrt`, `sum`, `avg`, `count`, `∈`, `∉`. More details can be found in the file `limex_handle.cpp` and in the [LIMEX](https://github.com/bpmn-os/limex) repository.
@@ -203,7 +316,7 @@ make
 
 This builds:
 - `libcp-scip.a` / `libcp-scip.so` - SCIP adapter library
-- `test_scip` - Test suite (47 tests)
+- `test_scip` - Test suite
 
 **CMake options:**
 ```bash
@@ -222,11 +335,10 @@ auto& x = model.addIntegerVariable("x");
 model.addConstraint(x >= 5);
 
 CP::SCIPSolver solver(model);
-auto result = solver.solve(model);
+auto result = solver.solve();
 
-if (result.has_value()) {
-    auto& solution = result.value();
-    std::cout << solution.stringify() << std::endl;
+if (result.status != CP::Solver::Result::SOLUTION::NONE) {
+    std::cout << solver.getSolution()->stringify() << std::endl;
 }
 ```
 
@@ -266,11 +378,10 @@ auto& x = model.addIntegerVariable("x");
 model.addConstraint(x >= 5);
 
 CP::HexalySolver solver(model);
-auto result = solver.solve(model);
+auto result = solver.solve(60.0);  // 60 second time limit
 
-if (result.has_value()) {
-    auto& solution = result.value();
-    std::cout << solution.stringify() << std::endl;
+if (result.status != CP::Solver::Result::SOLUTION::NONE) {
+    std::cout << solver.getSolution()->stringify() << std::endl;
 }
 ```
 
