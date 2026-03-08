@@ -35,7 +35,7 @@ static std::optional<double> extractConstant(const Operand& operand) {
 }
 
 SCIPSolver::SCIPSolver(const Model& model, unsigned int precision)
-  : precision(precision)
+  : Solver(model), precision(precision)
 {
   SCIPcreate(&scip);
   SCIPincludeDefaultPlugins(scip);
@@ -1773,25 +1773,46 @@ SCIP_EXPR* SCIPSolver::addIndexingConstraints(const std::string& name, const std
   return resultExpr;
 }
 
-std::expected<Solution, std::string> SCIPSolver::solve(const Model& model) {
-  return solve(model, std::numeric_limits<double>::infinity());
-}
+Solver::Result SCIPSolver::solve_(double timeLimit) {
+  Result result;
 
-std::expected<Solution, std::string> SCIPSolver::solve(const Model& model, double timeLimit) {
   // Set or unset time limit
   if (std::isfinite(timeLimit)) {
-    // Set finite time limit
     SCIPsetRealParam(scip, "limits/time", timeLimit);
-  }
-  else {
-    // Unset time limit by setting to SCIP's infinity
+  } else {
     SCIPsetRealParam(scip, "limits/time", SCIPinfinity(scip));
+  }
+
+  // Warmstart: use existing solution as starting point
+  auto warmstart = solution_.load();
+  if (warmstart) {
+    SCIP_SOL* sol = nullptr;
+    if (SCIPcreateSol(scip, &sol, nullptr) == SCIP_OKAY) {
+      bool valid = true;
+      for (const auto& [variable, scipVar] : variableMap) {
+        auto value = warmstart->getVariableValue(*variable);
+        if (value.has_value()) {
+          SCIPsetSolVal(scip, sol, scipVar, value.value());
+        } else {
+          valid = false;
+          break;
+        }
+      }
+      if (valid) {
+        SCIP_Bool stored;
+        SCIPtrySolFree(scip, &sol, FALSE, FALSE, FALSE, FALSE, FALSE, &stored);
+      } else {
+        SCIPfreeSol(scip, &sol);
+      }
+    }
   }
 
   // Solve the problem
   SCIP_RETCODE retcode = SCIPsolve(scip);
   if (retcode != SCIP_OKAY) {
-    return std::unexpected("SCIP solve failed");
+    result.termination = Result::TERMINATION::OTHER;
+    result.info = "SCIP solve failed";
+    return result;
   }
 
   // Check SCIP status
@@ -1800,57 +1821,73 @@ std::expected<Solution, std::string> SCIPSolver::solve(const Model& model, doubl
   // Get the best solution
   SCIP_SOL* sol = SCIPgetBestSol(scip);
 
-  // Create CP solution object
-  Solution solution(model);
-
-  // Map SCIP status to Solution::Status
+  // Map SCIP status to Result
   switch (scipStatus) {
     case SCIP_STATUS_OPTIMAL:
-      solution.setStatus(Solution::Status::OPTIMAL);
+      result.problem = Result::PROBLEM::FEASIBLE;
+      result.status = Result::SOLUTION::OPTIMAL;
+      result.termination = Result::TERMINATION::COMPLETED;
+      break;
+    case SCIP_STATUS_INFEASIBLE:
+      result.problem = Result::PROBLEM::INFEASIBLE;
+      result.status = Result::SOLUTION::NONE;
+      result.termination = Result::TERMINATION::COMPLETED;
+      result.info = "Problem is infeasible";
+      return result;
+    case SCIP_STATUS_UNBOUNDED:
+      result.problem = Result::PROBLEM::UNBOUNDED;
+      result.status = Result::SOLUTION::NONE;
+      result.termination = Result::TERMINATION::COMPLETED;
+      result.info = "Problem is unbounded";
+      return result;
+    case SCIP_STATUS_TIMELIMIT:
+      result.problem = sol ? Result::PROBLEM::FEASIBLE : Result::PROBLEM::UNKNOWN;
+      result.status = sol ? Result::SOLUTION::FEASIBLE : Result::SOLUTION::NONE;
+      result.termination = Result::TERMINATION::TIMEOUT;
+      result.info = "Time limit reached";
+      break;
+    case SCIP_STATUS_USERINTERRUPT:
+      result.problem = sol ? Result::PROBLEM::FEASIBLE : Result::PROBLEM::UNKNOWN;
+      result.status = sol ? Result::SOLUTION::FEASIBLE : Result::SOLUTION::NONE;
+      result.termination = Result::TERMINATION::INTERRUPTED;
+      result.info = "User interrupted";
       break;
     case SCIP_STATUS_BESTSOLLIMIT:
     case SCIP_STATUS_GAPLIMIT:
     case SCIP_STATUS_SOLLIMIT:
     case SCIP_STATUS_STALLNODELIMIT:
-    case SCIP_STATUS_TIMELIMIT:
     case SCIP_STATUS_MEMLIMIT:
     case SCIP_STATUS_NODELIMIT:
     case SCIP_STATUS_TOTALNODELIMIT:
-    case SCIP_STATUS_USERINTERRUPT:
-      // Stopped before proving optimality - solution is feasible but not proven optimal
-      if (sol) {
-        solution.setStatus(Solution::Status::FEASIBLE);
-      } else {
-        solution.setStatus(Solution::Status::UNKNOWN);
-      }
+      result.problem = sol ? Result::PROBLEM::FEASIBLE : Result::PROBLEM::UNKNOWN;
+      result.status = sol ? Result::SOLUTION::FEASIBLE : Result::SOLUTION::NONE;
+      result.termination = Result::TERMINATION::OTHER;
+      result.info = "Solver limit reached";
       break;
-    case SCIP_STATUS_INFEASIBLE:
-      solution.setStatus(Solution::Status::INFEASIBLE);
-      return std::unexpected("Problem is infeasible");
-    case SCIP_STATUS_UNBOUNDED:
-      solution.setStatus(Solution::Status::UNBOUNDED);
-      return std::unexpected("Problem is unbounded");
     default:
-      solution.setStatus(Solution::Status::UNKNOWN);
+      result.problem = Result::PROBLEM::UNKNOWN;
+      result.status = Result::SOLUTION::NONE;
+      result.termination = Result::TERMINATION::OTHER;
   }
 
-  // Check if we have a solution to extract
-  if (!sol) {
-    return std::unexpected("No solution found");
+  // Extract solution if available
+  if (sol) {
+    auto solution = std::make_shared<Solution>(model_);
+
+    for (const auto& [variable, scipVar] : variableMap) {
+      double value = SCIPgetSolVal(scip, sol, scipVar);
+
+      // Round to precision decimal places
+      double factor = std::pow(10.0, precision);
+      value = std::round(value * factor) / factor;
+
+      solution->setVariableValue(*variable, value);
+    }
+
+    std::atomic_store(&solution_, std::shared_ptr<const Solution>(std::move(solution)));
   }
 
-  // Extract variable values from SCIP solution with precision rounding for CP solution
-  for (const auto& [variable, scipVar] : variableMap) {
-    double value = SCIPgetSolVal(scip, sol, scipVar);
-
-    // Round to precision decimal places for CP solution generation
-    double factor = std::pow(10.0, precision);
-    value = std::round(value * factor) / factor;
-
-    solution.setVariableValue(*variable, value);
-  }
-
-  return solution;
+  return result;
 }
 
 // Collection operation helpers

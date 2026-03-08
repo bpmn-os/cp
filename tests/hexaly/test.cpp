@@ -17,11 +17,11 @@ int main() {
         model.addConstraint(x == 42.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
         assert(solver.getName() == "Hexaly");
-        auto xVal = result.value().getVariableValue(x);
+        auto xVal = solver.getSolution()->getVariableValue(x);
         assert(xVal.has_value());
         assert(std::abs(xVal.value() - 42.0) < 1e-5);
 
@@ -39,13 +39,13 @@ int main() {
         model.addConstraint(r == 3.14);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto bVal = solution.getVariableValue(b);
-        auto iVal = solution.getVariableValue(i);
-        auto rVal = solution.getVariableValue(r);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto bVal = solver.getSolution()->getVariableValue(b);
+        auto iVal = solver.getSolution()->getVariableValue(i);
+        auto rVal = solver.getSolution()->getVariableValue(r);
 
         assert(bVal.has_value() && iVal.has_value() && rVal.has_value());
         assert(std::abs(bVal.value() - 1.0) < 1e-5);
@@ -67,14 +67,14 @@ int main() {
         model.addConstraint(vars[2] == 0.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
 
-        assert(std::abs(solution.getVariableValue(vars[0]).value() - 5.0) < 1e-5);
-        assert(std::abs(solution.getVariableValue(vars[1]).value() - 10.0) < 1e-5);
-        assert(std::abs(solution.getVariableValue(vars[2]).value() - 0.0) < 1e-5);
+        assert(std::abs(solver.getSolution()->getVariableValue(vars[0]).value() - 5.0) < 1e-5);
+        assert(std::abs(solver.getSolution()->getVariableValue(vars[1]).value() - 10.0) < 1e-5);
+        assert(std::abs(solver.getSolution()->getVariableValue(vars[2]).value() - 0.0) < 1e-5);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Indexed variables" << RESET << std::endl;
     }
@@ -84,10 +84,10 @@ int main() {
         const auto& seq = model.addSequence("seq", 5);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto seqVals = result.value().getSequenceValues(seq);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto seqVals = solver.getSolution()->getSequenceValues(seq);
         assert(seqVals.has_value());
         assert(seqVals.value().size() == 5);
 
@@ -109,10 +109,10 @@ int main() {
         model.addConstraint(x >= 5.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
         assert(xVal.has_value());
         assert(std::abs(xVal.value() - 5.0) < 1e-5);
 
@@ -126,10 +126,10 @@ int main() {
         model.addConstraint(x <= 10.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
         assert(xVal.has_value());
         assert(std::abs(xVal.value() - 10.0) < 1e-5);
 
@@ -144,11 +144,11 @@ int main() {
         model.addConstraint(x + y >= 10.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
-        auto yVal = result.value().getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         // Optimal: x=10, y=0 (objective = 20)
         assert(std::abs(xVal.value() - 10.0) < 1e-5);
@@ -164,11 +164,11 @@ int main() {
         model.setObjective(x - 2.0 * y);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
-        auto yVal = result.value().getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         // Optimal: x=10, y=0 (objective = 10)
         assert(std::abs(xVal.value() - 10.0) < 1e-5);
@@ -183,10 +183,10 @@ int main() {
         model.setObjective(-x);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
         assert(xVal.has_value());
         // Minimize -x => maximize x => x=10
         assert(std::abs(xVal.value() - 10.0) < 1e-5);
@@ -200,10 +200,10 @@ int main() {
         model.addConstraint(-x == -5.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
         assert(xVal.has_value());
         assert(std::abs(xVal.value() - 5.0) < 1e-5);
 
@@ -218,11 +218,11 @@ int main() {
         model.addConstraint(x + y == 7.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
-        auto yVal = result.value().getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         assert(std::abs(xVal.value() + yVal.value() - 7.0) < 1e-5);
 
@@ -235,10 +235,10 @@ int main() {
         model.addConstraint(x == 5.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
         assert(xVal.has_value());
         assert(std::abs(xVal.value() - 5.0) < 1e-5);
 
@@ -251,9 +251,9 @@ int main() {
         model.addConstraint(x == 5.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(!result.has_value());
+        assert(result.problem == CP::Solver::Result::PROBLEM::INFEASIBLE);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Equality constraint (infeasible)" << RESET << std::endl;
     }
@@ -265,10 +265,10 @@ int main() {
         model.addConstraint(x <= 10.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
         assert(xVal.has_value());
         assert(xVal.value() <= 10.0 + 1e-5);
 
@@ -281,9 +281,9 @@ int main() {
         model.addConstraint(x <= 5.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(!result.has_value());
+        assert(result.problem == CP::Solver::Result::PROBLEM::INFEASIBLE);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Less-or-equal constraint (infeasible)" << RESET << std::endl;
     }
@@ -295,10 +295,10 @@ int main() {
         model.addConstraint(x >= 0.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
         assert(xVal.has_value());
         assert(xVal.value() >= 0.0 - 1e-5);
 
@@ -311,9 +311,9 @@ int main() {
         model.addConstraint(x >= 5.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(!result.has_value());
+        assert(result.problem == CP::Solver::Result::PROBLEM::INFEASIBLE);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Greater-or-equal constraint (infeasible)" << RESET << std::endl;
     }
@@ -326,11 +326,11 @@ int main() {
         model.addConstraint(2.0 * x + 3.0 * y <= 15.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
-        auto yVal = result.value().getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         assert(2.0 * xVal.value() + 3.0 * yVal.value() <= 15.0 + 1e-5);
 
@@ -344,11 +344,11 @@ int main() {
         model.addConstraint(x + y == 10.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
-        auto yVal = result.value().getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         assert(std::abs(xVal.value() + yVal.value() - 10.0) < 1e-5);
 
@@ -365,11 +365,11 @@ int main() {
         model.addConstraint(x + y <= 100.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
-        auto yVal = result.value().getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         assert(xVal.value() + yVal.value() <= 100.0 + 1e-5);
 
@@ -384,11 +384,11 @@ int main() {
         model.addConstraint(x == 10.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
-        auto yVal = result.value().getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         assert(xVal.value() - yVal.value() >= 5.0 - 1e-5);
 
@@ -403,11 +403,11 @@ int main() {
         model.addConstraint(10.0 <= x + y);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
-        auto yVal = result.value().getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         assert(xVal.value() + yVal.value() >= 10.0 - 1e-5);
 
@@ -421,11 +421,11 @@ int main() {
         model.addConstraint(x >= 5.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
         assert(xVal.has_value());
         assert(std::abs(xVal.value() - 5.0) < 1e-5);
 
@@ -439,11 +439,11 @@ int main() {
         model.addConstraint(x <= 10.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
         assert(xVal.has_value());
         assert(std::abs(xVal.value() - 10.0) < 1e-5);
 
@@ -459,12 +459,12 @@ int main() {
         model.addConstraint(y >= 3.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         assert(std::abs(xVal.value() - 2.0) < 1e-5);
         assert(std::abs(yVal.value() - 3.0) < 1e-5);
@@ -482,12 +482,12 @@ int main() {
         model.addConstraint(y >= 0.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         // Optimal: x=10, y=0 (objective = 20)
         assert(std::abs(xVal.value() - 10.0) < 1e-5);
@@ -506,12 +506,12 @@ int main() {
         model.addConstraint(y >= 0.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         // Optimal: x=0, y=7
         assert(std::abs(xVal.value() - 0.0) < 1e-5);
@@ -528,11 +528,11 @@ int main() {
         model.addConstraint(x * y <= 10.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
-        auto yVal = result.value().getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         assert(xVal.value() * yVal.value() <= 10.0 + 1e-5);
 
@@ -549,12 +549,12 @@ int main() {
         model.addConstraint(y >= 1.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         double product = xVal.value() * yVal.value();
         assert(product >= 12.0 - 1e-5);
@@ -569,10 +569,10 @@ int main() {
         model.addConstraint(!x == 0.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
         assert(xVal.has_value());
         assert(std::abs(xVal.value() - 1.0) < 1e-5);
 
@@ -586,11 +586,11 @@ int main() {
         model.addConstraint((x && y) == 1.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
-        auto yVal = result.value().getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         assert(std::abs(xVal.value() - 1.0) < 1e-5);
         assert(std::abs(yVal.value() - 1.0) < 1e-5);
@@ -606,11 +606,11 @@ int main() {
         model.addConstraint(x == 0.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
-        auto yVal = result.value().getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         assert(std::abs(xVal.value() - 0.0) < 1e-5);
         assert(std::abs(yVal.value() - 1.0) < 1e-5);
@@ -631,13 +631,13 @@ int main() {
         model.addConstraint(z >= 3.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
-        auto zVal = solution.getVariableValue(z);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
+        auto zVal = solver.getSolution()->getVariableValue(z);
         assert(xVal.has_value() && yVal.has_value() && zVal.has_value());
         assert(std::abs(xVal.value() - 1.0) < 1e-5);
         assert(std::abs(yVal.value() - 2.0) < 1e-5);
@@ -654,10 +654,10 @@ int main() {
         model.addConstraint(powExpr == 16.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
         assert(xVal.has_value());
         assert(std::abs(xVal.value() - 4.0) < 1e-5);
 
@@ -673,12 +673,12 @@ int main() {
         model.setObjective(minExpr);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         double minVal = std::min(xVal.value(), yVal.value());
         assert(std::abs(minVal - 3.0) < 1e-5);
@@ -696,13 +696,13 @@ int main() {
         model.setObjective(maxExpr);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
-        auto zVal = solution.getVariableValue(z);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
+        auto zVal = solver.getSolution()->getVariableValue(z);
         assert(xVal.has_value() && yVal.has_value() && zVal.has_value());
         double maxVal = std::max({xVal.value(), yVal.value(), zVal.value()});
         assert(std::abs(maxVal - 10.0) < 1e-5);
@@ -724,12 +724,12 @@ int main() {
         model.addConstraint(selector == 1.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto selectorVal = solution.getVariableValue(selector);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto selectorVal = solver.getSolution()->getVariableValue(selector);
         assert(xVal.has_value() && selectorVal.has_value());
         assert(std::abs(selectorVal.value() - 1.0) < 1e-5);
         assert(std::abs(xVal.value() - 10.0) < 1e-5);
@@ -760,11 +760,11 @@ int main() {
         model.addConstraint(c3 == 0.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
         assert(xVal.has_value());
 
         // c2=1, so x should be 200
@@ -793,11 +793,11 @@ int main() {
         model.addConstraint(c2 == 0.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
         assert(xVal.has_value());
 
         // No condition true, so x should be 300 (else value)
@@ -817,12 +817,12 @@ int main() {
         model.addConstraint(condition == 0.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto conditionVal = solution.getVariableValue(condition);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto conditionVal = solver.getSolution()->getVariableValue(condition);
         assert(xVal.has_value() && conditionVal.has_value());
         assert(std::abs(conditionVal.value() - 0.0) < 1e-5);
         assert(std::abs(xVal.value() - 8.0) < 1e-5);
@@ -835,11 +835,11 @@ int main() {
         const auto& seq = model.addSequence("perm", 4);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto seqVals = solution.getSequenceValues(seq);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto seqVals = solver.getSolution()->getSequenceValues(seq);
         assert(seqVals.has_value());
 
         std::vector<bool> seen(5, false);
@@ -870,12 +870,12 @@ int main() {
         model.addConstraint(index == 1.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto indexVal = solution.getVariableValue(index);
-        auto resultVal = solution.getVariableValue(result_var);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto indexVal = solver.getSolution()->getVariableValue(index);
+        auto resultVal = solver.getSolution()->getVariableValue(result_var);
         assert(indexVal.has_value() && resultVal.has_value());
         assert(std::abs(indexVal.value() - 1.0) < 1e-5);
         assert(std::abs(resultVal.value() - 7.0) < 1e-5);
@@ -893,12 +893,12 @@ int main() {
         model.addConstraint(index == 2.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto indexVal = solution.getVariableValue(index);
-        auto resultVal = solution.getVariableValue(result_var);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto indexVal = solver.getSolution()->getVariableValue(index);
+        auto resultVal = solver.getSolution()->getVariableValue(result_var);
         assert(indexVal.has_value() && resultVal.has_value());
         assert(std::abs(indexVal.value() - 2.0) < 1e-5);
         assert(std::abs(resultVal.value() - 20.0) < 1e-5);
@@ -914,12 +914,12 @@ int main() {
         model.addConstraint(x != y);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         assert(std::abs(xVal.value() - 5.0) < 1e-5);
         assert(std::abs(yVal.value() - 5.0) > 1e-5);
@@ -933,9 +933,9 @@ int main() {
         model.addConstraint(x != 5.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(!result.has_value());
+        assert(result.problem == CP::Solver::Result::PROBLEM::INFEASIBLE);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Not-equal constraint (infeasible)" << RESET << std::endl;
     }
@@ -947,9 +947,9 @@ int main() {
         model.addConstraint(x < y);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(!result.has_value());
+        assert(result.problem == CP::Solver::Result::PROBLEM::INFEASIBLE);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Less-than constraint (infeasible)" << RESET << std::endl;
     }
@@ -961,11 +961,11 @@ int main() {
         model.addConstraint(x < y);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
-        auto yVal = result.value().getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         assert(std::abs(xVal.value() - 5.0) < 1e-5);
         assert(std::abs(yVal.value() - 6.0) < 1e-5);
@@ -980,9 +980,9 @@ int main() {
         model.addConstraint(x > y);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(!result.has_value());
+        assert(result.problem == CP::Solver::Result::PROBLEM::INFEASIBLE);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Greater-than constraint (infeasible)" << RESET << std::endl;
     }
@@ -994,11 +994,11 @@ int main() {
         model.addConstraint(x > y);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto xVal = result.value().getVariableValue(x);
-        auto yVal = result.value().getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         assert(std::abs(xVal.value() - 6.0) < 1e-5);
         assert(std::abs(yVal.value() - 5.0) < 1e-5);
@@ -1014,12 +1014,12 @@ int main() {
         model.setObjective(x / y);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         // Optimal: x=12, y=3, x/y = 4
         assert(std::abs(xVal.value() - 12.0) < 1e-5);
@@ -1036,12 +1036,12 @@ int main() {
         model.addConstraint(a == 1.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto aVal = solution.getVariableValue(a);
-        auto bVal = solution.evaluate(b);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto aVal = solver.getSolution()->getVariableValue(a);
+        auto bVal = solution->evaluate(b);
 
         assert(aVal.has_value());
         assert(bVal.has_value());
@@ -1061,13 +1061,13 @@ int main() {
         model.addConstraint(b == 5.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto aVal = solution.getVariableValue(a);
-        auto bVal = solution.getVariableValue(b);
-        auto cVal = solution.evaluate(c);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto aVal = solver.getSolution()->getVariableValue(a);
+        auto bVal = solver.getSolution()->getVariableValue(b);
+        auto cVal = solution->evaluate(c);
 
         assert(aVal.has_value() && bVal.has_value() && cVal.has_value());
         assert(std::abs(aVal.value() - 3.0) < 1e-5);
@@ -1091,12 +1091,12 @@ int main() {
         model.addConstraint(index == 1.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto indexVal = solution.getVariableValue(index);
-        auto valueVal = solution.evaluate(value);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto indexVal = solver.getSolution()->getVariableValue(index);
+        auto valueVal = solution->evaluate(value);
 
         assert(indexVal.has_value());
         assert(valueVal.has_value());
@@ -1117,12 +1117,12 @@ int main() {
         model.addConstraint(y >= 0.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         assert(std::abs(xVal.value() + yVal.value() - 10.0) < 1e-5);
         assert(xVal.value() >= 0.0 - 1e-5);
@@ -1142,12 +1142,12 @@ int main() {
         model.addConstraint(y == 5.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         assert(xVal.value() >= yVal.value() - 1e-5);
 
@@ -1165,12 +1165,12 @@ int main() {
         model.addConstraint(flag == 1.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         assert(xVal.value() <= yVal.value() + 1e-5);
 
@@ -1186,11 +1186,11 @@ int main() {
         model.addConstraint(flag == 1.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
         assert(xVal.has_value());
         assert(std::abs(xVal.value() - 42.0) < 1e-5);
 
@@ -1205,12 +1205,12 @@ int main() {
         model.addConstraint((x >= 10.0) && (y <= 20.0));
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         assert(xVal.value() >= 10.0 - 1e-5);
         assert(yVal.value() <= 20.0 + 1e-5);
@@ -1225,11 +1225,11 @@ int main() {
         model.addConstraint((x <= 10.0) || (x >= 90.0));
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
         assert(xVal.has_value());
         assert(xVal.value() <= 10.0 + 1e-5 || xVal.value() >= 90.0 - 1e-5);
 
@@ -1243,11 +1243,11 @@ int main() {
         model.addConstraint(!(x >= 50.0));
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
         assert(xVal.has_value());
         assert(xVal.value() < 50.0 + 1e-5);
 
@@ -1268,13 +1268,13 @@ int main() {
         model.addConstraint(z >= 3.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
-        auto zVal = solution.getVariableValue(z);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
+        auto zVal = solver.getSolution()->getVariableValue(z);
         assert(xVal.has_value() && yVal.has_value() && zVal.has_value());
 
         // Optimal: x=1, y=2, z=3, avg = 6/3 = 2
@@ -1296,11 +1296,11 @@ int main() {
         const auto& result_var = model.addVariable(CP::Variable::Type::REAL, "result", countExpr);
 
         CP::HexalySolver solver(model);
-        auto solve_result = solver.solve(model, 5.0);
+        auto solve_result = solver.solve(5.0);
 
-        assert(solve_result.has_value());
-        auto& solution = solve_result.value();
-        auto resultVal = solution.evaluate(result_var);
+        assert(solve_result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto resultVal = solution->evaluate(result_var);
 
         assert(resultVal.has_value());
         assert(std::abs(resultVal.value() - 3.0) < 1e-5); // count of 3 args = 3
@@ -1317,11 +1317,11 @@ int main() {
         model.addConstraint((!x) == 0.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
         assert(xVal.has_value());
         assert(std::abs(xVal.value() - 5.0) < 1e-5);
 
@@ -1341,13 +1341,13 @@ int main() {
         model.addConstraint(z == 7.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
-        auto zVal = solution.getVariableValue(z);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
+        auto zVal = solver.getSolution()->getVariableValue(z);
         assert(xVal.has_value() && yVal.has_value() && zVal.has_value());
         assert(std::abs(xVal.value() - 3.0) < 1e-5);
         assert(std::abs(yVal.value() - 5.0) < 1e-5);
@@ -1369,13 +1369,13 @@ int main() {
         model.addConstraint(z == 2.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
-        auto zVal = solution.getVariableValue(z);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
+        auto zVal = solver.getSolution()->getVariableValue(z);
         assert(xVal.has_value() && yVal.has_value() && zVal.has_value());
         assert(std::abs(xVal.value() - 0.0) < 1e-5);
         assert(std::abs(yVal.value() - 7.0) < 1e-5);
@@ -1405,18 +1405,18 @@ int main() {
         model.addConstraint(w <= 10.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
-        auto zVal = solution.getVariableValue(z);
-        auto wVal = solution.getVariableValue(w);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
+        auto zVal = solver.getSolution()->getVariableValue(z);
+        auto wVal = solver.getSolution()->getVariableValue(w);
         assert(xVal.has_value() && yVal.has_value() && zVal.has_value() && wVal.has_value());
 
         // Verify optimal objective value
-        auto objValue = solution.getObjectiveValue();
+        auto objValue = solution->getObjectiveValue();
         assert(objValue.has_value());
         assert(std::abs(objValue.value() - 0.5) < 1e-5);
 
@@ -1434,12 +1434,12 @@ int main() {
         model.addConstraint(flag == 1.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
 
         assert(xVal.has_value() && yVal.has_value());
         assert(xVal.value() > yVal.value() - 1e-5);
@@ -1458,12 +1458,12 @@ int main() {
         model.addConstraint(flag == 1.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
 
         assert(xVal.has_value() && yVal.has_value());
         assert(xVal.value() < yVal.value() + 1e-5);
@@ -1480,11 +1480,11 @@ int main() {
         model.addConstraint(flag == 1.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
 
         assert(xVal.has_value());
         assert(std::abs(xVal.value() - 50.0) > 1e-6);
@@ -1504,14 +1504,14 @@ int main() {
         model.addConstraint(!a || (x >= y));
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
 
-        auto aVal = solution.getVariableValue(a);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        auto aVal = solver.getSolution()->getVariableValue(a);
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
 
         assert(aVal.has_value() && xVal.has_value() && yVal.has_value());
 
@@ -1540,14 +1540,14 @@ int main() {
         model.addConstraint(visit == 1.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
 
-        auto visitVal = solution.getVariableValue(visit);
-        auto entryVal = solution.getVariableValue(entry);
-        auto exitVal = solution.getVariableValue(exit_var);
+        auto visitVal = solver.getSolution()->getVariableValue(visit);
+        auto entryVal = solver.getSolution()->getVariableValue(entry);
+        auto exitVal = solver.getSolution()->getVariableValue(exit_var);
 
         assert(visitVal.has_value() && entryVal.has_value() && exitVal.has_value());
 
@@ -1577,14 +1577,14 @@ int main() {
         model.addConstraint(y == 3.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto visitVal = solution.getVariableValue(visit);
-        auto tokenflowVal = solution.evaluate(tokenflow);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto visitVal = solver.getSolution()->getVariableValue(visit);
+        auto tokenflowVal = solution->evaluate(tokenflow);
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
 
         assert(visitVal.has_value() && tokenflowVal.has_value() && xVal.has_value() && yVal.has_value());
         assert(std::abs(visitVal.value() - 1.0) < 1e-5);
@@ -1614,10 +1614,10 @@ int main() {
         model.addConstraint(value1 == 1.0);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
         // This problem should be infeasible
-        assert(!result.has_value());
+        assert(result.problem == CP::Solver::Result::PROBLEM::INFEASIBLE);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Deduced variable enforces constraint correctly (infeasible)" << RESET << std::endl;
     }
@@ -1638,12 +1638,12 @@ int main() {
         // This should constrain activity_instance = processInstance[0] = 2
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto dataIndexVal = solution.getVariableValue(dataIndex);
-        auto activityInstanceVal = solution.evaluate(activityInstance);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto dataIndexVal = solver.getSolution()->getVariableValue(dataIndex);
+        auto activityInstanceVal = solution->evaluate(activityInstance);
 
         assert(dataIndexVal.has_value());
         assert(activityInstanceVal.has_value());
@@ -1664,12 +1664,12 @@ int main() {
         const auto& y = model.addVariable(CP::Variable::Type::REAL, "y", collectionExpr);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        auto yVal = solver.getSolution()->getVariableValue(y);
 
         assert(xVal.has_value());
         assert(yVal.has_value());
@@ -1703,11 +1703,11 @@ int main() {
         const auto& result_var = model.addVariable(CP::Variable::Type::REAL, "result", atExpr);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto resultVal = solution.getVariableValue(result_var);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto resultVal = solver.getSolution()->getVariableValue(result_var);
 
         assert(resultVal.has_value());
         // collection(0)[2] should be 20
@@ -1742,18 +1742,18 @@ int main() {
         auto& elementValue = model.addVariable(CP::Variable::Type::REAL, "elementValue", atExpr);
 
         CP::HexalySolver solver(model);
-        auto result = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(result.has_value());
-        auto& solution = result.value();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
 
         // Verify count returns 3
-        auto numVal = solution.evaluate(numElements);
+        auto numVal = solution->evaluate(numElements);
         assert(numVal.has_value());
         assert(std::abs(numVal.value() - 3.0) < 1e-5);
 
         // Verify at(2, ...) returns 20.0 (second element, 1-based indexing)
-        auto elemVal = solution.evaluate(elementValue);
+        auto elemVal = solution->evaluate(elementValue);
         assert(elemVal.has_value());
         assert(std::abs(elemVal.value() - 20.0) < 1e-5);
 
@@ -1773,14 +1773,14 @@ int main() {
         }, collections2.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 2.0);
-        auto& result = model.addVariable(CP::Variable::Type::INTEGER, "result", 0.0, 10.0);
-        model.addConstraint(result == CP::count(CP::Collection(key)));
+        auto& variable = model.addVariable(CP::Variable::Type::INTEGER, "result", 0.0, 10.0);
+        model.addConstraint(variable == CP::count(CP::Collection(key)));
         model.addConstraint(key == 0.0);
 
         CP::HexalySolver solver(model);
-        auto solution = solver.solve(model, 5.0);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 3.0) < 1e-5);
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(variable).value() - 3.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: count(collection(key)) returns 3" << RESET << std::endl;
     }
     // Test: sum(collection(key))
@@ -1792,14 +1792,14 @@ int main() {
         }, collections3.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 1.0);
-        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
-        model.addConstraint(result == CP::sum(CP::Collection(key)));
+        auto& variable = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(variable == CP::sum(CP::Collection(key)));
         model.addConstraint(key == 1.0);
 
         CP::HexalySolver solver(model);
-        auto solution = solver.solve(model, 5.0);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 20.0) < 1e-5);
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(variable).value() - 20.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: sum(collection(key)) returns 20" << RESET << std::endl;
     }
     // Test: avg(collection(key))
@@ -1811,13 +1811,13 @@ int main() {
         }, collections4.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
-        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 50.0);
-        model.addConstraint(result == CP::avg(CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 50.0);
+        model.addConstraint(resultVar == CP::avg(CP::Collection(key)));
 
         CP::HexalySolver solver(model);
-        auto solution = solver.solve(model, 5.0);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 20.0) < 1e-5);
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 20.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: avg(collection(key)) returns 20" << RESET << std::endl;
     }
     // Test: max(collection(key))
@@ -1829,13 +1829,13 @@ int main() {
         }, collections5.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
-        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
-        model.addConstraint(result == CP::max(CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(resultVar == CP::max(CP::Collection(key)));
 
         CP::HexalySolver solver(model);
-        auto solution = solver.solve(model, 5.0);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 50.0) < 1e-5);
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 50.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: max(collection(key)) returns 50" << RESET << std::endl;
     }
     // Test: min(collection(key))
@@ -1847,13 +1847,13 @@ int main() {
         }, collections6.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
-        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
-        model.addConstraint(result == CP::min(CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(resultVar == CP::min(CP::Collection(key)));
 
         CP::HexalySolver solver(model);
-        auto solution = solver.solve(model, 5.0);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 10.0) < 1e-5);
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 10.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: min(collection(key)) returns 10" << RESET << std::endl;
     }
     // Test: element_of(constant, collection) - found
@@ -1865,13 +1865,13 @@ int main() {
         }, collections7.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
-        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
-        model.addConstraint(result == CP::element_of(20.0, CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(resultVar == CP::element_of(20.0, CP::Collection(key)));
 
         CP::HexalySolver solver(model);
-        auto solution = solver.solve(model, 5.0);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 1.0) < 1e-5);
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 1.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: element_of(20, collection) returns 1" << RESET << std::endl;
     }
     // Test: element_of(constant, collection) - not found
@@ -1883,13 +1883,13 @@ int main() {
         }, collections8.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
-        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
-        model.addConstraint(result == CP::element_of(25.0, CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(resultVar == CP::element_of(25.0, CP::Collection(key)));
 
         CP::HexalySolver solver(model);
-        auto solution = solver.solve(model, 5.0);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 0.0) < 1e-5);
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 0.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: element_of(25, collection) returns 0" << RESET << std::endl;
     }
     // Test: not_element_of(constant, collection) - found (returns 0)
@@ -1901,13 +1901,13 @@ int main() {
         }, collections9.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
-        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
-        model.addConstraint(result == CP::not_element_of(20.0, CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(resultVar == CP::not_element_of(20.0, CP::Collection(key)));
 
         CP::HexalySolver solver(model);
-        auto solution = solver.solve(model, 5.0);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 0.0) < 1e-5);
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 0.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: not_element_of(20, collection) returns 0" << RESET << std::endl;
     }
     // Test: not_element_of(constant, collection) - not found (returns 1)
@@ -1919,13 +1919,13 @@ int main() {
         }, collections10.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
-        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
-        model.addConstraint(result == CP::not_element_of(25.0, CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(resultVar == CP::not_element_of(25.0, CP::Collection(key)));
 
         CP::HexalySolver solver(model);
-        auto solution = solver.solve(model, 5.0);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 1.0) < 1e-5);
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 1.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: not_element_of(25, collection) returns 1" << RESET << std::endl;
     }
     // Test: Collection[constant_index]
@@ -1937,13 +1937,13 @@ int main() {
         }, collections11.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
-        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
-        model.addConstraint(result == CP::Collection(key)[2.0]);
+        auto& resultVar = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(resultVar == CP::Collection(key)[2.0]);
 
         CP::HexalySolver solver(model);
-        auto solution = solver.solve(model, 5.0);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 20.0) < 1e-5);
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 20.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Collection[2] returns 20" << RESET << std::endl;
     }
     // Test: at with different collection keys
@@ -1956,13 +1956,13 @@ int main() {
 
         // Test with key=0
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
-        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
-        model.addConstraint(result == CP::Collection(key)[2.0]);
+        auto& resultVar = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(resultVar == CP::Collection(key)[2.0]);
 
         CP::HexalySolver solver1(model);
-        auto solution1 = solver1.solve(model, 5.0);
-        assert(solution1.has_value());
-        assert(std::abs(solution1->getVariableValue(result).value() - 20.0) < 1e-5);
+        auto result1 = solver1.solve(5.0);
+        assert(result1.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver1.getSolution()->getVariableValue(result).value() - 20.0) < 1e-5);
 
         // Test with key=1
         CP::Model model2;
@@ -1975,9 +1975,9 @@ int main() {
         model2.addConstraint(result2 == CP::Collection(key2)[2.0]);
 
         CP::HexalySolver solver2(model2);
-        auto solution2 = solver2.solve(model2, 5.0);
-        assert(solution2.has_value());
-        assert(std::abs(solution2->getVariableValue(result2).value() - 50.0) < 1e-5);
+        auto result2_solve = solver2.solve(5.0);
+        assert(result2_solve.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver2.getSolution()->getVariableValue(result2).value() - 50.0) < 1e-5);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: at with different collection keys" << RESET << std::endl;
     }
@@ -1991,14 +1991,14 @@ int main() {
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
-        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
-        model.addConstraint(result == CP::element_of(value, CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(resultVar == CP::element_of(value, CP::Collection(key)));
         model.addConstraint(value == 20.0);
 
         CP::HexalySolver solver(model);
-        auto solution = solver.solve(model, 5.0);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 1.0) < 1e-5);
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 1.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: element_of(variable=20, collection) returns 1" << RESET << std::endl;
     }
     // Test: element_of(variable, collection) - not found
@@ -2011,14 +2011,14 @@ int main() {
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
-        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
-        model.addConstraint(result == CP::element_of(value, CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(resultVar == CP::element_of(value, CP::Collection(key)));
         model.addConstraint(value == 25.0);
 
         CP::HexalySolver solver(model);
-        auto solution = solver.solve(model, 5.0);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 0.0) < 1e-5);
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 0.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: element_of(variable=25, collection) returns 0" << RESET << std::endl;
     }
     // Test: element_of(variable, collection(variable_key)) - both variable
@@ -2031,15 +2031,15 @@ int main() {
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 1.0);
         auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 60.0);
-        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
-        model.addConstraint(result == CP::element_of(value, CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(resultVar == CP::element_of(value, CP::Collection(key)));
         model.addConstraint(key == 1.0);
         model.addConstraint(value == 50.0);
 
         CP::HexalySolver solver(model);
-        auto solution = solver.solve(model, 5.0);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 1.0) < 1e-5);
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 1.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: element_of(variable, collection(variable_key))" << RESET << std::endl;
     }
     // Test: not_element_of(variable, collection) - found (returns 0)
@@ -2052,14 +2052,14 @@ int main() {
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
-        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
-        model.addConstraint(result == CP::not_element_of(value, CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(resultVar == CP::not_element_of(value, CP::Collection(key)));
         model.addConstraint(value == 20.0);
 
         CP::HexalySolver solver(model);
-        auto solution = solver.solve(model, 5.0);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 0.0) < 1e-5);
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 0.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: not_element_of(variable=20, collection) returns 0" << RESET << std::endl;
     }
     // Test: not_element_of(variable, collection) - not found (returns 1)
@@ -2072,14 +2072,14 @@ int main() {
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
-        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
-        model.addConstraint(result == CP::not_element_of(value, CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(resultVar == CP::not_element_of(value, CP::Collection(key)));
         model.addConstraint(value == 35.0);
 
         CP::HexalySolver solver(model);
-        auto solution = solver.solve(model, 5.0);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 1.0) < 1e-5);
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 1.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: not_element_of(variable=35, collection) returns 1" << RESET << std::endl;
     }
     // Test: Collection[variable_index]
@@ -2092,14 +2092,14 @@ int main() {
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 1.0, 3.0);
-        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
-        model.addConstraint(result == CP::Collection(key)[index]);
+        auto& resultVar = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(resultVar == CP::Collection(key)[index]);
         model.addConstraint(index == 2.0);
 
         CP::HexalySolver solver(model);
-        auto solution = solver.solve(model, 5.0);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 20.0) < 1e-5);
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 20.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Collection[variable_index=2] returns 20" << RESET << std::endl;
     }
     // Test: Collection(variable_key)[variable_index]
@@ -2112,15 +2112,15 @@ int main() {
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 1.0);
         auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 1.0, 3.0);
-        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
-        model.addConstraint(result == CP::Collection(key)[index]);
+        auto& resultVar = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(resultVar == CP::Collection(key)[index]);
         model.addConstraint(key == 1.0);
         model.addConstraint(index == 3.0);
 
         CP::HexalySolver solver(model);
-        auto solution = solver.solve(model, 5.0);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 60.0) < 1e-5);
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 60.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Collection(key=1)[index=3] returns 60" << RESET << std::endl;
     }
     // Test: count(Collection(constant_key))
@@ -2131,13 +2131,13 @@ int main() {
             return collections20[key];
         }, collections20.size());
 
-        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 10.0);
-        model.addConstraint(result == CP::count(CP::Collection(0.0)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 10.0);
+        model.addConstraint(resultVar == CP::count(CP::Collection(0.0)));
 
         CP::HexalySolver solver(model);
-        auto solution = solver.solve(model, 5.0);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 3.0) < 1e-5);
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 3.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: count(Collection(0)) returns 3" << RESET << std::endl;
     }
     // Test: Collection(constant_key)[constant_index]
@@ -2148,13 +2148,13 @@ int main() {
             return collections21[key];
         }, collections21.size());
 
-        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
-        model.addConstraint(result == CP::Collection(0.0)[2.0]);
+        auto& resultVar = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(resultVar == CP::Collection(0.0)[2.0]);
 
         CP::HexalySolver solver(model);
-        auto solution = solver.solve(model, 5.0);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 20.0) < 1e-5);
+        auto result = solver.solve(5.0);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 20.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Collection(0)[2] returns 20" << RESET << std::endl;
     }
 

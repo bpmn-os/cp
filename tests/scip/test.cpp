@@ -18,11 +18,11 @@ int main() {
         model.addConstraint(x == 42.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
         assert(solver.getName() == "SCIP");
-        auto xVal = result.value().getVariableValue(x);
+        auto xVal = solver.getSolution()->getVariableValue(x);
         assert(xVal.has_value());
         assert(std::abs(xVal.value() - 42.0) < 1e-5);
 
@@ -167,10 +167,10 @@ int main() {
         model.setObjective(-x);
 
         CP::SCIPSolver solver(model);
-        auto solution = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(solution.has_value());
-        double xVal = solution->getVariableValue(x).value();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        double xVal = solver.getSolution()->getVariableValue(x).value();
         assert(std::abs(xVal - 10.0) < 1e-5);  // minimizing -x means maximizing x
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Negated variable objective" << RESET << std::endl;
@@ -182,10 +182,10 @@ int main() {
         model.addConstraint(-x == -5.0);
 
         CP::SCIPSolver solver(model);
-        auto solution = solver.solve(model, 5.0);
+        auto result = solver.solve(5.0);
 
-        assert(solution.has_value());
-        double xVal = solution->getVariableValue(x).value();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        double xVal = solver.getSolution()->getVariableValue(x).value();
         assert(std::abs(xVal - 5.0) < 1e-5);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Negate in constraint" << RESET << std::endl;
@@ -227,10 +227,10 @@ int main() {
         model.addConstraint(x <= 6.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
         // Should have no solution (6 == 5 is false)
-        assert(!result.has_value());
+        assert(result.problem == CP::Solver::Result::PROBLEM::INFEASIBLE);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Equality constraint (infeasible)" << RESET << std::endl;
     }
@@ -259,10 +259,10 @@ int main() {
         model.addConstraint(x <= 6.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
         // Should have no solution (6 <= 5 is false)
-        assert(!result.has_value());
+        assert(result.problem == CP::Solver::Result::PROBLEM::INFEASIBLE);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Less-or-equal constraint (infeasible)" << RESET << std::endl;
     }
@@ -291,10 +291,10 @@ int main() {
         model.addConstraint(x <= 4.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
         // Should have no solution (4 >= 5 is false)
-        assert(!result.has_value());
+        assert(result.problem == CP::Solver::Result::PROBLEM::INFEASIBLE);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Greater-or-equal constraint (infeasible)" << RESET << std::endl;
     }
@@ -378,13 +378,13 @@ int main() {
         model.addConstraint(x >= 5.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
         assert(xVal.has_value());
         assert(xVal.value() == 5.0);
 
@@ -398,12 +398,12 @@ int main() {
         model.addConstraint(x <= 10.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
         assert(xVal.has_value());
         assert(xVal.value() == 10.0);
 
@@ -419,13 +419,13 @@ int main() {
         model.addConstraint(y >= 3.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
         assert(xVal.has_value());
         assert(yVal.has_value());
         assert(xVal.value() == 2.0);
@@ -444,13 +444,13 @@ int main() {
         model.addConstraint(y >= 0.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
         assert(xVal.has_value());
         assert(yVal.has_value());
         // Optimal: x=10, y=0 (objective = 20)
@@ -470,13 +470,13 @@ int main() {
         model.addConstraint(y >= 0.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
         assert(xVal.has_value());
         assert(yVal.has_value());
         // Optimal: x=0, y=7
@@ -509,13 +509,13 @@ int main() {
         model.addConstraint(y >= 1.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
         assert(xVal.has_value());
         assert(yVal.has_value());
         // Optimal should be around x=3, y=4 or x=4, y=3 (both give 7)
@@ -532,12 +532,12 @@ int main() {
         model.addConstraint(!x == 0.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
         assert(xVal.has_value());
         assert(xVal.value() == 1.0);
 
@@ -551,13 +551,13 @@ int main() {
         model.addConstraint((x && y) == 1.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
         assert(xVal.has_value());
         assert(yVal.has_value());
         assert(xVal.value() == 1.0);
@@ -574,13 +574,13 @@ int main() {
         model.addConstraint(x == 0.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
         assert(xVal.has_value());
         assert(yVal.has_value());
         assert(xVal.value() == 0.0);
@@ -603,14 +603,14 @@ int main() {
         model.addConstraint(z >= 3.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
-        auto zVal = solution.getVariableValue(z);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
+        auto zVal = solution->getVariableValue(z);
         assert(xVal.has_value() && yVal.has_value() && zVal.has_value());
         assert(xVal.value() == 1.0);
         assert(yVal.value() == 2.0);
@@ -633,14 +633,14 @@ int main() {
         model.addConstraint(z >= 3.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
-        auto zVal = solution.getVariableValue(z);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
+        auto zVal = solution->getVariableValue(z);
         assert(xVal.has_value() && yVal.has_value() && zVal.has_value());
 
         // Optimal: x=1, y=2, z=3, avg = 6/3 = 2
@@ -659,15 +659,15 @@ int main() {
 
         // count(x, y, z) should return 3 (the number of arguments)
         auto countExpr = CP::customOperator("count", x, y, z);
-        const auto& result = model.addVariable(CP::Variable::Type::REAL, "result", countExpr);
+        const auto& resultVar = model.addVariable(CP::Variable::Type::REAL, "result", countExpr);
 
         CP::SCIPSolver solver(model);
-        auto solve_result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(solve_result.has_value());
-        auto& solution = solve_result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto resultVal = solution.getVariableValue(result);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto resultVal = solution->getVariableValue(resultVar);
 
         assert(resultVal.has_value());
         assert(std::abs(resultVal.value() - 3.0) < 1e-5); // count of 3 args = 3
@@ -684,12 +684,12 @@ int main() {
         model.addConstraint(x >= 0.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
         assert(xVal.has_value());
         assert(xVal.value() == 4.0);
 
@@ -707,13 +707,13 @@ int main() {
         model.addConstraint(y >= 3.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
         assert(xVal.has_value());
         assert(yVal.has_value());
 
@@ -737,14 +737,14 @@ int main() {
         model.addConstraint(z >= 5.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
-        auto zVal = solution.getVariableValue(z);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
+        auto zVal = solution->getVariableValue(z);
         assert(xVal.has_value());
         assert(yVal.has_value());
         assert(zVal.has_value());
@@ -773,13 +773,13 @@ int main() {
         model.addConstraint(selector == 1.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto selectorVal = solution.getVariableValue(selector);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto selectorVal = solution->getVariableValue(selector);
         assert(xVal.has_value());
         assert(selectorVal.has_value());
 
@@ -813,12 +813,12 @@ int main() {
         model.addConstraint(c3 == 0.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
         assert(xVal.has_value());
 
         // c2=1, so x should be 200
@@ -847,12 +847,12 @@ int main() {
         model.addConstraint(c2 == 0.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
         assert(xVal.has_value());
 
         // No condition true, so x should be 300 (else value)
@@ -875,13 +875,13 @@ int main() {
         model.addConstraint(condition == 0.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto conditionVal = solution.getVariableValue(condition);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto conditionVal = solution->getVariableValue(condition);
         assert(xVal.has_value());
         assert(conditionVal.has_value());
 
@@ -897,12 +897,12 @@ int main() {
         const auto& seq = model.addSequence("perm", 4);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto seqVals = solution.getSequenceValues(seq);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto seqVals = solution->getSequenceValues(seq);
         assert(seqVals.has_value());
 
         // Check that all values are different and in range [1, 4]
@@ -925,10 +925,10 @@ int main() {
         model.addIndexedVariable(arr, 0, 10);  // arr[2]
 
         const auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 0, 2);
-        const auto& result = model.addIntegerVariable("result");
+        const auto& resultVar = model.addIntegerVariable("result");
 
         // result = arr[index]
-        model.addConstraint(result == arr[index]);
+        model.addConstraint(resultVar == arr[index]);
 
         // Set specific values for array elements
         model.addConstraint(arr[0] == 5.0);
@@ -939,12 +939,12 @@ int main() {
         model.addConstraint(index == 1.0);
 
         CP::SCIPSolver solver(model);
-        auto result_solve = solver.solve(model);
+        auto result_solve = solver.solve();
 
-        assert(result_solve.has_value());
-        auto& solution = result_solve.value();
-        auto indexVal = solution.getVariableValue(index);
-        auto resultVal = solution.getVariableValue(result);
+        assert(result_solve.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto indexVal = solution->getVariableValue(index);
+        auto resultVal = solution->getVariableValue(resultVar);
         assert(indexVal.has_value());
         assert(resultVal.has_value());
 
@@ -958,22 +958,22 @@ int main() {
     {
         CP::Model model;
         const auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 1, 3);
-        const auto& result = model.addIntegerVariable("result");
+        const auto& resultVar = model.addIntegerVariable("result");
 
         // result = at(index, 10, 20, 30) - pick from inline values (1-based indexing)
         auto atExpr = CP::customOperator("at", index, 10.0, 20.0, 30.0);
-        model.addConstraint(result == atExpr);
+        model.addConstraint(resultVar == atExpr);
 
         // Fix index to 2 (select second element with 1-based indexing)
         model.addConstraint(index == 2.0);
 
         CP::SCIPSolver solver(model);
-        auto result_solve = solver.solve(model);
+        auto result_solve = solver.solve();
 
-        assert(result_solve.has_value());
-        auto& solution = result_solve.value();
-        auto indexVal = solution.getVariableValue(index);
-        auto resultVal = solution.getVariableValue(result);
+        assert(result_solve.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto indexVal = solution->getVariableValue(index);
+        auto resultVal = solution->getVariableValue(resultVar);
         assert(indexVal.has_value());
         assert(resultVal.has_value());
 
@@ -1001,13 +1001,13 @@ int main() {
         model.addConstraint(y <= 7.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
         assert(xVal.has_value());
         assert(yVal.has_value());
 
@@ -1030,10 +1030,10 @@ int main() {
         model.addConstraint(x <= 5.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
         // Should have no solution (5 != 5 is false)
-        assert(!result.has_value());
+        assert(result.problem == CP::Solver::Result::PROBLEM::INFEASIBLE);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Not-equal constraint (infeasible)" << RESET << std::endl;
     }
@@ -1053,10 +1053,10 @@ int main() {
         model.addConstraint(y <= 5.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
         // Should have no solution (5 < 5 is false)
-        assert(!result.has_value());
+        assert(result.problem == CP::Solver::Result::PROBLEM::INFEASIBLE);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Less-than constraint (infeasible)" << RESET << std::endl;
     }
@@ -1076,13 +1076,13 @@ int main() {
         model.addConstraint(y <= 6.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
         assert(xVal.has_value());
         assert(yVal.has_value());
         assert(xVal.value() == 5.0);
@@ -1106,10 +1106,10 @@ int main() {
         model.addConstraint(y <= 5.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
         // Should have no solution (5 > 5 is false)
-        assert(!result.has_value());
+        assert(result.problem == CP::Solver::Result::PROBLEM::INFEASIBLE);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Greater-than constraint (infeasible)" << RESET << std::endl;
     }
@@ -1129,13 +1129,13 @@ int main() {
         model.addConstraint(y <= 5.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
         assert(xVal.has_value());
         assert(yVal.has_value());
         assert(xVal.value() == 6.0);
@@ -1157,13 +1157,13 @@ int main() {
         model.addConstraint(y <= 3.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
         assert(xVal.has_value());
         assert(yVal.has_value());
 
@@ -1183,12 +1183,12 @@ int main() {
         model.addConstraint((!x) == 0.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
         assert(xVal.has_value());
         assert(xVal.value() == 5.0);
 
@@ -1208,14 +1208,14 @@ int main() {
         model.addConstraint(z == 7.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
-        auto zVal = solution.getVariableValue(z);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
+        auto zVal = solution->getVariableValue(z);
         assert(xVal.has_value());
         assert(yVal.has_value());
         assert(zVal.has_value());
@@ -1239,14 +1239,14 @@ int main() {
         model.addConstraint(z == 2.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
-        auto zVal = solution.getVariableValue(z);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
+        auto zVal = solution->getVariableValue(z);
         assert(xVal.has_value());
         assert(yVal.has_value());
         assert(zVal.has_value());
@@ -1278,22 +1278,22 @@ int main() {
         model.addConstraint(w <= 10.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
-        auto zVal = solution.getVariableValue(z);
-        auto wVal = solution.getVariableValue(w);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
+        auto zVal = solution->getVariableValue(z);
+        auto wVal = solution->getVariableValue(w);
         assert(xVal.has_value());
         assert(yVal.has_value());
         assert(zVal.has_value());
         assert(wVal.has_value());
 
         // Verify optimal objective value
-        auto objValue = solution.getObjectiveValue();
+        auto objValue = solution->getObjectiveValue();
         assert(objValue.has_value());
         assert(std::abs(objValue.value() - 0.5) < 1e-5);
 
@@ -1312,13 +1312,13 @@ int main() {
         model.addConstraint(y >= 0.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
         assert(xVal.has_value());
         assert(yVal.has_value());
 
@@ -1341,12 +1341,12 @@ int main() {
         model.addConstraint(y == 5.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
         assert(xVal.has_value() && yVal.has_value());
         assert(xVal.value() >= yVal.value() - 1e-5);
 
@@ -1365,16 +1365,16 @@ int main() {
         model.addConstraint(!a || (x >= y));
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
 
-        auto aVal = solution.getVariableValue(a);
-        auto bVal = solution.getVariableValue(b);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        auto aVal = solution->getVariableValue(a);
+        auto bVal = solution->getVariableValue(b);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
 
         assert(aVal.has_value());
         assert(xVal.has_value());
@@ -1405,15 +1405,15 @@ int main() {
         model.addConstraint(visit == 1.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
 
-        auto visitVal = solution.getVariableValue(visit);
-        auto entryVal = solution.getVariableValue(entry);
-        auto exitVal = solution.getVariableValue(exit);
+        auto visitVal = solution->getVariableValue(visit);
+        auto entryVal = solution->getVariableValue(entry);
+        auto exitVal = solution->getVariableValue(exit);
 
         assert(visitVal.has_value());
         assert(entryVal.has_value());
@@ -1438,13 +1438,13 @@ int main() {
         model.addConstraint(flag == 1.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
 
         assert(xVal.has_value() && yVal.has_value());
         assert(xVal.value() <= yVal.value() + 1e-5);
@@ -1461,12 +1461,12 @@ int main() {
         model.addConstraint(flag == 1.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
 
         assert(xVal.has_value());
         assert(std::abs(xVal.value() - 42.0) < 1e-5);
@@ -1485,13 +1485,13 @@ int main() {
         model.addConstraint(flag == 1.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
 
         assert(xVal.has_value() && yVal.has_value());
         assert(xVal.value() > yVal.value() - 1e-5);
@@ -1510,13 +1510,13 @@ int main() {
         model.addConstraint(flag == 1.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
 
         assert(xVal.has_value() && yVal.has_value());
         assert(xVal.value() < yVal.value() + 1e-5);
@@ -1535,12 +1535,12 @@ int main() {
         model.addConstraint(x <= 51.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
 
         assert(xVal.has_value());
         assert(std::abs(xVal.value() - 50.0) > 1e-6);
@@ -1556,13 +1556,13 @@ int main() {
         model.addConstraint((x >= 10.0) && (y <= 20.0));
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
 
         assert(xVal.has_value() && yVal.has_value());
         assert(xVal.value() >= 10.0 - 1e-5);
@@ -1580,12 +1580,12 @@ int main() {
         model.addConstraint(x <= 95.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
 
         assert(xVal.has_value());
         // x should be either <= 10 or >= 90
@@ -1601,12 +1601,12 @@ int main() {
         model.addConstraint(!(x >= 50.0));
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
 
         assert(xVal.has_value());
         assert(xVal.value() < 50.0 + 1e-5);
@@ -1622,13 +1622,13 @@ int main() {
         model.addConstraint(a == 1.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto aVal = solution.getVariableValue(a);
-        auto bVal = solution.getVariableValue(b);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto aVal = solution->getVariableValue(a);
+        auto bVal = solution->getVariableValue(b);
 
         assert(aVal.has_value());
         assert(bVal.has_value());
@@ -1648,14 +1648,14 @@ int main() {
         model.addConstraint(b == 5.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto aVal = solution.getVariableValue(a);
-        auto bVal = solution.getVariableValue(b);
-        auto cVal = solution.getVariableValue(c);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto aVal = solution->getVariableValue(a);
+        auto bVal = solution->getVariableValue(b);
+        auto cVal = solution->getVariableValue(c);
 
         assert(aVal.has_value());
         assert(bVal.has_value());
@@ -1685,15 +1685,15 @@ int main() {
         model.addConstraint(y == 3.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto visitVal = solution.getVariableValue(visit);
-        auto tokenflowVal = solution.getVariableValue(tokenflow);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto visitVal = solution->getVariableValue(visit);
+        auto tokenflowVal = solution->getVariableValue(tokenflow);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
 
         assert(visitVal.has_value());
         assert(tokenflowVal.has_value());
@@ -1726,10 +1726,10 @@ int main() {
         model.addConstraint(value1 == 1.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
         // This problem should be infeasible
-        assert(!result.has_value() || !result.value().errors().empty());
+        assert(result.problem == CP::Solver::Result::PROBLEM::INFEASIBLE);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Deduced variable enforces constraint correctly (infeasible)" << RESET << std::endl;
     }
@@ -1753,13 +1753,13 @@ int main() {
         model.addConstraint(index == 1.0);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto indexVal = solution.getVariableValue(index);
-        auto valueVal = solution.getVariableValue(value);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto indexVal = solution->getVariableValue(index);
+        auto valueVal = solution->getVariableValue(value);
 
         assert(indexVal.has_value());
         assert(valueVal.has_value());
@@ -1785,13 +1785,13 @@ int main() {
         // This should constrain activity_instance = processInstance[0] = 2
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto dataIndexVal = solution.getVariableValue(dataIndex);
-        auto activityInstanceVal = solution.getVariableValue(activityInstance);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto dataIndexVal = solution->getVariableValue(dataIndex);
+        auto activityInstanceVal = solution->getVariableValue(activityInstance);
 
         assert(dataIndexVal.has_value());
         assert(activityInstanceVal.has_value());
@@ -1812,13 +1812,13 @@ int main() {
         const auto& y = model.addVariable(CP::Variable::Type::REAL, "y", collectionExpr);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto xVal = solution.getVariableValue(x);
-        auto yVal = solution.getVariableValue(y);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto xVal = solution->getVariableValue(x);
+        auto yVal = solution->getVariableValue(y);
 
         assert(xVal.has_value());
         assert(yVal.has_value());
@@ -1852,12 +1852,12 @@ int main() {
         const auto& result_var = model.addVariable(CP::Variable::Type::REAL, "result", atExpr);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
-        auto resultVal = solution.getVariableValue(result_var);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
+        auto resultVal = solution->getVariableValue(result_var);
 
         assert(resultVal.has_value());
         // collection(0)[2] should be 20
@@ -1893,19 +1893,19 @@ int main() {
         auto& elementValue = model.addVariable(CP::Variable::Type::REAL, "elementValue", atExpr);
 
         CP::SCIPSolver solver(model);
-        auto result = solver.solve(model);
+        auto result = solver.solve();
 
-        assert(result.has_value());
-        auto& solution = result.value();
-        assert(solution.getStatus() == CP::Solution::Status::OPTIMAL);
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto solution = solver.getSolution();
+        assert(result.status == CP::Solver::Result::SOLUTION::OPTIMAL);
 
         // Verify count returns 3
-        auto numVal = solution.getVariableValue(numElements);
+        auto numVal = solution->getVariableValue(numElements);
         assert(numVal.has_value());
         assert(std::abs(numVal.value() - 3.0) < 1e-5);
 
         // Verify at(2, ...) returns 20.0 (second element, 1-based indexing)
-        auto elemVal = solution.getVariableValue(elementValue);
+        auto elemVal = solution->getVariableValue(elementValue);
         assert(elemVal.has_value());
         assert(std::abs(elemVal.value() - 20.0) < 1e-5);
 
@@ -1925,14 +1925,14 @@ int main() {
         }, collections2.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 2.0);
-        auto& result = model.addVariable(CP::Variable::Type::INTEGER, "result", 0.0, 10.0);
-        model.addConstraint(result == CP::count(CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::INTEGER, "result", 0.0, 10.0);
+        model.addConstraint(resultVar == CP::count(CP::Collection(key)));
         model.addConstraint(key == 0.0);
 
         CP::SCIPSolver solver(model);
-        auto solution = solver.solve(model);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 3.0) < 1e-5);
+        auto result = solver.solve();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 3.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: count(collection(key)) returns 3" << RESET << std::endl;
     }
     // Test: sum(collection(key))
@@ -1946,14 +1946,14 @@ int main() {
         }, collections3.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 1.0);
-        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
-        model.addConstraint(result == CP::sum(CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(resultVar == CP::sum(CP::Collection(key)));
         model.addConstraint(key == 1.0);
 
         CP::SCIPSolver solver(model);
-        auto solution = solver.solve(model);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 20.0) < 1e-5);
+        auto result = solver.solve();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 20.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: sum(collection(key)) returns 20" << RESET << std::endl;
     }
     // Test: avg(collection(key))
@@ -1965,13 +1965,13 @@ int main() {
         }, collections4.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
-        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 50.0);
-        model.addConstraint(result == CP::avg(CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 50.0);
+        model.addConstraint(resultVar == CP::avg(CP::Collection(key)));
 
         CP::SCIPSolver solver(model);
-        auto solution = solver.solve(model);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 20.0) < 1e-5);
+        auto result = solver.solve();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 20.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: avg(collection(key)) returns 20" << RESET << std::endl;
     }
     // Test: max(collection(key))
@@ -1983,13 +1983,13 @@ int main() {
         }, collections5.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
-        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
-        model.addConstraint(result == CP::max(CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(resultVar == CP::max(CP::Collection(key)));
 
         CP::SCIPSolver solver(model);
-        auto solution = solver.solve(model);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 50.0) < 1e-5);
+        auto result = solver.solve();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 50.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: max(collection(key)) returns 50" << RESET << std::endl;
     }
     // Test: min(collection(key))
@@ -2001,13 +2001,13 @@ int main() {
         }, collections6.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
-        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
-        model.addConstraint(result == CP::min(CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(resultVar == CP::min(CP::Collection(key)));
 
         CP::SCIPSolver solver(model);
-        auto solution = solver.solve(model);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 10.0) < 1e-5);
+        auto result = solver.solve();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 10.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: min(collection(key)) returns 10" << RESET << std::endl;
     }
     // Test: element_of(constant, collection) - found
@@ -2019,13 +2019,13 @@ int main() {
         }, collections7.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
-        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
-        model.addConstraint(result == CP::element_of(20.0, CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(resultVar == CP::element_of(20.0, CP::Collection(key)));
 
         CP::SCIPSolver solver(model);
-        auto solution = solver.solve(model);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 1.0) < 1e-5);
+        auto result = solver.solve();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 1.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: element_of(20, collection) returns 1" << RESET << std::endl;
     }
     // Test: element_of(constant, collection) - not found
@@ -2037,13 +2037,13 @@ int main() {
         }, collections8.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
-        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
-        model.addConstraint(result == CP::element_of(25.0, CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(resultVar == CP::element_of(25.0, CP::Collection(key)));
 
         CP::SCIPSolver solver(model);
-        auto solution = solver.solve(model);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 0.0) < 1e-5);
+        auto result = solver.solve();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 0.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: element_of(25, collection) returns 0" << RESET << std::endl;
     }
     // Test: not_element_of(constant, collection) - found (returns 0)
@@ -2055,13 +2055,13 @@ int main() {
         }, collections9.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
-        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
-        model.addConstraint(result == CP::not_element_of(20.0, CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(resultVar == CP::not_element_of(20.0, CP::Collection(key)));
 
         CP::SCIPSolver solver(model);
-        auto solution = solver.solve(model);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 0.0) < 1e-5);
+        auto result = solver.solve();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 0.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: not_element_of(20, collection) returns 0" << RESET << std::endl;
     }
     // Test: not_element_of(constant, collection) - not found (returns 1)
@@ -2073,13 +2073,13 @@ int main() {
         }, collections10.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
-        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
-        model.addConstraint(result == CP::not_element_of(25.0, CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(resultVar == CP::not_element_of(25.0, CP::Collection(key)));
 
         CP::SCIPSolver solver(model);
-        auto solution = solver.solve(model);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 1.0) < 1e-5);
+        auto result = solver.solve();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 1.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: not_element_of(25, collection) returns 1" << RESET << std::endl;
     }
     // Test: Collection[constant_index]
@@ -2091,13 +2091,13 @@ int main() {
         }, collections11.size());
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
-        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
-        model.addConstraint(result == CP::Collection(key)[2.0]);
+        auto& resultVar = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(resultVar == CP::Collection(key)[2.0]);
 
         CP::SCIPSolver solver(model);
-        auto solution = solver.solve(model);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 20.0) < 1e-5);
+        auto result = solver.solve();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 20.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Collection[2] returns 20" << RESET << std::endl;
     }
     // Test: at with different collection keys
@@ -2112,13 +2112,13 @@ int main() {
 
         // Test with key=0
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
-        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
-        model.addConstraint(result == CP::Collection(key)[2.0]);
+        auto& resultVar = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(resultVar == CP::Collection(key)[2.0]);
 
         CP::SCIPSolver solver1(model);
-        auto solution1 = solver1.solve(model);
-        assert(solution1.has_value());
-        assert(std::abs(solution1->getVariableValue(result).value() - 20.0) < 1e-5);
+        auto result1 = solver1.solve();
+        assert(result1.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver1.getSolution()->getVariableValue(result).value() - 20.0) < 1e-5);
 
         // Test with key=1
         CP::Model model2;
@@ -2131,9 +2131,9 @@ int main() {
         model2.addConstraint(result2 == CP::Collection(key2)[2.0]);
 
         CP::SCIPSolver solver2(model2);
-        auto solution2 = solver2.solve(model2);
-        assert(solution2.has_value());
-        assert(std::abs(solution2->getVariableValue(result2).value() - 50.0) < 1e-5);
+        auto result2_solve = solver2.solve();
+        assert(result2_solve.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver2.getSolution()->getVariableValue(result2).value() - 50.0) < 1e-5);
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: at with different collection keys" << RESET << std::endl;
     }
@@ -2147,14 +2147,14 @@ int main() {
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
-        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
-        model.addConstraint(result == CP::element_of(value, CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(resultVar == CP::element_of(value, CP::Collection(key)));
         model.addConstraint(value == 20.0);
 
         CP::SCIPSolver solver(model);
-        auto solution = solver.solve(model);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 1.0) < 1e-5);
+        auto result = solver.solve();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 1.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: element_of(variable=20, collection) returns 1" << RESET << std::endl;
     }
     // Test: element_of(variable, collection) - not found
@@ -2167,14 +2167,14 @@ int main() {
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
-        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
-        model.addConstraint(result == CP::element_of(value, CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(resultVar == CP::element_of(value, CP::Collection(key)));
         model.addConstraint(value == 25.0);
 
         CP::SCIPSolver solver(model);
-        auto solution = solver.solve(model);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 0.0) < 1e-5);
+        auto result = solver.solve();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 0.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: element_of(variable=25, collection) returns 0" << RESET << std::endl;
     }
     // Test: element_of(variable, collection(variable_key)) - both variable
@@ -2189,15 +2189,15 @@ int main() {
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 1.0);
         auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 60.0);
-        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
-        model.addConstraint(result == CP::element_of(value, CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(resultVar == CP::element_of(value, CP::Collection(key)));
         model.addConstraint(key == 1.0);
         model.addConstraint(value == 50.0);
 
         CP::SCIPSolver solver(model);
-        auto solution = solver.solve(model);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 1.0) < 1e-5);
+        auto result = solver.solve();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 1.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: element_of(variable, collection(variable_key))" << RESET << std::endl;
     }
     // Test: not_element_of(variable, collection) - found (returns 0)
@@ -2210,14 +2210,14 @@ int main() {
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
-        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
-        model.addConstraint(result == CP::not_element_of(value, CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(resultVar == CP::not_element_of(value, CP::Collection(key)));
         model.addConstraint(value == 20.0);
 
         CP::SCIPSolver solver(model);
-        auto solution = solver.solve(model);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 0.0) < 1e-5);
+        auto result = solver.solve();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 0.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: not_element_of(variable=20, collection) returns 0" << RESET << std::endl;
     }
     // Test: not_element_of(variable, collection) - not found (returns 1)
@@ -2230,14 +2230,14 @@ int main() {
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& value = model.addVariable(CP::Variable::Type::INTEGER, "value", 10.0, 40.0);
-        auto& result = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
-        model.addConstraint(result == CP::not_element_of(value, CP::Collection(key)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::BOOLEAN, "result", 0.0, 1.0);
+        model.addConstraint(resultVar == CP::not_element_of(value, CP::Collection(key)));
         model.addConstraint(value == 35.0);
 
         CP::SCIPSolver solver(model);
-        auto solution = solver.solve(model);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 1.0) < 1e-5);
+        auto result = solver.solve();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 1.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: not_element_of(variable=35, collection) returns 1" << RESET << std::endl;
     }
     // Test: Collection[variable_index]
@@ -2250,14 +2250,14 @@ int main() {
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 0.0);
         auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 1.0, 3.0);
-        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
-        model.addConstraint(result == CP::Collection(key)[index]);
+        auto& resultVar = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(resultVar == CP::Collection(key)[index]);
         model.addConstraint(index == 2.0);
 
         CP::SCIPSolver solver(model);
-        auto solution = solver.solve(model);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 20.0) < 1e-5);
+        auto result = solver.solve();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 20.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Collection[variable_index=2] returns 20" << RESET << std::endl;
     }
     // Test: Collection(variable_key)[variable_index]
@@ -2272,15 +2272,15 @@ int main() {
 
         auto& key = model.addVariable(CP::Variable::Type::INTEGER, "key", 0.0, 1.0);
         auto& index = model.addVariable(CP::Variable::Type::INTEGER, "index", 1.0, 3.0);
-        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
-        model.addConstraint(result == CP::Collection(key)[index]);
+        auto& resultVar = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(resultVar == CP::Collection(key)[index]);
         model.addConstraint(key == 1.0);
         model.addConstraint(index == 3.0);
 
         CP::SCIPSolver solver(model);
-        auto solution = solver.solve(model);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 60.0) < 1e-5);
+        auto result = solver.solve();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 60.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Collection(key=1)[index=3] returns 60" << RESET << std::endl;
     }
     // Test: count(Collection(constant_key))
@@ -2291,13 +2291,13 @@ int main() {
             return collections20[key];
         }, collections20.size());
 
-        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 10.0);
-        model.addConstraint(result == CP::count(CP::Collection(0.0)));
+        auto& resultVar = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 10.0);
+        model.addConstraint(resultVar == CP::count(CP::Collection(0.0)));
 
         CP::SCIPSolver solver(model);
-        auto solution = solver.solve(model);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 3.0) < 1e-5);
+        auto result = solver.solve();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 3.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: count(Collection(0)) returns 3" << RESET << std::endl;
     }
     // Test: Collection(constant_key)[constant_index]
@@ -2308,13 +2308,13 @@ int main() {
             return collections21[key];
         }, collections21.size());
 
-        auto& result = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
-        model.addConstraint(result == CP::Collection(0.0)[2.0]);
+        auto& resultVar = model.addVariable(CP::Variable::Type::REAL, "result", 0.0, 100.0);
+        model.addConstraint(resultVar == CP::Collection(0.0)[2.0]);
 
         CP::SCIPSolver solver(model);
-        auto solution = solver.solve(model);
-        assert(solution.has_value());
-        assert(std::abs(solution->getVariableValue(result).value() - 20.0) < 1e-5);
+        auto result = solver.solve();
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        assert(std::abs(solver.getSolution()->getVariableValue(result).value() - 20.0) < 1e-5);
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Collection(0)[2] returns 20" << RESET << std::endl;
     }
 

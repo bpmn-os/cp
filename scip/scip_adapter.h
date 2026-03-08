@@ -3,7 +3,6 @@
 #include "../solver.h"
 #include <scip/scip.h>
 #include <unordered_map>
-#include <limits>
 
 namespace CP {
 
@@ -12,13 +11,14 @@ public:
   SCIPSolver(const Model& model, unsigned int precision = 4);
   ~SCIPSolver() override;
 
-  std::expected<Solution, std::string> solve(const Model& model) override;
-  std::expected<Solution, std::string> solve(const Model& model, double timeLimit);
   std::string getName() const override { return "SCIP"; }
 
   // For testing: expose SCIP state
   SCIP* getScip() const { return scip; }
   const std::unordered_map<const Variable*, SCIP_VAR*>& getVariableMap() const { return variableMap; }
+
+protected:
+  Result solve_(double timeLimit) override;
 
 private:
   void addSequences(const Model& model);

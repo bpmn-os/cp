@@ -12,12 +12,13 @@ public:
     HexalySolver(const Model& model, unsigned int precision = 4);
     ~HexalySolver() override;
 
-    std::expected<Solution, std::string> solve(const Model& model) override;
-    std::expected<Solution, std::string> solve(const Model& model, double timeLimit);
     std::string getName() const override { return "Hexaly"; }
 
     // For testing
     hexaly::HexalyOptimizer& getOptimizer() { return *optimizer; }
+
+protected:
+    Result solve_(double timeLimit) override;
 
 private:
     void addSequences(const Model& model);

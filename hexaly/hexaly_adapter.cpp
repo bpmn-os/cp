@@ -9,7 +9,8 @@
 namespace CP {
 
 HexalySolver::HexalySolver(const Model& model, unsigned int precision)
-    : optimizer(std::make_unique<hexaly::HexalyOptimizer>())
+    : Solver(model)
+    , optimizer(std::make_unique<hexaly::HexalyOptimizer>())
     , hxModel(optimizer->getModel())
     , precision(precision)
 {
@@ -846,44 +847,91 @@ hexaly::HxExpression HexalySolver::resolveCollectionAccess(const Model& model, c
                       round(indexExpr) - hxModel.createConstant(static_cast<hexaly::hxint>(1)));
 }
 
-std::expected<Solution, std::string> HexalySolver::solve(const Model& model) {
-    return solve(model, std::numeric_limits<double>::infinity());
-}
+Solver::Result HexalySolver::solve_(double timeLimit) {
+    Result result;
 
-std::expected<Solution, std::string> HexalySolver::solve(const Model& model, double timeLimit) {
     if (std::isfinite(timeLimit)) {
         optimizer->getParam().setTimeLimit(static_cast<int>(timeLimit));
+    }
+
+    // Warmstart: use existing solution as starting point
+    auto warmstart = solution_.load();
+    if (warmstart) {
+        // Set sequence values (lists)
+        for (const auto& sequence : model_.getSequences()) {
+            auto seqValues = warmstart->getSequenceValues(sequence);
+            if (seqValues.has_value()) {
+                hexaly::HxExpression listVar = sequenceMap.at(&sequence);
+                hexaly::HxCollection listVal = listVar.getCollectionValue();
+                listVal.clear();
+                for (double val : seqValues.value()) {
+                    // Convert from 1-based (CP) to 0-based (Hexaly)
+                    listVal.add(static_cast<long long>(val) - 1);
+                }
+            }
+        }
+        // Set variable values (only non-deduced decision variables)
+        for (const Variable& var : model_.getVariables()) {
+            auto value = warmstart->getVariableValue(var);
+            if (value.has_value()) {
+                hexaly::HxExpression hxExpr = expressionMap.at(&var);
+                if (hxExpr.isInt()) {
+                    hxExpr.setIntValue(static_cast<long long>(value.value()));
+                } else {
+                    hxExpr.setDoubleValue(value.value());
+                }
+            }
+        }
     }
 
     try {
         optimizer->solve();
     }
     catch (const hexaly::HxException& e) {
-        return std::unexpected(std::string("Hexaly solve failed: ") + e.getMessage());
+        result.termination = Result::TERMINATION::OTHER;
+        result.info = std::string("Hexaly solve failed: ") + e.getMessage();
+        return result;
     }
 
     hexaly::HxSolution hxSol = optimizer->getSolution();
     hexaly::HxSolutionStatus status = hxSol.getStatus();
 
-    if (status == hexaly::SS_Infeasible) {
-        return std::unexpected("Problem is infeasible");
+    // Map Hexaly status to Result
+    switch (status) {
+        case hexaly::SS_Optimal:
+            result.problem = Result::PROBLEM::FEASIBLE;
+            result.status = Result::SOLUTION::OPTIMAL;
+            result.termination = Result::TERMINATION::COMPLETED;
+            break;
+        case hexaly::SS_Feasible:
+            result.problem = Result::PROBLEM::FEASIBLE;
+            result.status = Result::SOLUTION::FEASIBLE;
+            result.termination = Result::TERMINATION::TIMEOUT;
+            break;
+        case hexaly::SS_Infeasible:
+            result.problem = Result::PROBLEM::INFEASIBLE;
+            result.status = Result::SOLUTION::NONE;
+            result.termination = Result::TERMINATION::COMPLETED;
+            result.info = "Problem is infeasible";
+            return result;
+        case hexaly::SS_Inconsistent:
+            result.problem = Result::PROBLEM::INFEASIBLE;
+            result.status = Result::SOLUTION::NONE;
+            result.termination = Result::TERMINATION::COMPLETED;
+            result.info = "Model is inconsistent";
+            return result;
+        default:
+            result.problem = Result::PROBLEM::UNKNOWN;
+            result.status = Result::SOLUTION::NONE;
+            result.termination = Result::TERMINATION::OTHER;
+            return result;
     }
 
-    if (status == hexaly::SS_Inconsistent) {
-        return std::unexpected("Model is inconsistent");
-    }
-
-    Solution solution(model);
-
-    if (status == hexaly::SS_Optimal) {
-        solution.setStatus(Solution::Status::OPTIMAL);
-    }
-    else if (status == hexaly::SS_Feasible) {
-        solution.setStatus(Solution::Status::FEASIBLE);
-    }
+    // Extract solution
+    auto solution = std::make_shared<Solution>(model_);
 
     // Extract sequence values
-    for (const auto& sequence : model.getSequences()) {
+    for (const auto& sequence : model_.getSequences()) {
         hexaly::HxExpression listVar = sequenceMap.at(&sequence);
         hexaly::HxCollection listVal = hxSol.getCollectionValue(listVar);
 
@@ -892,11 +940,11 @@ std::expected<Solution, std::string> HexalySolver::solve(const Model& model, dou
             // List contains 0-based values, convert to 1-based
             values.push_back(static_cast<int>(listVal.get(i)) + 1);
         }
-        solution.setSequenceValues(sequence, values);
+        solution->setSequenceValues(sequence, values);
     }
 
     // Extract variable values (including deduced variables)
-    for (const Variable& var : model.getAllVariables()) {
+    for (const Variable& var : model_.getAllVariables()) {
         hexaly::HxExpression hxExpr = expressionMap.at(&var);
         double value;
 
@@ -912,10 +960,12 @@ std::expected<Solution, std::string> HexalySolver::solve(const Model& model, dou
         double factor = std::pow(10.0, precision);
         value = std::round(value * factor) / factor;
 
-        solution.setVariableValue(var, value);
+        solution->setVariableValue(var, value);
     }
 
-    return solution;
+    std::atomic_store(&solution_, std::shared_ptr<const Solution>(std::move(solution)));
+
+    return result;
 }
 
 } // namespace CP
