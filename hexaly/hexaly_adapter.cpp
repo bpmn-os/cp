@@ -1023,6 +1023,7 @@ Solver::Result HexalySolver::solve(double timeLimit) {
             auto value = warmstart->getVariableValue(var);
             if (value.has_value()) {
                 hexaly::HxExpression hxExpr = expressionMap.at(&var);
+                if (!hxExpr.isDecision()) continue;  // Skip constants/derived expressions
                 if (hxExpr.isInt()) {
                     hxExpr.setIntValue(static_cast<long long>(value.value()));
                 } else {

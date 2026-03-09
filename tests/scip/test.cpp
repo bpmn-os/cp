@@ -2441,6 +2441,30 @@ int main() {
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Warmstart with sequence variables" << RESET << std::endl;
     }
 
+    // Test: Warmstart with fixed boolean variable (should not crash)
+    {
+        CP::Model model(CP::Model::ObjectiveSense::MINIMIZE);
+        const auto& x = model.addVariable(CP::Variable::Type::INTEGER, "x", 0, 10);
+        // Fixed boolean: lb == ub
+        const auto& fixed = model.addVariable(CP::Variable::Type::BOOLEAN, "fixed", 1, 1);
+        model.setObjective(x);
+
+        // Warmstart includes the fixed variable
+        auto initialSolution = std::make_shared<CP::Solution>(model);
+        initialSolution->setVariableValue(x, 5.0);
+        initialSolution->setVariableValue(fixed, 1.0);
+
+        CP::SCIPSolver solver(model);
+        solver.setSolution(initialSolution);
+
+        auto result = solver.solve(0.5);
+        if (result.status == CP::Solver::Result::SOLUTION::NONE) {
+            std::cerr << "ERROR: " << result.info << std::endl;
+        }
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: Warmstart with fixed boolean variable" << RESET << std::endl;
+    }
+
     // Test: Fix variable changes solution
     {
         CP::Model model(CP::Model::ObjectiveSense::MINIMIZE);
