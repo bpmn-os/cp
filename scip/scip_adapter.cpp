@@ -958,7 +958,7 @@ SCIP_EXPR* SCIPSolver::buildExpression(const Model& model, const Operand& operan
           return scipExpr;
         }
         else {
-          throw std::runtime_error("pow with non-constant exponent not supported");
+          throw std::runtime_error("SCIPSolver: pow with non-constant exponent not supported");
         }
       }
 
@@ -1945,7 +1945,7 @@ Solver::Result SCIPSolver::solve(double timeLimit) {
   SCIP_RETCODE retcode = SCIPsolve(scip);
   if (retcode != SCIP_OKAY) {
     result.termination = Result::TERMINATION::OTHER;
-    result.info = "SCIP solve failed";
+    result.info = "SCIP: solve failed with code " + std::to_string(retcode);
     return result;
   }
 
@@ -2957,17 +2957,17 @@ void SCIPSolver::fix(const Variable& variable, double value) {
   // Validate variable exists in model
   auto it = variableMap.find(&variable);
   if (it == variableMap.end()) {
-    throw std::invalid_argument("Variable not found in model: " + variable.name);
+    throw std::invalid_argument("SCIPSolver: Variable not found in model: " + variable.name);
   }
 
   // Cannot fix deduced variables
   if (variable.deducedFrom) {
-    throw std::invalid_argument("Cannot fix deduced variable: " + variable.name);
+    throw std::invalid_argument("SCIPSolver: Cannot fix deduced variable: " + variable.name);
   }
 
   // Validate value is within original bounds
   if (value < variable.lowerBound || value > variable.upperBound) {
-    throw std::out_of_range("Fix value " + std::to_string(value) +
+    throw std::out_of_range("SCIPSolver: Fix value " + std::to_string(value) +
                             " outside bounds [" + std::to_string(variable.lowerBound) +
                             ", " + std::to_string(variable.upperBound) + "] for " + variable.name);
   }
@@ -2977,7 +2977,7 @@ void SCIPSolver::fix(const Variable& variable, double value) {
   if (variable.type == Variable::Type::BOOLEAN) {
     fixedValue = std::round(value);
     if (fixedValue != 0.0 && fixedValue != 1.0) {
-      throw std::out_of_range("Boolean variable must be fixed to 0 or 1");
+      throw std::out_of_range("SCIPSolver: Boolean variable must be fixed to 0 or 1");
     }
   } else if (variable.type == Variable::Type::INTEGER) {
     fixedValue = std::round(value);
@@ -2998,7 +2998,7 @@ void SCIPSolver::fix(const Variable& variable, double value) {
 
 void SCIPSolver::fix(const Sequence& sequence, const std::vector<int>& values) {
   if (values.size() != sequence.variables.size()) {
-    throw std::invalid_argument("Values size does not match sequence size");
+    throw std::invalid_argument("SCIPSolver: Values size does not match sequence size");
   }
 
   for (size_t i = 0; i < sequence.variables.size(); ++i) {

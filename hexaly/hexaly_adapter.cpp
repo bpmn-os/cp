@@ -377,7 +377,7 @@ hexaly::HxExpression HexalySolver::buildExpression(const Model& model, const Ope
         }
 
         default:
-            throw std::runtime_error("Unsupported operator in Hexaly adapter");
+            throw std::runtime_error("HexalySolver: Unsupported operator");
     }
 }
 
@@ -492,7 +492,7 @@ hexaly::HxExpression HexalySolver::buildCustomOperator(const Model& model, const
         return hxModel.at(hxModel.array(values.begin(), values.end()), zeroBasedIndex);
     }
 
-    throw std::runtime_error("Unknown custom operator: " + opName);
+    throw std::runtime_error("HexalySolver: Unknown custom operator: " + opName);
 }
 
 // Collection operation: count/sum/avg/min/max(Collection(key))
@@ -931,6 +931,7 @@ hexaly::HxExpression HexalySolver::resolveCollectionAccess(const Model& model, c
 
 Solver::Result HexalySolver::solve(double timeLimit) {
     Result result;
+  try {
     stopped_ = false;
     lastBestObjective_ = std::numeric_limits<double>::quiet_NaN();
 
@@ -1049,14 +1050,7 @@ Solver::Result HexalySolver::solve(double timeLimit) {
         }
     }
 
-    try {
-        optimizer->solve();
-    }
-    catch (const hexaly::HxException& e) {
-        result.termination = Result::TERMINATION::OTHER;
-        result.info = std::string("Hexaly solve failed: ") + e.getMessage();
-        return result;
-    }
+    optimizer->solve();
 
     hexaly::HxSolution hxSol = optimizer->getSolution();
     hexaly::HxSolutionStatus status = hxSol.getStatus();
@@ -1151,23 +1145,28 @@ Solver::Result HexalySolver::solve(double timeLimit) {
     }
 
     return result;
+  } catch (const hexaly::HxException& e) {
+    result.termination = Result::TERMINATION::OTHER;
+    result.info = std::string("Hexaly: ") + e.getMessage();
+    return result;
+  }
 }
 
 void HexalySolver::fix(const Variable& variable, double value) {
     // Validate variable exists in model
     auto it = expressionMap.find(&variable);
     if (it == expressionMap.end()) {
-        throw std::invalid_argument("Variable not found in model: " + variable.name);
+        throw std::invalid_argument("HexalySolver: Variable not found in model: " + variable.name);
     }
 
     // Cannot fix deduced variables
     if (variable.deducedFrom) {
-        throw std::invalid_argument("Cannot fix deduced variable: " + variable.name);
+        throw std::invalid_argument("HexalySolver: Cannot fix deduced variable: " + variable.name);
     }
 
     // Validate value is within original bounds
     if (value < variable.lowerBound || value > variable.upperBound) {
-        throw std::out_of_range("Fix value " + std::to_string(value) +
+        throw std::out_of_range("HexalySolver: Fix value " + std::to_string(value) +
                                 " outside bounds [" + std::to_string(variable.lowerBound) +
                                 ", " + std::to_string(variable.upperBound) + "] for " + variable.name);
     }
@@ -1177,7 +1176,7 @@ void HexalySolver::fix(const Variable& variable, double value) {
     if (variable.type == Variable::Type::BOOLEAN) {
         fixedValue = std::round(value);
         if (fixedValue != 0.0 && fixedValue != 1.0) {
-            throw std::out_of_range("Boolean variable must be fixed to 0 or 1");
+            throw std::out_of_range("HexalySolver: Boolean variable must be fixed to 0 or 1");
         }
     } else if (variable.type == Variable::Type::INTEGER) {
         fixedValue = std::round(value);
@@ -1189,7 +1188,7 @@ void HexalySolver::fix(const Variable& variable, double value) {
 
 void HexalySolver::fix(const Sequence& sequence, const std::vector<int>& values) {
     if (values.size() != sequence.variables.size()) {
-        throw std::invalid_argument("Values size does not match sequence size");
+        throw std::invalid_argument("HexalySolver: Values size does not match sequence size");
     }
 
     fixedSequences_.emplace_back(&sequence, values);
