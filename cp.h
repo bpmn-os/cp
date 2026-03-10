@@ -1055,7 +1055,7 @@ public:
   template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool>* = nullptr >
   inline void setSequenceValues(const Sequence& sequence, std::vector<T> values);
 
-  inline std::expected< std::vector<double>, std::string> getSequenceValues(const Sequence& sequence) const;
+  inline std::expected< std::vector<int>, std::string> getSequenceValues(const Sequence& sequence) const;
   inline void setVariableValue(const Variable& variable, double value);
   inline std::expected< double, std::string> getVariableValue(const Variable& variable) const;
 
@@ -1123,17 +1123,17 @@ inline void Solution::setSequenceValues(const Sequence& sequence, std::vector<T>
   }
 }
 
-inline std::expected< std::vector<double>, std::string> Solution::getSequenceValues(const Sequence& sequence) const {
-  std::vector<double> results;
+inline std::expected< std::vector<int>, std::string> Solution::getSequenceValues(const Sequence& sequence) const {
+  std::vector<int> results;
   results.reserve(sequence.variables.size());
   for (size_t i = 0; i < sequence.variables.size(); i++) {
     auto variableValue = getVariableValue(sequence.variables[i]);
     if ( !variableValue ) {
       return std::unexpected("Incomplete values for sequence '" + sequence.name + "'");
     }
-    results.push_back( variableValue.value() );
+    results.push_back( static_cast<int>(variableValue.value()) );
   }
-  
+
   return results;
 };
 

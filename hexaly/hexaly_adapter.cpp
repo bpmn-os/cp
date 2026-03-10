@@ -1036,6 +1036,7 @@ Solver::Result HexalySolver::solve(double timeLimit) {
     // Set initial values for fixed variables/sequences (helps Hexaly start from feasible point)
     for (const auto& [variable, value] : fixedVariables_) {
         hexaly::HxExpression hxExpr = expressionMap.at(variable);
+        if (!hxExpr.isDecision()) continue;  // Skip constants/derived expressions
         if (hxExpr.isInt()) {
             hxExpr.setIntValue(static_cast<long long>(value));
         } else {
