@@ -648,22 +648,56 @@ SCIP_EXPR* SCIPSolver::buildExpression(const Model& model, const Operand& operan
           }
         }
 
-        // Handle variable key
-        if (!std::holds_alternative<std::reference_wrapper<const Variable>>(keyOperand)) {
-          throw std::runtime_error(
-            "SCIPSolver: collection() key must be a variable or constant"
-          );
+        // Handle variable/expression key - create auxiliary variable with collection bounds
+        SCIP_VAR* scipKeyVar = nullptr;
+        bool releaseScipKeyVar = false;
+
+        // Unwrap Expression(none, {operand}) to get the actual operand
+        const Operand* actualKeyOperand = &keyOperand;
+        if (std::holds_alternative<Expression>(keyOperand)) {
+          const Expression& keyExpr = std::get<Expression>(keyOperand);
+          if (keyExpr._operator == Expression::Operator::none && keyExpr.operands.size() == 1) {
+            actualKeyOperand = &keyExpr.operands[0];
+          }
         }
 
-        const Variable& keyVar = std::get<std::reference_wrapper<const Variable>>(keyOperand).get();
-        SCIP_VAR* scipKeyVar = variableMap.at(&keyVar);
+        // Build key expression and create auxiliary variable with correct bounds
+        SCIP_EXPR* keyScipExpr = buildExpression(model, *actualKeyOperand);
+
+        // Collections are numbered 0 to numberOfCollections-1
+        double minBound = 0;
+        double maxBound = static_cast<double>(model.getNumberOfCollections() - 1);
+
+        size_t auxId = auxiliaryCounter++;
+        std::string auxName = "aux_coll_key_" + std::to_string(auxId);
+        SCIP_VAR* auxKeyVar;
+        SCIPcreateVarBasic(scip, &auxKeyVar, auxName.c_str(), minBound, maxBound, 0.0, SCIP_VARTYPE_INTEGER);
+        SCIPaddVar(scip, auxKeyVar);
+
+        // Add constraint: auxKeyVar == keyScipExpr
+        SCIP_EXPR* auxExpr;
+        SCIPcreateExprVar(scip, &auxExpr, auxKeyVar, nullptr, nullptr);
+        SCIP_EXPR* diffExprs[] = { auxExpr, keyScipExpr };
+        double coeffs[] = { 1.0, -1.0 };
+        SCIP_EXPR* diffExpr;
+        SCIPcreateExprSum(scip, &diffExpr, 2, diffExprs, coeffs, 0.0, nullptr, nullptr);
+        SCIP_CONS* auxCons;
+        std::string consName = "aux_coll_key_cons_" + std::to_string(auxId);
+        SCIPcreateConsBasicNonlinear(scip, &auxCons, consName.c_str(), diffExpr, 0.0, 0.0);
+        SCIPaddCons(scip, auxCons);
+        SCIPreleaseCons(scip, &auxCons);
+        SCIPreleaseExpr(scip, &diffExpr);
+        SCIPreleaseExpr(scip, &auxExpr);
+        SCIPreleaseExpr(scip, &keyScipExpr);
+
+        scipKeyVar = auxKeyVar;
+        releaseScipKeyVar = true;
 
         const Operand& indexOperand = expression.operands[1];
 
-        // Get key bounds
-        double keyLb = SCIPvarGetLbGlobal(scipKeyVar);
-        double keyUb = SCIPvarGetUbGlobal(scipKeyVar);
-        int numKeys = (int)std::floor(keyUb) - (int)std::ceil(keyLb) + 1;
+        // Key bounds are now 0 to numberOfCollections-1
+        double keyLb = minBound;
+        int numKeys = static_cast<int>(model.getNumberOfCollections());
 
         // Case A: Index is a constant
         if (std::holds_alternative<double>(indexOperand)) {
@@ -692,7 +726,11 @@ SCIP_EXPR* SCIPSolver::buildExpression(const Model& model, const Operand& operan
           }
 
           // Use 1D element constraint
-          return buildElementConstraint(elements, scipKeyVar, keyLb);
+          SCIP_EXPR* result = buildElementConstraint(elements, scipKeyVar, keyLb);
+          if (releaseScipKeyVar) {
+            SCIPreleaseVar(scip, &scipKeyVar);
+          }
+          return result;
         }
 
         // Case B: Index is a variable - requires 2D matrix
@@ -737,10 +775,22 @@ SCIP_EXPR* SCIPSolver::buildExpression(const Model& model, const Operand& operan
 
         SCIPreleaseExpr(scip, &indexExprResult);
 
-        // Get index bounds (1-based)
-        double indexLb = SCIPvarGetLbGlobal(scipIndexVar);
-        double indexUb = SCIPvarGetUbGlobal(scipIndexVar);
-        int numIndices = (int)std::floor(indexUb) - (int)std::ceil(indexLb) + 1;
+        // Compute valid index bounds based on collection sizes (1-based indexing)
+        // Find maximum collection size across all keys
+        size_t maxCollectionSize = 0;
+        for (int ki = 0; ki < numKeys; ki++) {
+          size_t key = static_cast<size_t>(std::ceil(keyLb)) + ki;
+          const std::vector<double>& coll = model.getCollection(key);
+          maxCollectionSize = std::max(maxCollectionSize, coll.size());
+        }
+
+        if (maxCollectionSize == 0) {
+          throw std::runtime_error("SCIPSolver: All collections are empty");
+        }
+
+        // Index bounds: 1 to maxCollectionSize (1-based indexing)
+        double indexLb = 1.0;
+        int numIndices = static_cast<int>(maxCollectionSize);
 
         // Build 2D matrix of elements (flattened to 1D)
         std::vector<double> elements2D(numKeys * numIndices);
@@ -750,17 +800,14 @@ SCIP_EXPR* SCIPSolver::buildExpression(const Model& model, const Operand& operan
           const std::vector<double>& collection = model.getCollection(key);
 
           for (int ii = 0; ii < numIndices; ii++) {
-            size_t index = (size_t)std::ceil(indexLb) + ii;  // 1-based
-
-            if (index < 1 || index > collection.size()) {
-              throw std::runtime_error(
-                "SCIPSolver: Index " + std::to_string(index) +
-                " out of bounds for collection at key " + std::to_string(key)
-              );
-            }
-
+            size_t index = static_cast<size_t>(indexLb) + ii;  // 1-based
             int flatIndex = ki * numIndices + ii;
-            elements2D[flatIndex] = collection[index - 1];  // Convert to 0-based
+            // Use NaN for out-of-bounds indices (should never be accessed at runtime)
+            if (index >= 1 && index <= collection.size()) {
+              elements2D[flatIndex] = collection[index - 1];
+            } else {
+              elements2D[flatIndex] = std::numeric_limits<double>::quiet_NaN();
+            }
           }
         }
 
@@ -803,11 +850,11 @@ SCIP_EXPR* SCIPSolver::buildExpression(const Model& model, const Operand& operan
 
         SCIP_EXPR* indexDiff;
         SCIP_EXPR* exprsForDiff[2] = {indexVarExpr, computedIndexExpr};
-        double coeffs[2] = {1.0, -1.0};
-        SCIPcreateExprSum(scip, &indexDiff, 2, exprsForDiff, coeffs, 0.0, nullptr, nullptr);
+        double indexCoeffs[2] = {1.0, -1.0};
+        SCIPcreateExprSum(scip, &indexDiff, 2, exprsForDiff, indexCoeffs, 0.0, nullptr, nullptr);
 
-        std::string consName = "index_def_" + std::to_string(auxiliaryCounter++);
-        SCIPcreateConsBasicNonlinear(scip, &indexCons, consName.c_str(), indexDiff, 0.0, 0.0);
+        std::string indexConsName = "index_def_" + std::to_string(auxiliaryCounter++);
+        SCIPcreateConsBasicNonlinear(scip, &indexCons, indexConsName.c_str(), indexDiff, 0.0, 0.0);
         SCIPaddCons(scip, indexCons);
         SCIPreleaseCons(scip, &indexCons);
 
@@ -824,6 +871,9 @@ SCIP_EXPR* SCIPSolver::buildExpression(const Model& model, const Operand& operan
         // Use element constraint with computed index
         SCIP_EXPR* result = buildElementConstraint(elements2D, computedIndexVar, 0.0);
         SCIPreleaseVar(scip, &computedIndexVar);
+        if (releaseScipKeyVar) {
+          SCIPreleaseVar(scip, &scipKeyVar);
+        }
 
         return result;
       }
