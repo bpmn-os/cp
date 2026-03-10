@@ -1011,7 +1011,7 @@ Solver::Result HexalySolver::solve(double timeLimit) {
                 hexaly::HxExpression listVar = sequenceMap.at(&sequence);
                 hexaly::HxCollection listVal = listVar.getCollectionValue();
                 listVal.clear();
-                for (double val : seqValues.value()) {
+                for (int val : seqValues.value()) {
                     // Convert from 1-based (CP) to 0-based (Hexaly)
                     listVal.add(static_cast<long long>(val) - 1);
                 }
