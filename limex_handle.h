@@ -78,6 +78,24 @@ void LIMEX::Handle<CP::Expression,CP::Expression>::initialize() {
   );
 
   add(
+    std::string("log"), 
+    [](const std::vector<CP::Expression>& args) -> CP::Expression
+    {
+      if (args.size() != 1) throw std::runtime_error("LIMEX: log() requires exactly one argument");
+      return CP::Expression( CP::Expression::Operator::custom, { CP::Expression::getCustomIndex("log"), args[0] });
+    }
+  );
+
+  add(
+    std::string("exp"), 
+    [](const std::vector<CP::Expression>& args) -> CP::Expression
+    {
+      if (args.size() != 1) throw std::runtime_error("LIMEX: exp() requires exactly one argument");
+      return CP::Expression( CP::Expression::Operator::custom, { CP::Expression::getCustomIndex("exp"), args[0] });
+    }
+  );
+
+  add(
     std::string("sum"), 
     [](const std::vector<CP::Expression>& args) -> CP::Expression
     {

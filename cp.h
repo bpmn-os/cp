@@ -1042,6 +1042,8 @@ inline std::expected<double, std::string> min(const std::vector<double>& operand
 inline std::expected<double, std::string> sum(const std::vector<double>& operands);
 inline std::expected<double, std::string> avg(const std::vector<double>& operands);
 inline std::expected<double, std::string> pow(const std::vector<double>& operands);
+inline std::expected<double, std::string> log(const std::vector<double>& operands);
+inline std::expected<double, std::string> exp(const std::vector<double>& operands);
 
 /**
  * @brief Represents a solution of a constraint programming model.
@@ -1097,6 +1099,8 @@ inline Solution::Solution(const Model& model) : model(model) {
     return operands[index];
   });
   addEvaluator("pow", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(pow));
+  addEvaluator("log", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(log));
+  addEvaluator("exp", static_cast<std::expected<double, std::string>(*)(const std::vector<double>&)>(exp));
 };
 
 inline std::optional<double> Solution::getObjectiveValue() const { 
@@ -1597,6 +1601,20 @@ inline std::expected<double, std::string> pow(const std::vector<double>& operand
     return std::unexpected("pow() requires exactly two arguments");
   }
   return std::pow(operands[0], operands[1]);
+};
+
+inline std::expected<double, std::string> log(const std::vector<double>& operands) {
+  if ( operands.size() != 1 ) {
+    return std::unexpected("log() requires exactly one argument");
+  }
+  return std::log(operands[0]);
+};
+
+inline std::expected<double, std::string> exp(const std::vector<double>& operands) {
+  if ( operands.size() != 1 ) {
+    return std::unexpected("exp() requires exactly one argument");
+  }
+  return std::exp(operands[0]);
 };
 
 } // end namespace CP

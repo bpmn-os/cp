@@ -663,6 +663,42 @@ int main() {
 
         std::cout << GREEN << "Test " << ++testNum << " PASSED: Custom operator pow" << RESET << std::endl;
     }
+    // Test: Custom operator log (log(1) == 0)
+    {
+        CP::Model model;
+        const auto& x = model.addVariable(CP::Variable::Type::REAL, "x", 0.1, 10.0);
+
+        auto logExpr = CP::customOperator("log", x);
+        model.addConstraint(logExpr == 0.0);
+
+        CP::HexalySolver solver(model);
+        auto result = solver.solve(5.0);
+
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        assert(xVal.has_value());
+        assert(std::abs(xVal.value() - 1.0) < 1e-5);
+
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: Custom operator log" << RESET << std::endl;
+    }
+    // Test: Custom operator exp (exp(0) == 1)
+    {
+        CP::Model model;
+        const auto& x = model.addVariable(CP::Variable::Type::REAL, "x", -5.0, 5.0);
+
+        auto expExpr = CP::customOperator("exp", x);
+        model.addConstraint(expExpr == 1.0);
+
+        CP::HexalySolver solver(model);
+        auto result = solver.solve(5.0);
+
+        assert(result.status != CP::Solver::Result::SOLUTION::NONE);
+        auto xVal = solver.getSolution()->getVariableValue(x);
+        assert(xVal.has_value());
+        assert(std::abs(xVal.value() - 0.0) < 1e-5);
+
+        std::cout << GREEN << "Test " << ++testNum << " PASSED: Custom operator exp" << RESET << std::endl;
+    }
     // Test: Custom operator min
     {
         CP::Model model(CP::Model::ObjectiveSense::MINIMIZE);

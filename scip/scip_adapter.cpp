@@ -1012,6 +1012,20 @@ SCIP_EXPR* SCIPSolver::buildExpression(const Model& model, const Operand& operan
         }
       }
 
+      if (opName == "log" && expression.operands.size() == 2) {
+        auto argExpr = buildExpression(model, expression.operands[1]);
+        SCIPcreateExprLog(scip, &scipExpr, argExpr, nullptr, nullptr);
+        SCIPreleaseExpr(scip, &argExpr);
+        return scipExpr;
+      }
+
+      if (opName == "exp" && expression.operands.size() == 2) {
+        auto argExpr = buildExpression(model, expression.operands[1]);
+        SCIPcreateExprExp(scip, &scipExpr, argExpr, nullptr, nullptr);
+        SCIPreleaseExpr(scip, &argExpr);
+        return scipExpr;
+      }
+
       // Check if any operand is a collection() expression
       bool hasCollection = false;
       for (size_t i = 1; i < expression.operands.size(); i++) {

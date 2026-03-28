@@ -447,6 +447,14 @@ hexaly::HxExpression HexalySolver::buildCustomOperator(const Model& model, const
         return hxModel.pow(base, exp);
     }
 
+    if (opName == "log") {
+        return hxModel.log(buildExpression(model, expr.operands[1]));
+    }
+
+    if (opName == "exp") {
+        return hxModel.exp(buildExpression(model, expr.operands[1]));
+    }
+
     if (opName == "sum") {
         std::vector<hexaly::HxExpression> args;
         for (size_t i = 1; i < expr.operands.size(); i++) {
