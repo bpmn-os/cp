@@ -2113,6 +2113,11 @@ SCIP_EXPR* SCIPSolver::resolveCollectionOperation(
     const Expression& expression,
     const std::string& opName
 ) {
+  // Check for filtered aggregation: custom operator with 3 operands (opIndex, collection, filter)
+  if (expression._operator == Expression::Operator::custom && expression.operands.size() == 3) {
+    throw std::runtime_error("SCIPSolver: filtered aggregations are not yet supported");
+  }
+
   // Extract key variable from collection(keyVar)
   const Expression& collectionExpr = std::get<Expression>(expression.operands[1]);
 

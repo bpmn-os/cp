@@ -507,6 +507,11 @@ hexaly::HxExpression HexalySolver::buildCustomOperator(const Model& model, const
 hexaly::HxExpression HexalySolver::resolveCollectionOperation(
     const Model& model, const Expression& expr, const std::string& opName
 ) {
+    // Check for filtered aggregation: custom operator with 3 operands (opIndex, collection, filter)
+    if (expr._operator == Expression::Operator::custom && expr.operands.size() == 3) {
+        throw std::runtime_error("HexalySolver: filtered aggregations are not yet supported");
+    }
+
     // Extract collection expression: operands[1] = collection(key)
     const Expression& collectionExpr = std::get<Expression>(expr.operands[1]);
 

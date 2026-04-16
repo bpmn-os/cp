@@ -53,7 +53,7 @@ int main()
   {
     CP::Model model;
     auto& z = model.addIntegerVariable("z");
-    auto limexExpression = LIMEX::Expression<CP::Expression,CP::Expression>("count(z[])", handle);
+    auto limexExpression = LIMEX::Expression<CP::Expression,CP::Expression>("count(z)", handle);
     std::vector<CP::Expression> variables = {};
     std::vector< CP::Expression > collectionVariables = { z };
     auto cpExpression = limexExpression.evaluate( variables, collectionVariables );
@@ -67,7 +67,7 @@ int main()
     std::vector<CP::Expression> variables = {};
     std::vector< CP::Expression > collections = { x };
 
-    auto limexExpression1 = LIMEX::Expression<CP::Expression,CP::Expression>("count(x[]) == 3", handle);
+    auto limexExpression1 = LIMEX::Expression<CP::Expression,CP::Expression>("count(x) == 3", handle);
     auto cpExpression1 = limexExpression1.evaluate( variables, collections );
     auto& constraint1 = model.addConstraint(cpExpression1);
 
@@ -98,6 +98,34 @@ int main()
     assert( solution.evaluate(constraint1).value() );   // count == 3
     assert( !solution.evaluate(constraint2).value() );  // x[1] != 4
     std::cout << GREEN << "LIMEX collection evaluation test PASSED" << RESET << std::endl;
+  }
+
+  // Test external collection membership (x in coll, x not in coll)
+  // This exercises membershipEvaluation in limex_handle.h
+  {
+    CP::Model model;
+    auto& x = model.addRealVariable("x");
+    auto& coll = model.addIntegerVariable("coll");  // collection identifier
+
+    auto limexExpression = LIMEX::Expression<CP::Expression,CP::Expression>("x in coll", handle);
+    std::vector<CP::Expression> variables = {x};
+    std::vector<CP::Expression> collections = {coll};
+    auto cpExpression = limexExpression.evaluate(variables, collections);
+    assert( cpExpression.stringify() == "element_of( x, collection(coll) )" );
+    std::cout << GREEN << "LIMEX external collection membership (in) test PASSED" << RESET << std::endl;
+  }
+
+  {
+    CP::Model model;
+    auto& x = model.addRealVariable("x");
+    auto& coll = model.addIntegerVariable("coll");
+
+    auto limexExpression = LIMEX::Expression<CP::Expression,CP::Expression>("x not in coll", handle);
+    std::vector<CP::Expression> variables = {x};
+    std::vector<CP::Expression> collections = {coll};
+    auto cpExpression = limexExpression.evaluate(variables, collections);
+    assert( cpExpression.stringify() == "not_element_of( x, collection(coll) )" );
+    std::cout << GREEN << "LIMEX external collection membership (not in) test PASSED" << RESET << std::endl;
   }
 
   std::cout << GREEN << "All LIMEX tests passed." << RESET << std::endl;

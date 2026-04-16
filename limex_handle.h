@@ -17,12 +17,53 @@ template <>
 inline CP::Expression LIMEX::Handle<CP::Expression,CP::Expression>::aggregateEvaluation( const std::string& name, const CP::Expression& collection ) const {
   CP::Expression container(CP::Expression::Operator::collection, { collection });
   return CP::Expression(CP::Expression::Operator::custom, { CP::Expression::getCustomIndex(name), container});
-} 
+}
 
-// Define built-in functions
+template <>
+inline CP::Expression LIMEX::Handle<CP::Expression,CP::Expression>::filteredAggregateEvaluation(
+  const std::string& name,
+  const CP::Expression& collection,
+  const LIMEX::Node<CP::Expression,CP::Expression>& conditions,
+  const std::vector<CP::Expression>& variableValues,
+  const std::vector<CP::Expression>& collectionValues
+) const {
+  // Create iterator placeholder using Operator::custom with "_iterator" name
+  CP::Expression iteratorPlaceholder(CP::Expression::Operator::custom,
+    { CP::Expression::getCustomIndex("_iterator") });
+
+  // Evaluate conditions with iterator placeholder
+  std::vector<CP::Expression> localVars = variableValues;
+  localVars.push_back(iteratorPlaceholder);
+  CP::Expression conditionExpr = conditions.evaluate(localVars, collectionValues);
+
+  // Build filtered aggregate expression (3 operands = filtered)
+  CP::Expression container(CP::Expression::Operator::collection, { collection });
+  return CP::Expression(CP::Expression::Operator::custom, {
+    CP::Expression::getCustomIndex(name),
+    container,
+    conditionExpr
+  });
+}
+
+template <>
+inline CP::Expression LIMEX::Handle<CP::Expression,CP::Expression>::membershipEvaluation(
+  const std::string& name,
+  const CP::Expression& element,
+  const CP::Expression& collection
+) const {
+  CP::Expression container(CP::Expression::Operator::collection, { collection });
+  return CP::Expression(CP::Expression::Operator::custom, {
+    CP::Expression::getCustomIndex(name),
+    element,
+    container
+  });
+}
+
+// Define built-in functions and aggregators
 template <>
 void LIMEX::Handle<CP::Expression,CP::Expression>::initialize() {
-  add(
+  // Functions
+  addFunction(
     std::string("if_then_else"),
     [](const std::vector<CP::Expression>& args) -> CP::Expression
     {
@@ -31,7 +72,7 @@ void LIMEX::Handle<CP::Expression,CP::Expression>::initialize() {
     }
   );
 
-  add(
+  addFunction(
     std::string("n_ary_if"),
     [](const std::vector<CP::Expression>& args) -> CP::Expression
     {
@@ -41,7 +82,7 @@ void LIMEX::Handle<CP::Expression,CP::Expression>::initialize() {
     }
   );
 
-  add(
+  addFunction(
     std::string("abs"),
     [](const std::vector<CP::Expression>& args) -> CP::Expression
     {
@@ -50,8 +91,8 @@ void LIMEX::Handle<CP::Expression,CP::Expression>::initialize() {
     }
   );
 
-  add(
-    std::string("pow"), 
+  addFunction(
+    std::string("pow"),
     [](const std::vector<CP::Expression>& args) -> CP::Expression
     {
       if (args.size() != 2) throw std::runtime_error("LIMEX: pow() requires exactly two arguments");
@@ -59,8 +100,8 @@ void LIMEX::Handle<CP::Expression,CP::Expression>::initialize() {
     }
   );
 
-  add(
-    std::string("sqrt"), 
+  addFunction(
+    std::string("sqrt"),
     [](const std::vector<CP::Expression>& args) -> CP::Expression
     {
       if (args.size() != 1) throw std::runtime_error("LIMEX: sqrt() requires exactly one argument");
@@ -68,8 +109,8 @@ void LIMEX::Handle<CP::Expression,CP::Expression>::initialize() {
     }
   );
 
-  add(
-    std::string("cbrt"), 
+  addFunction(
+    std::string("cbrt"),
     [](const std::vector<CP::Expression>& args) -> CP::Expression
     {
       if (args.size() != 1) throw std::runtime_error("LIMEX: cbrt() requires exactly one argument");
@@ -77,8 +118,8 @@ void LIMEX::Handle<CP::Expression,CP::Expression>::initialize() {
     }
   );
 
-  add(
-    std::string("log"), 
+  addFunction(
+    std::string("log"),
     [](const std::vector<CP::Expression>& args) -> CP::Expression
     {
       if (args.size() != 1) throw std::runtime_error("LIMEX: log() requires exactly one argument");
@@ -86,8 +127,8 @@ void LIMEX::Handle<CP::Expression,CP::Expression>::initialize() {
     }
   );
 
-  add(
-    std::string("exp"), 
+  addFunction(
+    std::string("exp"),
     [](const std::vector<CP::Expression>& args) -> CP::Expression
     {
       if (args.size() != 1) throw std::runtime_error("LIMEX: exp() requires exactly one argument");
@@ -95,8 +136,9 @@ void LIMEX::Handle<CP::Expression,CP::Expression>::initialize() {
     }
   );
 
-  add(
-    std::string("sum"), 
+  // Aggregators
+  addAggregator(
+    std::string("sum"),
     [](const std::vector<CP::Expression>& args) -> CP::Expression
     {
       CP::Expression result(0.0);
@@ -107,8 +149,8 @@ void LIMEX::Handle<CP::Expression,CP::Expression>::initialize() {
     }
   );
 
-  add(
-    std::string("avg"), 
+  addAggregator(
+    std::string("avg"),
     [](const std::vector<CP::Expression>& args) -> CP::Expression
     {
       if (args.empty()) throw std::runtime_error("LIMEX: avg{} requires at least one argument");
@@ -120,16 +162,16 @@ void LIMEX::Handle<CP::Expression,CP::Expression>::initialize() {
     }
   );
 
-  add(
-    std::string("count"), 
+  addAggregator(
+    std::string("count"),
     [](const std::vector<CP::Expression>& args) -> CP::Expression
     {
       return args.size();
     }
   );
-  
-  add(
-    std::string("min"), 
+
+  addAggregator(
+    std::string("min"),
     [](const std::vector<CP::Expression>& args) -> CP::Expression
     {
       if (args.empty()) throw std::runtime_error("LIMEX: min{} requires at least one argument");
@@ -139,8 +181,8 @@ void LIMEX::Handle<CP::Expression,CP::Expression>::initialize() {
     }
   );
 
-  add(
-    std::string("max"), 
+  addAggregator(
+    std::string("max"),
     [](const std::vector<CP::Expression>& args) -> CP::Expression
     {
       if (args.empty()) throw std::runtime_error("LIMEX: max{} requires at least one argument");
@@ -150,8 +192,8 @@ void LIMEX::Handle<CP::Expression,CP::Expression>::initialize() {
     }
   );
 
-  add(
-    std::string("element_of"), 
+  addAggregator(
+    std::string("element_of"),
     [](const std::vector<CP::Expression>& args) -> CP::Expression
     {
       if (args.empty()) throw std::runtime_error("LIMEX: ∈ {} requires at least one argument");
@@ -163,8 +205,8 @@ void LIMEX::Handle<CP::Expression,CP::Expression>::initialize() {
     }
   );
 
-  add(
-    std::string("not_element_of"), 
+  addAggregator(
+    std::string("not_element_of"),
     [](const std::vector<CP::Expression>& args) -> CP::Expression
     {
       if (args.empty()) throw std::runtime_error("LIMEX: ∉ {} requires at least one argument");
@@ -173,17 +215,6 @@ void LIMEX::Handle<CP::Expression,CP::Expression>::initialize() {
         cases.push_back( { args[0] == args[i], false } );
       }
       return CP::n_ary_if( std::move(cases), true );
-    }
-  );
-
-  add(
-    std::string("at"), 
-    [](const std::vector<CP::Expression>& args) -> CP::Expression
-    {
-      if (args.size() < 2) throw std::runtime_error("LIMEX: at() requires at least two arguments");
-      std::vector<CP::Operand> operands = { CP::Expression::getCustomIndex("at") };
-      operands.insert(operands.end(), args.begin(), args.end());
-      return CP::Expression(CP::Expression::Operator::custom, std::move(operands));
     }
   );
 }
